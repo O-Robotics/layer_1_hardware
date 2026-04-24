@@ -2,7 +2,7 @@
 /**:
   ros__parameters:
     video_device: "/dev/video2"
-    framerate: 5.0
+    framerate: 2.5
     frame_id: "rear_left_camera"
     image_width: 320
     image_height: 240

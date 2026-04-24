@@ -1,8 +1,8 @@
 # front_left_camera capture settings and calibration mapping.
 /**:
   ros__parameters:
-    video_device: "/dev/video0"
-    framerate: 5.0
+    video_device: "/dev/video6"
+    framerate: 2.5
     frame_id: "front_left_camera"
     image_width: 320
     image_height: 240
