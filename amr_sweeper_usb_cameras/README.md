@@ -73,7 +73,7 @@ Run one camera instance with its parameter file:
 ```bash
 ros2 run amr_sweeper_usb_cameras amr_sweeper_usb_cameras_node \
   --ros-args \
-  --params-file /mnt/c/home/dev/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/tools_camera_params.yaml
+  --params-file ~/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/tools_camera_params.yaml
 ```
 
 Examples for other cameras:
@@ -81,13 +81,13 @@ Examples for other cameras:
 ```bash
 ros2 run amr_sweeper_usb_cameras amr_sweeper_usb_cameras_node \
   --ros-args \
-  --params-file /mnt/c/home/dev/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/front_left_camera_params.yaml
+  --params-file ~/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/front_left_camera_params.yaml
 ```
 
 ```bash
 ros2 run amr_sweeper_usb_cameras amr_sweeper_usb_cameras_node \
   --ros-args \
-  --params-file /mnt/c/home/dev/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/rear_right_camera_params.yaml
+  --params-file ~/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/rear_right_camera_params.yaml
 ```
 
 Run multiple cameras by starting multiple node instances, each with a different parameter file.
