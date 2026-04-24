@@ -1,0 +1,10 @@
+# rear_left_camera capture settings and calibration mapping.
+/**:
+  ros__parameters:
+    video_device: "/dev/video2"
+    framerate: 5.0
+    frame_id: "rear_left_camera"
+    image_width: 320
+    image_height: 240
+    camera_name: "rear_left_camera"
+    camera_info_url: "package://amr_sweeper_usb_cameras/config/rear_left_camera_info.yaml"

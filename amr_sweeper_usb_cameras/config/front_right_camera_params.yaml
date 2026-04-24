@@ -1,0 +1,10 @@
+# front_right_camera capture settings and calibration mapping.
+/**:
+  ros__parameters:
+    video_device: "/dev/video1"
+    framerate: 5.0
+    frame_id: "front_right_camera"
+    image_width: 320
+    image_height: 240
+    camera_name: "front_right_camera"
+    camera_info_url: "package://amr_sweeper_usb_cameras/config/front_right_camera_info.yaml"

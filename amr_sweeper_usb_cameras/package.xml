@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>amr_sweeper_usb_cameras</name>
+  <version>0.0.1</version>
+  <description>MJPEG camera driver package for the AMR sweeper camera set.</description>
+
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
+
+  <license>Proprietary</license>
+
+  <build_depend>ros_environment</build_depend>
+  
+  <buildtool_depend>pkg-config</buildtool_depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>sensor_msgs</depend>
+  <depend>camera_info_manager</depend>
+  <depend>image_transport</depend>
+
+  <depend>ffmpeg</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
