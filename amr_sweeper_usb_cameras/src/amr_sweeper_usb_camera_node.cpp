@@ -72,11 +72,11 @@ void UsbCameraNode::init()
   const std::string camera_info_topic = m_parameters.camera_name + "/" + m_parameters.camera_name + "_info";
 
   m_image_publisher =
-    create_publisher<sensor_msgs::msg::Image>(image_topic, rclcpp::QoS(10));
+    create_publisher<sensor_msgs::msg::Image>(image_topic, rclcpp::QoS(1));
   m_compressed_image_publisher =
-    create_publisher<sensor_msgs::msg::CompressedImage>(compressed_topic, rclcpp::QoS(10));
+    create_publisher<sensor_msgs::msg::CompressedImage>(compressed_topic, rclcpp::QoS(1));
   m_camera_info_publisher =
-    create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic, rclcpp::QoS(10));
+    create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic, rclcpp::QoS(1));
 
   // Load calibration once and fall back to the configured image size when a
   // calibration file does not yet exist for this camera.

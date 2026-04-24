@@ -253,7 +253,7 @@ void MjpegDecoder::decode_to_rgb(
 UsbCamera::UsbCamera()
 : m_device_name(),
   m_fd(-1),
-  m_number_of_buffers(4),
+  m_number_of_buffers(2),
   m_capture_buffer_size(0),
   m_buffers(m_number_of_buffers),
   m_image(),
@@ -342,7 +342,7 @@ void UsbCamera::shutdown()
 
   uninit_device();
   close_device();
-  m_number_of_buffers = 4;
+  m_number_of_buffers = 2;
   m_buffers.assign(m_number_of_buffers, {});
 }
 
