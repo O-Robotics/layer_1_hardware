@@ -90,7 +90,8 @@ private:
   // Wait for one frame to become ready and then pull it from the driver.
   void grab_image(std::vector<uint8_t> & compressed_destination, char * decoded_destination);
   // Dequeue one V4L2 buffer, copy out the valid MJPEG payload, and requeue the buffer.
-  void read_frame(std::vector<uint8_t> & compressed_destination, char * decoded_destination);
+  // Returns true when a frame was retrieved and false when the driver queue is empty.
+  bool read_frame(std::vector<uint8_t> & compressed_destination, char * decoded_destination);
   // Copy the exact compressed payload size and decode only when raw output is needed.
   void process_frame(
     const uint8_t * src,

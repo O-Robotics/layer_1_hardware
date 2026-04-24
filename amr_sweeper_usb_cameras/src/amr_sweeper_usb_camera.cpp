@@ -295,7 +295,9 @@ void UsbCamera::process_frame(
 
 // Pull one frame from the kernel, update its timestamp, then return the buffer
 // to the driver immediately so streaming can continue.
-void UsbCamera::read_frame(std::vector<uint8_t> & compressed_destination, char * decoded_destination)
+bool UsbCamera::read_frame(
+  std::vector<uint8_t> & compressed_destination,
+  char * decoded_destination)
 {
   v4l2_buffer buf {};
   CLEAR(buf);
@@ -304,7 +306,7 @@ void UsbCamera::read_frame(std::vector<uint8_t> & compressed_destination, char *
 
   if (-1 == utils::xioctl(m_fd, static_cast<int>(VIDIOC_DQBUF), &buf)) {
     if (errno == EAGAIN) {
-      return;
+      return false;
     }
     throw std::runtime_error("Unable to retrieve frame with mmap");
   }
@@ -319,6 +321,8 @@ void UsbCamera::read_frame(std::vector<uint8_t> & compressed_destination, char *
   if (-1 == utils::xioctl(m_fd, static_cast<int>(VIDIOC_QBUF), &buf)) {
     throw std::runtime_error("Unable to exchange buffer with the driver");
   }
+
+  return true;
 }
 
 // Stop the V4L2 stream and release any mapped buffers and file handles.
@@ -565,7 +569,10 @@ void UsbCamera::grab_image(std::vector<uint8_t> & compressed_destination, char *
     throw std::runtime_error("Camera frame wait timed out");
   }
 
-  read_frame(compressed_destination, decoded_destination);
+  // Drain the ready queue so we always return the freshest frame instead of
+  // publishing a buffer that may have been waiting behind older frames.
+  while (read_frame(compressed_destination, decoded_destination)) {
+  }
 }
 
 }  // namespace amr_sweeper_usb_cameras
