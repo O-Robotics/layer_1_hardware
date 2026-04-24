@@ -1,7 +1,7 @@
 # rear_right_camera capture settings and calibration mapping.
 /**:
   ros__parameters:
-    video_device: "/dev/video3"
+    video_device: "/dev/video2"
     framerate: 5.0
     frame_id: "rear_right_camera"
     image_width: 320
