@@ -1,4 +1,4 @@
-# Battery-ROS2-node-CPP
+# amr_sweeper_battery (C++ version)
 ROS2 Node to get battery values from the Daly-BMS in the AMR-Sweeper battery over CANBus
 
 amr_sweeper_battery is a ROS 2 C++ package that interfaces a Daly BMS over classic CAN (250 kbit/s, 29-bit extended IDs) and publishes battery status and health information.
