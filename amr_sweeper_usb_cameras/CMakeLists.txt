@@ -14,7 +14,6 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-find_package(image_transport REQUIRED)
 find_package(camera_info_manager REQUIRED)
 
 find_package(PkgConfig REQUIRED)
@@ -30,7 +29,6 @@ add_library(${PROJECT_NAME} SHARED
 target_include_directories(${PROJECT_NAME} PUBLIC
   "include"
   ${camera_info_manager_INCLUDE_DIRS}
-  ${image_transport_INCLUDE_DIRS}
 )
 
 target_link_libraries(${PROJECT_NAME}

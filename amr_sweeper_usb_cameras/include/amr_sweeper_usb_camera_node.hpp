@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "camera_info_manager/camera_info_manager.hpp"
-#include "image_transport/image_transport.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/compressed_image.hpp"
@@ -45,7 +44,7 @@ private:
   // Reused raw-image message. Its data buffer is resized only when raw output is needed.
   sensor_msgs::msg::Image::UniquePtr m_image_msg;
   // Raw image publisher under `<camera_name>/image_raw`.
-  std::shared_ptr<image_transport::Publisher> m_image_publisher;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr m_image_publisher;
   // Compressed image publisher under `<camera_name>/image_raw/compressed`.
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr m_compressed_image_publisher;
   // Camera info publisher under `<camera_name>/<camera_name>_info`.

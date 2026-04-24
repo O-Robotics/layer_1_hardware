@@ -5,6 +5,7 @@ extern "C" {
 #define __STDC_CONSTANT_MACROS
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/log.h>
 #include <libswscale/swscale.h>
 }
 
@@ -33,7 +34,7 @@ private:
   // Ensure the reusable RGB destination frame matches the decoded frame size.
   void ensure_output_frame(int width, int height);
   // Rebuild the scaler only when the decoder reports a new input format or size.
-  void ensure_scale_context(AVPixelFormat input_format, int width, int height);
+  void ensure_scale_context(AVPixelFormat input_format, bool full_range, int width, int height);
 
   // FFmpeg decoder implementation for MJPEG packets.
   const AVCodec * m_codec;
@@ -48,6 +49,7 @@ private:
   int m_rgb_buffer_size;
   // Cached input format description used to know when the scaler must be rebuilt.
   AVPixelFormat m_last_input_format;
+  bool m_last_input_full_range;
   int m_last_width;
   int m_last_height;
 };

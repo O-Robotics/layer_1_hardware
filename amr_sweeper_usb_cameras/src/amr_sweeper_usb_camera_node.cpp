@@ -70,8 +70,8 @@ void UsbCameraNode::init()
   const std::string compressed_topic = image_topic + "/compressed";
   const std::string camera_info_topic = m_parameters.camera_name + "/" + m_parameters.camera_name + "_info";
 
-  m_image_publisher = std::make_shared<image_transport::Publisher>(
-    image_transport::create_publisher(this, image_topic, rclcpp::QoS(10).get_rmw_qos_profile()));
+  m_image_publisher =
+    create_publisher<sensor_msgs::msg::Image>(image_topic, rclcpp::QoS(10));
   m_compressed_image_publisher =
     create_publisher<sensor_msgs::msg::CompressedImage>(compressed_topic, rclcpp::QoS(10));
   m_camera_info_publisher =
@@ -102,9 +102,14 @@ void UsbCameraNode::init()
   m_camera->configure(m_parameters);
   m_camera->start();
 
-  const auto period_ms = static_cast<int64_t>(1000.0 / static_cast<double>(m_parameters.framerate));
+  RCLCPP_INFO(
+    get_logger(),
+    "Configured camera publish rate: %.3f fps",
+    m_camera->get_configured_framerate());
+
+  const auto period = std::chrono::duration<double>(1.0 / m_camera->get_configured_framerate());
   m_timer = create_wall_timer(
-    std::chrono::milliseconds(period_ms),
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
     std::bind(&UsbCameraNode::update, this));
 }
 
@@ -134,7 +139,7 @@ void UsbCameraNode::assign_params(const std::vector<rclcpp::Parameter> & paramet
     } else if (name == "frame_id") {
       m_parameters.frame_id = parameter.as_string();
     } else if (name == "framerate") {
-      m_parameters.framerate = static_cast<int>(parameter.as_double());
+      m_parameters.framerate = parameter.as_double();
     } else if (name == "image_height") {
       m_parameters.image_height = parameter.as_int();
     } else if (name == "image_width") {
@@ -149,7 +154,7 @@ bool UsbCameraNode::take_and_send_image()
 {
   // The compressed topic is always published. Raw decode is optional and only
   // happens when the raw image topic actually has subscribers.
-  const bool needs_raw = m_image_publisher->getNumSubscribers() > 0;
+  const bool needs_raw = m_image_publisher->get_subscription_count() > 0;
 
   // Allocate the RGB output buffer only when a raw subscriber needs decoded frames.
   if (needs_raw && m_image_msg->data.size() != m_camera->get_image_size_in_bytes()) {

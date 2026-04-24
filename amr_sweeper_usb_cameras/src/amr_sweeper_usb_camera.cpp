@@ -9,6 +9,7 @@ extern "C" {
 }
 
 #include <cerrno>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
@@ -20,6 +21,47 @@ namespace amr_sweeper_usb_cameras
 namespace formats
 {
 
+namespace
+{
+
+AVPixelFormat normalize_input_format(AVPixelFormat input_format)
+{
+  switch (input_format) {
+    case AV_PIX_FMT_YUVJ420P:
+      return AV_PIX_FMT_YUV420P;
+    case AV_PIX_FMT_YUVJ422P:
+      return AV_PIX_FMT_YUV422P;
+    case AV_PIX_FMT_YUVJ444P:
+      return AV_PIX_FMT_YUV444P;
+    case AV_PIX_FMT_YUVJ440P:
+      return AV_PIX_FMT_YUV440P;
+    case AV_PIX_FMT_YUVJ411P:
+      return AV_PIX_FMT_YUV411P;
+    default:
+      return input_format;
+  }
+}
+
+bool is_full_range_input(const AVFrame * frame)
+{
+  if (frame->color_range == AVCOL_RANGE_JPEG) {
+    return true;
+  }
+
+  switch (static_cast<AVPixelFormat>(frame->format)) {
+    case AV_PIX_FMT_YUVJ420P:
+    case AV_PIX_FMT_YUVJ422P:
+    case AV_PIX_FMT_YUVJ444P:
+    case AV_PIX_FMT_YUVJ440P:
+    case AV_PIX_FMT_YUVJ411P:
+      return true;
+    default:
+      return false;
+  }
+}
+
+}  // namespace
+
 // Build the FFmpeg decoder once so it can be reused for every requested raw frame.
 MjpegDecoder::MjpegDecoder()
 : m_codec(avcodec_find_decoder(AV_CODEC_ID_MJPEG)),
@@ -29,6 +71,7 @@ MjpegDecoder::MjpegDecoder()
   m_sws_context(nullptr),
   m_rgb_buffer_size(0),
   m_last_input_format(AV_PIX_FMT_NONE),
+  m_last_input_full_range(false),
   m_last_width(0),
   m_last_height(0)
 {
@@ -40,6 +83,10 @@ MjpegDecoder::MjpegDecoder()
   if (m_codec_context == nullptr) {
     throw std::runtime_error("Failed to allocate codec context");
   }
+
+  // Swscale emits recurring warnings for JPEG full-range input and missing
+  // optimized conversion kernels. Keep FFmpeg logs focused on actual errors.
+  av_log_set_level(AV_LOG_ERROR);
 
   if (avcodec_open2(m_codec_context, m_codec, nullptr) < 0) {
     throw std::runtime_error("Failed to open MJPEG decoder");
@@ -86,10 +133,17 @@ void MjpegDecoder::ensure_output_frame(int width, int height)
 }
 
 // Rebuild the conversion pipeline only when FFmpeg reports a different source format.
-void MjpegDecoder::ensure_scale_context(AVPixelFormat input_format, int width, int height)
+void MjpegDecoder::ensure_scale_context(
+  AVPixelFormat input_format,
+  bool full_range,
+  int width,
+  int height)
 {
+  const auto normalized_format = normalize_input_format(input_format);
+
   if (m_sws_context != nullptr &&
-    m_last_input_format == input_format &&
+    m_last_input_format == normalized_format &&
+    m_last_input_full_range == full_range &&
     m_last_width == width &&
     m_last_height == height)
   {
@@ -101,7 +155,7 @@ void MjpegDecoder::ensure_scale_context(AVPixelFormat input_format, int width, i
   }
 
   m_sws_context = sws_getContext(
-    width, height, input_format,
+    width, height, normalized_format,
     width, height, AV_PIX_FMT_RGB24,
     SWS_FAST_BILINEAR,
     nullptr, nullptr, nullptr);
@@ -110,7 +164,22 @@ void MjpegDecoder::ensure_scale_context(AVPixelFormat input_format, int width, i
     throw std::runtime_error("Failed to create scaling context");
   }
 
-  m_last_input_format = input_format;
+  const auto * coefficients = sws_getCoefficients(SWS_CS_DEFAULT);
+  if (sws_setColorspaceDetails(
+      m_sws_context,
+      coefficients,
+      full_range ? 1 : 0,
+      coefficients,
+      0,
+      0,
+      1 << 16,
+      1 << 16) < 0)
+  {
+    throw std::runtime_error("Failed to configure color range conversion");
+  }
+
+  m_last_input_format = normalized_format;
+  m_last_input_full_range = full_range;
   m_last_width = width;
   m_last_height = height;
 }
@@ -152,7 +221,11 @@ void MjpegDecoder::decode_to_rgb(
   const int decoded_width = m_decoded_frame->width > 0 ? m_decoded_frame->width : width;
   const int decoded_height = m_decoded_frame->height > 0 ? m_decoded_frame->height : height;
   ensure_output_frame(decoded_width, decoded_height);
-  ensure_scale_context(static_cast<AVPixelFormat>(m_decoded_frame->format), decoded_width, decoded_height);
+  ensure_scale_context(
+    static_cast<AVPixelFormat>(m_decoded_frame->format),
+    is_full_range_input(m_decoded_frame),
+    decoded_width,
+    decoded_height);
 
   sws_scale(
     m_sws_context,
@@ -186,7 +259,7 @@ UsbCamera::UsbCamera()
   m_image(),
   m_decoder(),
   m_is_capturing(false),
-  m_framerate(0),
+  m_framerate(0.0),
   m_epoch_time_shift_us(utils::get_epoch_time_shift_us()),
   m_output_encoding("rgb8")
 {
@@ -369,11 +442,25 @@ void UsbCamera::init_device()
     throw std::runtime_error("Unable to read capture stream settings");
   }
 
+  const auto requested_fps = static_cast<uint32_t>(std::lround(m_framerate));
+  if (requested_fps == 0) {
+    throw std::runtime_error("Frame rate must be greater than zero");
+  }
+
   stream_params.parm.capture.timeperframe.numerator = 1;
-  stream_params.parm.capture.timeperframe.denominator = m_framerate;
+  stream_params.parm.capture.timeperframe.denominator = requested_fps;
   if (utils::xioctl(m_fd, static_cast<int>(VIDIOC_S_PARM), &stream_params) < 0) {
     throw std::runtime_error("Unable to set camera frame rate");
   }
+
+  if (stream_params.parm.capture.timeperframe.numerator != 0 &&
+    stream_params.parm.capture.timeperframe.denominator != 0)
+  {
+    m_framerate =
+      static_cast<double>(stream_params.parm.capture.timeperframe.denominator) /
+      static_cast<double>(stream_params.parm.capture.timeperframe.numerator);
+  }
+
   init_mmap();
 }
 

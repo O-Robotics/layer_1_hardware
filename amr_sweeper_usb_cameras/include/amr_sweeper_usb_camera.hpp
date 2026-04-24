@@ -27,7 +27,7 @@ struct CameraParameters
     "package://amr_sweeper_usb_cameras/config/front_left_camera_info.yaml"};
   int image_width {320};
   int image_height {240};
-  int framerate {5};
+  double framerate {5.0};
 };
 
 // Image metadata shared between the driver and the ROS publishing layer.
@@ -77,6 +77,7 @@ public:
   timespec get_image_timestamp() const {return m_image.stamp;}
   const std::string & get_encoding() const {return m_output_encoding;}
   bool is_capturing() const {return m_is_capturing;}
+  double get_configured_framerate() const {return m_framerate;}
 
 private:
   // Allocate and map the driver-managed streaming buffers used by V4L2 mmap capture.
@@ -114,7 +115,7 @@ private:
   // Tracks whether the V4L2 stream is currently running.
   bool m_is_capturing;
   // Requested capture frame rate.
-  int m_framerate;
+  double m_framerate;
   // Offset used to convert monotonic V4L2 timestamps into ROS wall-clock time.
   const time_t m_epoch_time_shift_us;
   // ROS image encoding published on the raw topic.
