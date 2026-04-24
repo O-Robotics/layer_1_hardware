@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -102,12 +103,24 @@ void UsbCameraNode::init()
   m_camera->configure(m_parameters);
   m_camera->start();
 
+  if (std::abs(m_camera->get_configured_framerate() - m_parameters.framerate) > 0.01) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Camera driver accepted %.3f fps; publishing %s at requested %.3f fps",
+      m_camera->get_configured_framerate(),
+      m_parameters.camera_name.c_str(),
+      m_parameters.framerate);
+  }
+
   RCLCPP_INFO(
     get_logger(),
-    "Configured camera publish rate: %.3f fps",
-    m_camera->get_configured_framerate());
+    "Configured %s to %dx%d at %.3f fps",
+    m_parameters.camera_name.c_str(),
+    m_parameters.image_width,
+    m_parameters.image_height,
+    m_parameters.framerate);
 
-  const auto period = std::chrono::duration<double>(1.0 / m_camera->get_configured_framerate());
+  const auto period = std::chrono::duration<double>(1.0 / m_parameters.framerate);
   m_timer = create_wall_timer(
     std::chrono::duration_cast<std::chrono::nanoseconds>(period),
     std::bind(&UsbCameraNode::update, this));
