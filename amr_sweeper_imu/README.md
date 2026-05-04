@@ -2,6 +2,10 @@
 
 Lean ROS 2 C++ driver for the JY901 IMU.
 
+```bash
+ros2 launch amr_sweeper_imu imu.launch.py
+```
+
 ## What It Does
 
 - Opens the IMU on `/dev/imu_usb` by default
