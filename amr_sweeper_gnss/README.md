@@ -5,6 +5,9 @@
 - [ROS2 Echo NavSatFix](#ros2-echo-navsatfix)
 - [Official Documentation](#official-doc)
 
+```
+ros2 launch amr_sweeper_gnss ublox_rover_hpposllh_navsatfix.launch.py
+```
 
 'Install differential GNSS package' are included on [Setup_Rpi_CM4_docker](https://github.com/O-Robotics/Setup_Rpi_CM4_docker) README file too, on 4. Hardware settings for GNSS
 ## Install differential GNSS package
