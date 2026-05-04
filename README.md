@@ -7,8 +7,7 @@ This repository currently contains:
 - `_amr_sweeper_layer_1_hardware_bringup`: repo-level bringup package
 - `amr_sweeper_battery`: Daly BMS over SocketCAN
 - `amr_sweeper_usb_cameras`: MJPEG USB camera drivers
-- `amr_sweeper_system_info/system_info`: system state publisher
-- `amr_sweeper_system_info/system_info_msgs`: custom message definitions for `system_info`
+- `amr_sweeper_system_info`: system state publisher
 
 ## Package Overview
 
@@ -16,11 +15,7 @@ This repository currently contains:
 
 Launches the packages that live in this repository under:
 
-`/<robot_namespace>/layer_1_hardware`
-
-Default `robot_namespace`:
-
-`amr_sweeper`
+`/amr_sweeper/layer_1_hardware`
 
 With default arguments, the bringup starts:
 
