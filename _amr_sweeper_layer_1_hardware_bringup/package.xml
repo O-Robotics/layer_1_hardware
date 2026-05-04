@@ -12,7 +12,7 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>amr_sweeper_battery</exec_depend>
   <exec_depend>amr_sweeper_usb_cameras</exec_depend>
-  <exec_depend>system_info</exec_depend>
+  <exec_depend>amr_sweeper_system_info</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

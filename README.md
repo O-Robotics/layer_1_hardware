@@ -9,6 +9,7 @@ ros2 launch amr_sweeper_layer_1_hardware_bringup amr_sweeper_layer_1_hardware_br
 This repository currently contains:
 
 - `_amr_sweeper_layer_1_hardware_bringup`: repo-level bringup package
+- `amr_sweeper_system_info_msgs`: system state message package
 - `amr_sweeper_battery`: Daly BMS over SocketCAN
 - `amr_sweeper_usb_cameras`: MJPEG USB camera drivers
 - `amr_sweeper_system_info`: system state publisher
@@ -19,12 +20,12 @@ This repository currently contains:
 
 Launches the packages that live in this repository under:
 
-`/amr_sweeper/layer_1_hardware`
+`/amr_sweeper`
 
 With default arguments, the bringup starts:
 
 - `amr_sweeper_battery_node`
-- `system_info_node`
+- `amr_sweeper_system_info_node`
 - all enabled camera nodes from `amr_sweeper_usb_cameras`
 
 ### `amr_sweeper_battery`
@@ -48,9 +49,9 @@ Configured cameras:
 - `rear_right_camera`
 - `tools_camera`
 
-### `system_info`
+### `amr_sweeper_system_info`
 
-Publishes `system_info_msgs/msg/SystemState` based on files under:
+Publishes `amr_sweeper_system_info_msgs/msg/SystemState` based on files under:
 
 `/opt/robot_config/monitoring/`
 
@@ -92,8 +93,8 @@ colcon build \
   amr_sweeper_layer_1_hardware_bringup \
   amr_sweeper_battery \
   amr_sweeper_usb_cameras \
-  system_info \
-  system_info_msgs \
+  amr_sweeper_system_info \
+  amr_sweeper_system_info_msgs \
   --symlink-install
 source install/setup.bash
 ```
@@ -110,7 +111,7 @@ ros2 launch amr_sweeper_layer_1_hardware_bringup amr_sweeper_layer_1_hardware_br
 
 This starts the hardware layer in the default namespace:
 
-`/amr_sweeper/layer_1_hardware`
+`/amr_sweeper`
 
 ### Useful Bringup Arguments
 
@@ -190,12 +191,12 @@ Run the system info node directly:
 ```bash
 source /opt/ros/humble/setup.bash
 source install/setup.bash
-ros2 run system_info system_info_node
+ros2 run amr_sweeper_system_info amr_sweeper_system_info_node
 ```
 
 Note:
 
-`system_info_node` expects its source files under `/opt/robot_config/` to exist. If they are missing, the node will log file-open errors and will not publish complete data.
+`amr_sweeper_system_info_node` expects its source files under `/opt/robot_config/` to exist. If they are missing, the node will log file-open errors and will not publish complete data.
 
 ## Quick Verification
 
@@ -216,21 +217,21 @@ ros2 topic list
 Inspect battery output:
 
 ```bash
-ros2 topic echo /amr_sweeper/layer_1_hardware/battery_state
-ros2 topic echo /amr_sweeper/layer_1_hardware/battery_health
+ros2 topic echo /amr_sweeper/battery_state
+ros2 topic echo /amr_sweeper/battery_health
 ```
 
 Inspect system info output:
 
 ```bash
-ros2 topic echo /amr_sweeper/layer_1_hardware/system_info
+ros2 topic echo /amr_sweeper/system_info
 ```
 
 Inspect compressed camera output:
 
 ```bash
 ros2 topic list | grep image_raw
-ros2 topic hz /amr_sweeper/layer_1_hardware/tools_camera/image_raw/compressed
+ros2 topic hz /amr_sweeper/tools_camera/image_raw/compressed
 ```
 
 ## Package-Specific Docs
@@ -243,4 +244,4 @@ ros2 topic hz /amr_sweeper/layer_1_hardware/tools_camera/image_raw/compressed
 
 - The bringup package name is `amr_sweeper_layer_1_hardware_bringup`, even though the directory is currently `_amr_sweeper_layer_1_hardware_bringup`.
 - The camera launcher is included by the repo bringup and inherits the same namespace.
-- `system_info` is built from `amr_sweeper_system_info/system_info`, but the ROS package name is `system_info`.
+- `amr_sweeper_system_info` is built from `amr_sweeper_system_info/system_info`, and `amr_sweeper_system_info_msgs` is built from `amr_sweeper_system_info/system_info_msgs`.

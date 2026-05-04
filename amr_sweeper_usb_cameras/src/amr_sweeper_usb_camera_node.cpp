@@ -67,9 +67,9 @@ void UsbCameraNode::init()
 {
   // Each camera instance publishes into its own namespace so multiple cameras
   // can run side by side without topic collisions.
-  const std::string image_topic = m_parameters.camera_name + "/image_raw";
+  const std::string image_topic = "image_raw";
   const std::string compressed_topic = image_topic + "/compressed";
-  const std::string camera_info_topic = m_parameters.camera_name + "/" + m_parameters.camera_name + "_info";
+  const std::string camera_info_topic = m_parameters.camera_name + "_info";
 
   m_image_publisher =
     create_publisher<sensor_msgs::msg::Image>(image_topic, rclcpp::QoS(1));

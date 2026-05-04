@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(system_info)
+project(amr_sweeper_system_info)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -9,19 +9,19 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(system_info_msgs REQUIRED)
+find_package(amr_sweeper_system_info_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(system_info_node src/system_info_node.cpp)
-ament_target_dependencies(system_info_node rclcpp std_msgs system_info_msgs)
-target_include_directories(system_info_node PUBLIC
+add_executable(amr_sweeper_system_info_node src/system_info_node.cpp)
+ament_target_dependencies(amr_sweeper_system_info_node rclcpp std_msgs amr_sweeper_system_info_msgs)
+target_include_directories(amr_sweeper_system_info_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(system_info_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(amr_sweeper_system_info_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS system_info_node
+install(TARGETS amr_sweeper_system_info_node
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

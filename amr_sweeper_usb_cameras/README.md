@@ -23,20 +23,20 @@ Each camera has:
 
 ## Published Topics
 
-Each camera publishes into its own namespace based on `camera_name`.
+Each camera node is launched in its own ROS namespace, and publishes relative topics inside that namespace.
 
 For `tools_camera`, the topics are:
-- `tools_camera/image_raw`
-- `tools_camera/image_raw/compressed`
-- `tools_camera/tools_camera_info`
+- `image_raw`
+- `image_raw/compressed`
+- `tools_camera_info`
 
-The same pattern applies to the other cameras.
+When launched under the default robot namespace, that becomes `/amr_sweeper/tools_camera/image_raw`, `/amr_sweeper/tools_camera/image_raw/compressed`, and `/amr_sweeper/tools_camera/tools_camera_info`. The same pattern applies to the other cameras.
 
 ### Publish behavior
 
-- `<camera_name>/image_raw/compressed` is always published
-- `<camera_name>/image_raw` is only decoded and published when something subscribes to it
-- `<camera_name>/<camera_name>_info` is published alongside the image stream
+- `image_raw/compressed` is always published
+- `image_raw` is only decoded and published when something subscribes to it
+- `<camera_name>_info` is published alongside the image stream
 
 This keeps CPU use lower when only the compressed stream is needed.
 
@@ -44,7 +44,7 @@ This keeps CPU use lower when only the compressed stream is needed.
 
 The node uses a small fixed parameter set:
 
-- `camera_name`: logical camera name and topic namespace
+- `camera_name`: logical camera name used for calibration and the camera-info topic
 - `camera_info_url`: `package://...` URL for the calibration YAML
 - `frame_id`: frame ID written into published message headers
 - `framerate`: requested camera frame rate
@@ -73,7 +73,7 @@ Run one camera instance with its parameter file:
 ```bash
 ros2 run amr_sweeper_usb_cameras amr_sweeper_usb_cameras_node \
   --ros-args \
-  --params-file ~/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/tools_camera_params.yaml
+  --params-file $(pwd)/amr_sweeper_usb_cameras/config/tools_camera_params.yaml
 ```
 
 Examples for other cameras:
@@ -81,13 +81,13 @@ Examples for other cameras:
 ```bash
 ros2 run amr_sweeper_usb_cameras amr_sweeper_usb_cameras_node \
   --ros-args \
-  --params-file ~/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/front_left_camera_params.yaml
+  --params-file $(pwd)/amr_sweeper_usb_cameras/config/front_left_camera_params.yaml
 ```
 
 ```bash
 ros2 run amr_sweeper_usb_cameras amr_sweeper_usb_cameras_node \
   --ros-args \
-  --params-file ~/rob_ws/src/layer_1_hardware/amr_sweeper_usb_cameras/config/rear_right_camera_params.yaml
+  --params-file $(pwd)/amr_sweeper_usb_cameras/config/rear_right_camera_params.yaml
 ```
 
 Run multiple cameras by starting multiple node instances, each with a different parameter file.

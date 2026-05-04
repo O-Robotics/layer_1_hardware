@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include "rclcpp/rclcpp.hpp"
-#include "system_info_msgs/msg/system_state.hpp"
+#include "amr_sweeper_system_info_msgs/msg/system_state.hpp"
 
 using namespace std::chrono_literals;
 
@@ -38,10 +38,10 @@ class SystemInfoPublisher : public rclcpp::Node
 {
 public:
     SystemInfoPublisher()
-    : Node("system_info_node"), count_(0)
+    : Node("amr_sweeper_system_info_node"), count_(0)
     {
         // Create a publisher for system_info_msgs::msg::SystemState on topic "/system_info"
-        publisher_ = this->create_publisher<system_info_msgs::msg::SystemState>("system_info", 10);
+        publisher_ = this->create_publisher<amr_sweeper_system_info_msgs::msg::SystemState>("system_info", 10);
 
         // Create a timer to call publish_message() every 1 minute
         timer_ = this->create_wall_timer(
@@ -51,7 +51,7 @@ public:
 private:
     int publish_data()
     {
-        auto message = system_info_msgs::msg::SystemState();
+        auto message = amr_sweeper_system_info_msgs::msg::SystemState();
 
         for(const auto &filename : list_of_files) {
            std::ifstream file(filename);
@@ -117,7 +117,7 @@ private:
         return 0;
     }
 
-    rclcpp::Publisher<system_info_msgs::msg::SystemState>::SharedPtr publisher_;
+    rclcpp::Publisher<amr_sweeper_system_info_msgs::msg::SystemState>::SharedPtr publisher_;
     rclcpp::TimerBase::SharedPtr timer_;
     size_t count_;    
 };

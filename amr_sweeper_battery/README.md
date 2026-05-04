@@ -10,12 +10,12 @@ Classic CAN 2.0B extended frames, not CAN-FD
 
 Publishes:
 
-- `/battery_state` (`sensor_msgs/msg/BatteryState`)
+- `battery_state` (`sensor_msgs/msg/BatteryState`)
   - pack voltage, current, SOC
   - per-cell voltages
   - per-cell temperatures
 
-- `/battery_health` (`diagnostic_msgs/msg/DiagnosticArray`)
+- `battery_health` (`diagnostic_msgs/msg/DiagnosticArray`)
   - faults, MOS states, balance status
   - cell voltage extremes & temperature extremes
   - remaining capacity (mAh)
@@ -59,7 +59,7 @@ ros2 run amr_sweeper_battery amr_sweeper_battery_node &
   </thead>
   <tbody>
     <tr>
-      <td><code>/battery_state</code></td>
+      <td><code>battery_state</code></td>
       <td><code>sensor_msgs/msg/BatteryState</code></td>
       <td>
         Pack voltage, current, SOC,<br>
@@ -67,7 +67,7 @@ ros2 run amr_sweeper_battery amr_sweeper_battery_node &
       </td>
     </tr>
     <tr>
-      <td><code>/battery_health</code></td>
+      <td><code>battery_health</code></td>
       <td><code>diagnostic_msgs/msg/DiagnosticArray</code></td>
       <td>
         Fault flags, cycle count, remaining capacity,<br>

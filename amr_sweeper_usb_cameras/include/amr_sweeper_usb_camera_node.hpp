@@ -43,11 +43,11 @@ private:
   sensor_msgs::msg::CompressedImage::UniquePtr m_compressed_image_msg;
   // Reused raw-image message. Its data buffer is resized only when raw output is needed.
   sensor_msgs::msg::Image::UniquePtr m_image_msg;
-  // Raw image publisher under `<camera_name>/image_raw`.
+  // Raw image publisher under `image_raw` in the node namespace.
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr m_image_publisher;
-  // Compressed image publisher under `<camera_name>/image_raw/compressed`.
+  // Compressed image publisher under `image_raw/compressed` in the node namespace.
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr m_compressed_image_publisher;
-  // Camera info publisher under `<camera_name>/<camera_name>_info`.
+  // Camera info publisher under `<camera_name>_info` in the node namespace.
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr m_camera_info_publisher;
   // Cached startup parameters for the selected camera instance.
   CameraParameters m_parameters;

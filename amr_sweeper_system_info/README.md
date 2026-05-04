@@ -1,4 +1,4 @@
-ROS2 node that publishes following information under the topic /system_info:
+ROS2 node that publishes the amr_sweeper_system_info_msgs/msg/SystemState message on the relative topic `system_info`:
 
 Static
 ------

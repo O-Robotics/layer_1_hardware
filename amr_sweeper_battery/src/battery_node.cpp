@@ -34,7 +34,7 @@ class DalyBmsCanNode : public rclcpp::Node
 {
 public:
   DalyBmsCanNode()
-  : Node("amr_sweeper_battery")
+  : Node("amr_sweeper_battery_node")
   {
     declare_parameter<std::string>("can_interface", "can0");
     declare_parameter<double>("timer_period", 15.0);
@@ -67,7 +67,7 @@ public:
       std::chrono::duration<double>(timer_period));
     timer_ = create_wall_timer(period, std::bind(&DalyBmsCanNode::on_timer, this));
 
-    RCLCPP_INFO(get_logger(), "amr_sweeper_battery node started.");
+    RCLCPP_INFO(get_logger(), "amr_sweeper_battery_node started.");
   }
 
   ~DalyBmsCanNode() override

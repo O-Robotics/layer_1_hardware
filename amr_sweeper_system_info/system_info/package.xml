@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>system_info</name>
+  <name>amr_sweeper_system_info</name>
   <version>0.9.0</version>
   <description>System Information</description>
   <maintainer email="oledo@o-robotics.com">Oleksiy Dorokhov</maintainer>
@@ -10,7 +10,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
-  <depend>system_info_msgs</depend>
+  <depend>amr_sweeper_system_info_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
