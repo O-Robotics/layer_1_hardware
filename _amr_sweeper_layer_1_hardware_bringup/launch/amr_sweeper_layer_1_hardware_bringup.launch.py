@@ -23,16 +23,18 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
 
     use_robot_description = LaunchConfiguration("use_robot_description")
+    use_ros2_control = LaunchConfiguration("use_ros2_control")
     use_battery_node = LaunchConfiguration("use_battery_node")
     use_system_info_node = LaunchConfiguration("use_system_info_node")
     use_usb_cameras = LaunchConfiguration("use_usb_cameras")
     use_imu_node = LaunchConfiguration("use_imu_node")
     use_gnss_rover = LaunchConfiguration("use_gnss_rover")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
+    use_steadydrive_can_nodes = LaunchConfiguration("use_steadydrive_can_nodes")
     use_odrive_node = LaunchConfiguration("use_odrive_node")
-    use_steadydrive_node = LaunchConfiguration("use_steadydrive_node")
 
     battery_can_interface = LaunchConfiguration("battery_can_interface")
+    steadydrive_can_interface = LaunchConfiguration("steadydrive_can_interface")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
     odrive_interface = LaunchConfiguration("odrive_interface")
@@ -44,16 +46,18 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
 
     ld.add_action(DeclareLaunchArgument("use_robot_description", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_ros2_control", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_battery_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_system_info_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_usb_cameras", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_odrive_node", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_steadydrive_node", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_steadydrive_can_nodes", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_odrive_node", default_value="false"))
 
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
+    ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="115200"))
     ld.add_action(DeclareLaunchArgument("odrive_interface", default_value="can0"))
@@ -64,6 +68,7 @@ def generate_launch_description():
         launch_arguments={
             "namespace": robot_namespace,
             "use_sim_time": use_sim_time,
+            "use_ros2_control": use_ros2_control,
             "enable_top_cameras": use_usb_cameras,
             "enable_gnss": use_gnss_rover,
             "enable_imu": use_imu_node,
@@ -104,7 +109,7 @@ def generate_launch_description():
     ))
 
     ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "rviz_and_imu.launch.py")),
+        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "imu.launch.py")),
         launch_arguments={
             "namespace": robot_namespace,
             "use_sim_time": use_sim_time,
@@ -113,6 +118,28 @@ def generate_launch_description():
             "use_imu_node": use_imu_node,
         }.items(),
         condition=IfCondition(use_imu_node),
+    ))
+
+    ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_layer_1_hardware_bringup", "amr_sweeper_ros2_control.launch.py")),
+        launch_arguments={
+            "namespace": robot_namespace,
+            "use_sim_time": use_sim_time,
+            "use_ros2_control": use_ros2_control,
+            "enable_top_cameras": use_usb_cameras,
+            "enable_gnss": use_gnss_rover,
+            "enable_imu": use_imu_node,
+        }.items(),
+        condition=IfCondition(use_ros2_control),
+    ))
+
+    ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_steadydrive", "steadydrive.launch.py")),
+        launch_arguments={
+            "namespace": robot_namespace,
+            "can_interface": steadydrive_can_interface,
+        }.items(),
+        condition=IfCondition(use_steadydrive_can_nodes),
     ))
 
     ld.add_action(IncludeLaunchDescription(
@@ -141,16 +168,6 @@ def generate_launch_description():
             "node_id": odrive_node_id,
         }],
         condition=IfCondition(use_odrive_node),
-    ))
-
-    ld.add_action(Node(
-        package="amr_sweeper_steadydrive",
-        executable="steadydrive_node",
-        namespace=robot_namespace,
-        name="steadydrive_node",
-        output="screen",
-        arguments=["--ros-args", "--log-level", log_level],
-        condition=IfCondition(use_steadydrive_node),
     ))
 
     return ld

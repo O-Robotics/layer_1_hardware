@@ -10,6 +10,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
   <exec_depend>amr_sweeper_battery</exec_depend>
   <exec_depend>amr_sweeper_description</exec_depend>
   <exec_depend>amr_sweeper_gnss</exec_depend>
@@ -18,6 +19,10 @@
   <exec_depend>amr_sweeper_steadydrive</exec_depend>
   <exec_depend>amr_sweeper_usb_cameras</exec_depend>
   <exec_depend>amr_sweeper_system_info</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>diff_drive_controller</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>velocity_controllers</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
