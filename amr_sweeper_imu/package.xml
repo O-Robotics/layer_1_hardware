@@ -3,7 +3,7 @@
 <package format="3">
   <name>amr_sweeper_imu</name>
   <version>0.0.0</version>
-  <description>WIT IMU ROS 2 driver implemented in C++.</description>
+  <description>Lean ROS 2 C++ driver for the JY901 IMU.</description>
   <maintainer email="pi@todo.todo">pi</maintainer>
   <license>Apache-2.0</license>
 

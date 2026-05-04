@@ -5,10 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <functional>
 #include <string>
-#include <vector>
 
 #include <fcntl.h>
 #include <termios.h>
@@ -56,16 +53,16 @@ static bool valid_checksum(const std::array<uint8_t, kFrameLength> & frame)
 
 }  // namespace
 
-class WitRos2ImuNode : public rclcpp::Node
+class JY901ImuNode : public rclcpp::Node
 {
 public:
-  WitRos2ImuNode()
+  JY901ImuNode()
   : Node("imu_node"), serial_fd_(-1)
   {
     port_ = this->declare_parameter<std::string>("port", "/dev/imu_usb");
-    baud_ = this->declare_parameter<int>("baud", 115200);
+    baud_ = this->declare_parameter<int>("baud", 9600);
     frame_id_ = this->declare_parameter<std::string>("frame_id", "imu_link");
-    publish_hz_ = this->declare_parameter<double>("publish_hz", 50.0);
+    publish_hz_ = this->declare_parameter<double>("publish_hz", 10.0);
 
     if (publish_hz_ < 1.0) {
       publish_hz_ = 1.0;
@@ -78,10 +75,10 @@ public:
     }
 
     read_timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(2), std::bind(&WitRos2ImuNode::read_serial, this));
+      std::chrono::milliseconds(2), std::bind(&JY901ImuNode::read_serial, this));
   }
 
-  ~WitRos2ImuNode() override
+  ~JY901ImuNode() override
   {
     close_serial();
   }
@@ -158,29 +155,26 @@ private:
 
   void parse_byte(uint8_t b)
   {
-    if (frame_buf_.empty()) {
+    if (frame_size_ == 0U) {
       if (b != kFrameHeader) {
         return;
       }
     }
 
-    frame_buf_.push_back(b);
-    if (frame_buf_.size() < kFrameLength) {
+    frame_buf_[frame_size_++] = b;
+    if (frame_size_ < kFrameLength) {
       return;
     }
 
-    std::array<uint8_t, kFrameLength> frame{};
-    std::memcpy(frame.data(), frame_buf_.data(), kFrameLength);
-    frame_buf_.clear();
-
-    if (frame[0] != kFrameHeader || !valid_checksum(frame)) {
+    frame_size_ = 0U;
+    if (!valid_checksum(frame_buf_)) {
       return;
     }
 
-    const uint8_t type = frame[1];
-    const int16_t d0 = read_i16_le(&frame[2]);
-    const int16_t d1 = read_i16_le(&frame[4]);
-    const int16_t d2 = read_i16_le(&frame[6]);
+    const uint8_t type = frame_buf_[1];
+    const int16_t d0 = read_i16_le(&frame_buf_[2]);
+    const int16_t d1 = read_i16_le(&frame_buf_[4]);
+    const int16_t d2 = read_i16_le(&frame_buf_[6]);
 
     switch (type) {
       case 0x51: {
@@ -258,7 +252,8 @@ private:
   rclcpp::TimerBase::SharedPtr read_timer_;
   rclcpp::Time last_pub_time_{0, 0, RCL_ROS_TIME};
 
-  std::vector<uint8_t> frame_buf_;
+  std::array<uint8_t, kFrameLength> frame_buf_{};
+  size_t frame_size_{0};
   std::array<double, 3> accel_{0.0, 0.0, 0.0};
   std::array<double, 3> gyro_{0.0, 0.0, 0.0};
   std::array<double, 3> euler_deg_{0.0, 0.0, 0.0};
@@ -267,7 +262,7 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<WitRos2ImuNode>();
+  auto node = std::make_shared<JY901ImuNode>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
