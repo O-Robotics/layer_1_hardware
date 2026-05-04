@@ -34,12 +34,12 @@ def generate_launch_description():
         {'CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB': 1},
         {'CFG_MSGOUT_UBX_NAV_STATUS_USB': 5},
         {'CFG_MSGOUT_UBX_NAV_COV_USB': 1},
-        {'CFG_MSGOUT_UBX_RXM_RTCM_USB': 1},
-        {'CFG_MSGOUT_UBX_NAV_PVT_USB': 1},
+        {'CFG_MSGOUT_UBX_RXM_RTCM_USB': 0},
+        {'CFG_MSGOUT_UBX_NAV_PVT_USB': 0},
     ]
 
     container1 = ComposableNodeContainer(
-        name='gnss_node',
+        name='ublox_dgnss_container',
         namespace=LaunchConfiguration('namespace'),
         package='rclcpp_components',
         executable='component_container_mt',
@@ -47,7 +47,7 @@ def generate_launch_description():
             ComposableNode(
                 package='amr_sweeper_gnss',
                 plugin='amr_sweeper_ublox_dgnss::UbloxDGNSSNode',
-                name='gnss_node',
+                name='ublox_dgnss',
                 parameters=params,
             )
         ],

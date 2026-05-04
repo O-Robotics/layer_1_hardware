@@ -52,7 +52,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_usb_cameras", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="false"))
     ld.add_action(DeclareLaunchArgument("use_steadydrive_can_nodes", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_odrive_node", default_value="false"))
 
@@ -143,7 +143,10 @@ def generate_launch_description():
     ))
 
     ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "ublox_mb+r_rover.launch.py")),
+        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "ublox_rover_hpposllh_navsatfix.launch.py")),
+        launch_arguments={
+            "namespace": robot_namespace,
+        }.items(),
         condition=IfCondition(use_gnss_rover),
     ))
 
