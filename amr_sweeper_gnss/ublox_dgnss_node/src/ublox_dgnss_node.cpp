@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 #include <map>
+#include <stdexcept>
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
@@ -263,28 +264,28 @@ public:
         usbc_->shutdown();
         usbc_.reset();
       }
-      rclcpp::shutdown();
+      throw std::runtime_error(msg);
     } catch (usb::UsbException & e) {
       RCLCPP_ERROR(this->get_logger(), "usb init UsbException: %s", e.what());
       if (usbc_ != nullptr) {
         usbc_->shutdown();
         usbc_.reset();
       }
-      rclcpp::shutdown();
+      throw;
     } catch (std::exception & e) {
       RCLCPP_ERROR(this->get_logger(), "usb init events exception: %s", e.what());
       if (usbc_ != nullptr) {
         usbc_->shutdown();
         usbc_.reset();
       }
-      rclcpp::shutdown();
+      throw;
     } catch (const char * msg) {
       RCLCPP_ERROR(this->get_logger(), "usb init events - %s", msg);
       if (usbc_ != nullptr) {
         usbc_->shutdown();
         usbc_.reset();
       }
-      rclcpp::shutdown();
+      throw std::runtime_error(msg);
     }
 
 
@@ -351,8 +352,10 @@ public:
   UBLOX_DGNSS_NODE_LOCAL
   ~UbloxDGNSSNode()
   {
-    usbc_->shutdown();
-    usbc_.reset();
+    if (usbc_ != nullptr) {
+      usbc_->shutdown();
+      usbc_.reset();
+    }
     RCLCPP_INFO(this->get_logger(), "finished");
   }
 

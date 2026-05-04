@@ -74,8 +74,8 @@ private:
 };
 
 struct Axis {
-    Axis(SocketCanIntf* can_intf, uint32_t node_id, double direction_sign)
-        : can_intf_(can_intf), node_id_(node_id), direction_sign_(direction_sign) {}
+    Axis(SocketCanIntf* can_intf, uint32_t node_id, double gear_ratio, double direction_sign)
+        : can_intf_(can_intf), node_id_(node_id), gear_ratio_(gear_ratio), direction_sign_(direction_sign) {}
 
     void on_can_msg(const rclcpp::Time& timestamp, const can_frame& frame);
 
@@ -83,6 +83,7 @@ struct Axis {
 
     SocketCanIntf* can_intf_;
     uint32_t node_id_;
+    double gear_ratio_ = 1.0;
     double direction_sign_ = 1.0;
 
     // Commands (ros2_control => ODrives)
@@ -145,10 +146,23 @@ CallbackReturn ODriveHardwareInterface::on_init(const hardware_interface::Hardwa
 
     for (auto& joint : info_.joints) {
         const auto node_id = std::stoi(joint.parameters.at("node_id"));
+        double gear_ratio = 1.0;
+        const auto gear_ratio_it = joint.parameters.find("gear_ratio");
+        if (gear_ratio_it != joint.parameters.end()) {
+            gear_ratio = std::stod(gear_ratio_it->second);
+        }
+        if (gear_ratio == 0.0) {
+            RCLCPP_ERROR(
+                rclcpp::get_logger("ODriveHardwareInterface"),
+                "Joint %s has invalid gear_ratio=0.0",
+                joint.name.c_str()
+            );
+            return CallbackReturn::ERROR;
+        }
         const auto it = joint.parameters.find("motor_direction");
         const std::string motor_direction = it != joint.parameters.end() ? it->second : "CCW";
         const double direction_sign = parse_motor_direction_sign(motor_direction, joint.name);
-        axes_.emplace_back(&can_intf_, node_id, direction_sign);
+        axes_.emplace_back(&can_intf_, node_id, gear_ratio, direction_sign);
     }
 
     return CallbackReturn::SUCCESS;
@@ -318,16 +332,19 @@ return_type ODriveHardwareInterface::read(const rclcpp::Time& timestamp, const r
 
 return_type ODriveHardwareInterface::write(const rclcpp::Time&, const rclcpp::Duration&) {
     for (auto& axis : axes_) {
+        const double motor_pos_setpoint = axis.direction_sign_ * axis.pos_setpoint_ * axis.gear_ratio_;
+        const double motor_vel_setpoint = axis.direction_sign_ * axis.vel_setpoint_ * axis.gear_ratio_;
+
         // Send the CAN message that fits the set of enabled setpoints
         if (axis.pos_input_enabled_) {
             Set_Input_Pos_msg_t msg;
-            msg.Input_Pos = axis.direction_sign_ * axis.pos_setpoint_ / (2 * M_PI);
-            msg.Vel_FF =  axis.vel_input_enabled_ ? (axis.direction_sign_ * axis.vel_setpoint_  / (2 * M_PI)) : 0.0f;
+            msg.Input_Pos = motor_pos_setpoint / (2 * M_PI);
+            msg.Vel_FF =  axis.vel_input_enabled_ ? (motor_vel_setpoint  / (2 * M_PI)) : 0.0f;
             msg.Torque_FF =  axis.torque_input_enabled_ ? axis.direction_sign_ * axis.torque_setpoint_ : 0.0f;
             axis.send(msg);
         } else if (axis.vel_input_enabled_) {
             Set_Input_Vel_msg_t msg;
-            msg.Input_Vel = axis.direction_sign_ * axis.vel_setpoint_ / (2 * M_PI);
+            msg.Input_Vel = motor_vel_setpoint / (2 * M_PI);
             msg.Input_Torque_FF = axis.torque_input_enabled_ ? axis.direction_sign_ * axis.torque_setpoint_ : 0.0f;
             axis.send(msg);
         } else if (axis.torque_input_enabled_) {
@@ -365,8 +382,10 @@ void Axis::on_can_msg(const rclcpp::Time&, const can_frame& frame) {
     switch (cmd) {
         case Get_Encoder_Estimates_msg_t::cmd_id: {
             if (Get_Encoder_Estimates_msg_t msg; try_decode(msg)) {
-                pos_estimate_ = direction_sign_ * msg.Pos_Estimate * (2 * M_PI);
-                vel_estimate_ = direction_sign_ * msg.Vel_Estimate * (2 * M_PI);
+                const double motor_pos = direction_sign_ * msg.Pos_Estimate * (2 * M_PI);
+                const double motor_vel = direction_sign_ * msg.Vel_Estimate * (2 * M_PI);
+                pos_estimate_ = motor_pos / gear_ratio_;
+                vel_estimate_ = motor_vel / gear_ratio_;
             }
         } break;
         case Get_Torques_msg_t::cmd_id: {
