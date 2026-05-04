@@ -97,12 +97,12 @@ struct Axis {
     // uint8_t axis_state_ = 0;
     // uint8_t procedure_result_ = 0;
     // uint8_t trajectory_done_flag_ = 0;
-    double pos_estimate_ = NAN; // [rad]
-    double vel_estimate_ = NAN; // [rad/s]
+    double pos_estimate_ = 0.0; // [rad]
+    double vel_estimate_ = 0.0; // [rad/s]
     // double iq_setpoint_ = NAN;
     // double iq_measured_ = NAN;
-    double torque_target_ = NAN; // [Nm]
-    double torque_estimate_ = NAN; // [Nm]
+    double torque_target_ = 0.0; // [Nm]
+    double torque_estimate_ = 0.0; // [Nm]
     // uint32_t active_errors_ = 0;
     // uint32_t disarm_reason_ = 0;
     // double fet_temperature_ = NAN;
