@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0.088 0.0 0.184" rpy="0 0 ${pi}"/>
+  </joint>
+
+  <link name="imu_link"/>
+
+  <xacro:if value="$(arg sim_mode)">
+    <gazebo reference="imu_link">
+      <sensor name="imu_sensor" type="imu">
+        <always_on>true</always_on>
+        <update_rate>10</update_rate>
+        <visualize>true</visualize>
+        <topic>imu/data</topic>
+        <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+      </sensor>
+    </gazebo>
+  </xacro:if>
+
+</robot>
