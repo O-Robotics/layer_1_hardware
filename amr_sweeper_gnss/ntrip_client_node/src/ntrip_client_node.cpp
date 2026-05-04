@@ -47,14 +47,14 @@ public:
 
     declare_parameter("use_https", true);
     declare_parameter("host", "ntrip.data.gnss.ga.gov.au");
-    declare_parameter("port", 443);
+    declare_parameter("port", "443");
     declare_parameter("mountpoint", "MBCH00AUS0");
     declare_parameter("username", "noname");
     declare_parameter("password", "password");
 
     use_https_ = get_parameter("use_https").as_bool();
     host_ = get_parameter("host").as_string();
-    port_ = get_parameter("port").as_int();
+    port_ = std::stoi(get_parameter("port").as_string());
     mountpoint_ = get_parameter("mountpoint").as_string();
     username_ = get_parameter("username").as_string();
     password_ = get_parameter("password").as_string();

@@ -59,7 +59,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
-    ld.add_action(DeclareLaunchArgument("imu_baud", default_value="115200"))
+    ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
     ld.add_action(DeclareLaunchArgument("odrive_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("odrive_node_id", default_value="0"))
 

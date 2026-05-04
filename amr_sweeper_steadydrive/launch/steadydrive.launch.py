@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -23,7 +24,7 @@ def generate_launch_description():
             output="screen",
             parameters=[{
                 "can_interface": can_interface,
-                "motor_can_id": left_motor_can_id,
+                "motor_can_id": ParameterValue(left_motor_can_id, value_type=str),
             }],
         ),
         Node(
@@ -34,7 +35,7 @@ def generate_launch_description():
             output="screen",
             parameters=[{
                 "can_interface": can_interface,
-                "motor_can_id": right_motor_can_id,
+                "motor_can_id": ParameterValue(right_motor_can_id, value_type=str),
             }],
         ),
     ])
