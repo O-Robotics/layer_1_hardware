@@ -1,0 +1,73 @@
+"""Launch amr_sweeper_gnss NTRIP client component."""
+import launch
+from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, TextSubstitution
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
+
+
+def generate_launch_description():
+    """Generate launch description for ntrip client component."""
+
+    use_ntrip_client_node_arg = DeclareLaunchArgument(
+        'use_ntrip_client_node', default_value=TextSubstitution(text='true')
+    )
+    use_https_arg = DeclareLaunchArgument(
+        'use_https', default_value=TextSubstitution(text='true')
+    )
+    host_arg = DeclareLaunchArgument(
+        'host', default_value=TextSubstitution(text='ntrip.data.gnss.ga.gov.au')
+    )
+    port_arg = DeclareLaunchArgument(
+        'port', default_value=TextSubstitution(text='443')
+    )
+    mountpoint_arg = DeclareLaunchArgument(
+        'mountpoint', default_value=TextSubstitution(text='MBCH00AUS0')
+    )
+    username_arg = DeclareLaunchArgument(
+        'username', default_value=EnvironmentVariable(name='NTRIP_USERNAME', default_value='noname')
+    )
+    password_arg = DeclareLaunchArgument(
+        'password', default_value=EnvironmentVariable(name='NTRIP_PASSWORD', default_value='password')
+    )
+    namespace_arg = DeclareLaunchArgument(
+        'namespace', default_value=TextSubstitution(text='')
+    )
+
+    params = [{
+        'use_https': LaunchConfiguration('use_https'),
+        'host': LaunchConfiguration('host'),
+        'port': LaunchConfiguration('port'),
+        'mountpoint': LaunchConfiguration('mountpoint'),
+        'username': LaunchConfiguration('username'),
+        'password': LaunchConfiguration('password'),
+    }]
+
+    container1 = ComposableNodeContainer(
+        name='ntrip_client_container',
+        namespace=LaunchConfiguration('namespace'),
+        package='rclcpp_components',
+        executable='component_container_mt',
+        composable_node_descriptions=[
+            ComposableNode(
+                package='amr_sweeper_gnss',
+                plugin='amr_sweeper_ublox_dgnss::NTRIPClientNode',
+                name='ntrip_client',
+                parameters=params,
+            )
+        ],
+        condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
+    )
+
+    return launch.LaunchDescription([
+        use_ntrip_client_node_arg,
+        use_https_arg,
+        host_arg,
+        port_arg,
+        mountpoint_arg,
+        username_arg,
+        password_arg,
+        namespace_arg,
+        container1,
+    ])

@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<library path="steadydrive_hw_interface_lib">
+  <class name="amr_sweeper_steadydrive/SteadydriveHardwareInterface"
+    type="amr_sweeper_steadydrive::SteadydriveHardwareInterface"
+    base_class_type="hardware_interface::SystemInterface">
+    <description> The ros2_control Steadydrive using a system hardware interface-type. </description>
+  </class>
+</library>
