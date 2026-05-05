@@ -1,6 +1,8 @@
 # amr_sweeper_steadydrive
 
-`ros2 launch amr_sweeper_steadydrive steadydrive.launch.py`
+```bash
+ros2 launch amr_sweeper_steadydrive steadydrive.launch.py
+```
 
 Dependencies to other AMR Sweeper packages:
 - None

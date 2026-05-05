@@ -1,6 +1,8 @@
 # amr_sweeper_usb_cameras
 
-`ros2 launch amr_sweeper_usb_cameras amr_sweeper_usb_cameras.launch.py`
+```bash
+ros2 launch amr_sweeper_usb_cameras amr_sweeper_usb_cameras.launch.py
+```
 
 Dependencies to other AMR Sweeper packages:
 - None

@@ -1,6 +1,8 @@
 # amr_sweeper_imu
 
-`ros2 launch amr_sweeper_imu imu.launch.py`
+```bash
+ros2 launch amr_sweeper_imu imu.launch.py
+```
 
 Dependencies to other AMR Sweeper packages:
 - None

@@ -1,6 +1,8 @@
 # amr_sweeper_gnss
 
-`ros2 launch amr_sweeper_gnss ublox_rover_hpposllh_navsatfix.launch.py`
+```bash
+ros2 launch amr_sweeper_gnss ublox_rover_hpposllh_navsatfix.launch.py
+```
 
 Dependencies to other AMR Sweeper packages:
 - None

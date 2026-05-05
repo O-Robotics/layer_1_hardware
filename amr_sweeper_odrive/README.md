@@ -1,6 +1,8 @@
 # amr_sweeper_odrive
 
-`ros2 launch amr_sweeper_odrive odrive.launch.py`
+```bash
+ros2 launch amr_sweeper_odrive odrive.launch.py
+```
 
 Dependencies to other AMR Sweeper packages:
 - None

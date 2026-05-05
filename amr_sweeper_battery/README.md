@@ -1,6 +1,8 @@
 # amr_sweeper_battery
 
-`ros2 launch amr_sweeper_battery battery.launch.py`
+```bash
+ros2 launch amr_sweeper_battery battery.launch.py
+```
 
 Dependencies to other AMR Sweeper packages:
 - None

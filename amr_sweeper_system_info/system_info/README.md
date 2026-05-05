@@ -1,6 +1,8 @@
 # amr_sweeper_system_info
 
-`ros2 launch amr_sweeper_system_info system_info.launch.py`
+```bash
+ros2 launch amr_sweeper_system_info system_info.launch.py
+```
 
 Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_system_info_msgs`
