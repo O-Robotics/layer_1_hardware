@@ -20,7 +20,7 @@
       <command_interface name="velocity"/>
       <state_interface name="velocity"/>
       <state_interface name="position"/>
-      <param name="positive_motor_direction">CCW</param>
+      <param name="positive_motor_direction">CW</param>
     </joint>
   </ros2_control>
 
