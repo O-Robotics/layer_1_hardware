@@ -15,7 +15,7 @@ namespace amr_sweeper_odrive_ros2_control {
 
 namespace {
 
-double parse_motor_direction_sign(const std::string& direction, const std::string& joint_name) {
+double parse_positive_motor_direction_sign(const std::string& direction, const std::string& joint_name) {
     std::string normalized = direction;
     std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
         return static_cast<char>(std::toupper(c));
@@ -28,9 +28,9 @@ double parse_motor_direction_sign(const std::string& direction, const std::strin
         return -1.0;
     }
 
-    RCLCPP_WARN(
+        RCLCPP_WARN(
         rclcpp::get_logger("ODriveHardwareInterface"),
-        "Unknown motor_direction '%s' for joint '%s'. Falling back to CCW.",
+        "Unknown positive_motor_direction '%s' for joint '%s'. Falling back to CCW.",
         direction.c_str(),
         joint_name.c_str()
     );
@@ -159,9 +159,9 @@ CallbackReturn ODriveHardwareInterface::on_init(const hardware_interface::Hardwa
             );
             return CallbackReturn::ERROR;
         }
-        const auto it = joint.parameters.find("motor_direction");
-        const std::string motor_direction = it != joint.parameters.end() ? it->second : "CCW";
-        const double direction_sign = parse_motor_direction_sign(motor_direction, joint.name);
+        const auto it = joint.parameters.find("positive_motor_direction");
+        const std::string positive_motor_direction = it != joint.parameters.end() ? it->second : "CCW";
+        const double direction_sign = parse_positive_motor_direction_sign(positive_motor_direction, joint.name);
         axes_.emplace_back(&can_intf_, node_id, gear_ratio, direction_sign);
     }
 

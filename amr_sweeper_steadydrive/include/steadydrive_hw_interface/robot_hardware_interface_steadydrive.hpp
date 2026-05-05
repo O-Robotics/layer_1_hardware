@@ -45,6 +45,7 @@ protected:
   std::vector<double> prev_velocity_commands_;
   std::vector<double> velocity_states_;
   std::vector<double> position_states_;
+  std::vector<double> positive_motor_direction_signs_;
 
   // Config parameters 
   std::string hw_name_;

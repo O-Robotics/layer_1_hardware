@@ -15,7 +15,7 @@
       <state_interface name="position"/>
       <param name="node_id">0</param>
       <param name="gear_ratio">50.0</param>
-      <param name="motor_direction">CCW</param>
+      <param name="positive_motor_direction">CCW</param>
     </joint>
 
     <joint name="RightWheel_joint">
@@ -27,7 +27,7 @@
       <state_interface name="position"/>
       <param name="node_id">2</param>
       <param name="gear_ratio">50.0</param>
-      <param name="motor_direction">CW</param>
+      <param name="positive_motor_direction">CW</param>
     </joint>
   </ros2_control>
 

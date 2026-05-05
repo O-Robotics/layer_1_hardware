@@ -58,6 +58,7 @@ private:
   std::string can_interface_;
   uint32_t motor_can_id_{0x141};
   std::optional<float> last_logged_speed_dps_;
+  bool motor_enabled_{false};
 
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr motor_off_service_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr motor_on_service_;

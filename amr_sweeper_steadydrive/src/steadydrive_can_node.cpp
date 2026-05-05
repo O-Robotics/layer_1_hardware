@@ -28,6 +28,14 @@ SteadyDriveCanNode::SteadyDriveCanNode()
     rclcpp::shutdown();
   }
 
+  struct can_frame startup_response {};
+  if (send_can_command(0x88, startup_response)) {
+    motor_enabled_ = true;
+    RCLCPP_INFO(this->get_logger(), "Motor On command sent during node startup.");
+  } else {
+    RCLCPP_WARN(this->get_logger(), "Failed to send Motor On command during node startup.");
+  }
+
   motor_off_service_ = this->create_service<std_srvs::srv::Trigger>(
     "motor_off",
     std::bind(&SteadyDriveCanNode::motor_off_callback, this, std::placeholders::_1, std::placeholders::_2));
@@ -153,6 +161,7 @@ void SteadyDriveCanNode::motor_off_callback(
   (void)request;
   struct can_frame response_frame {};
   if (send_can_command(0x80, response_frame)) {
+    motor_enabled_ = false;
     response->success = true;
     response->message = "Motor turned off successfully.";
   } else {
@@ -168,6 +177,7 @@ void SteadyDriveCanNode::motor_on_callback(
   (void)request;
   struct can_frame response_frame {};
   if (send_can_command(0x88, response_frame)) {
+    motor_enabled_ = true;
     response->success = true;
     response->message = "Motor turned on successfully.";
   } else {

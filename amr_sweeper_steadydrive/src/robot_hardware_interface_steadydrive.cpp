@@ -4,6 +4,28 @@
 namespace {
     constexpr int LEFT_MOTOR_INDEX = 0;
     constexpr int RIGHT_MOTOR_INDEX = 1;
+
+    double parse_positive_motor_direction_sign(const std::string & direction, const std::string & joint_name)
+    {
+      std::string normalized = direction;
+      std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+      });
+
+      if (normalized == "CCW") {
+        return 1.0;
+      }
+      if (normalized == "CW") {
+        return -1.0;
+      }
+
+      RCLCPP_WARN(
+        rclcpp::get_logger("SteadydriveHardwareInterface"),
+        "Unknown positive_motor_direction '%s' for joint '%s'. Falling back to CCW.",
+        direction.c_str(),
+        joint_name.c_str());
+      return 1.0;
+    }
 }
 
 using amr_sweeper_steadydrive::SteadydriveHardwareInterface;
@@ -27,6 +49,7 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(const h
   prev_velocity_commands_.resize(num_joints_);
   velocity_states_.resize(num_joints_);
   position_states_.resize(num_joints_);
+  positive_motor_direction_signs_.resize(num_joints_, 1.0);
 
   if(num_joints_ != 2)
   {
@@ -36,6 +59,14 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(const h
 
   try
   {
+    for (size_t i = 0; i < info_.joints.size(); ++i) {
+      const auto & joint = info_.joints[i];
+      const auto it = joint.parameters.find("positive_motor_direction");
+      const std::string positive_motor_direction = it != joint.parameters.end() ? it->second : "CCW";
+      positive_motor_direction_signs_[i] =
+        parse_positive_motor_direction_sign(positive_motor_direction, joint.name);
+    }
+
     std::string topic_speed_output_left = info_.hardware_parameters.at("topic_speed_output_left");
     std::string topic_speed_output_right = info_.hardware_parameters.at("topic_speed_output_right");
     std::string topic_motor_state_left = info_.hardware_parameters.at("topic_motor_state_left");
@@ -80,8 +111,8 @@ void SteadydriveHardwareInterface::writeCommandsToHardware()
 {
   std_msgs::msg::Float32 msg_left;
   std_msgs::msg::Float32 msg_right;
-  msg_left.data = velocity_commands_[LEFT_MOTOR_INDEX];
-  msg_right.data = velocity_commands_[RIGHT_MOTOR_INDEX];
+  msg_left.data = velocity_commands_[LEFT_MOTOR_INDEX] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX];
+  msg_right.data = velocity_commands_[RIGHT_MOTOR_INDEX] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX];
   publisher_left_->publish(msg_left);
   publisher_right_->publish(msg_right);
 
