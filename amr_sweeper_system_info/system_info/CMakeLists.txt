@@ -24,6 +24,9 @@ target_compile_features(amr_sweeper_system_info_node PUBLIC c_std_99 cxx_std_17)
 install(TARGETS amr_sweeper_system_info_node
   DESTINATION lib/${PROJECT_NAME})
 
+install(DIRECTORY include/
+  DESTINATION include)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})
 
