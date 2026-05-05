@@ -48,6 +48,7 @@ def generate_launch_description():
                 package='amr_sweeper_gnss',
                 plugin='amr_sweeper_ublox_dgnss::UbloxDGNSSNode',
                 name='ublox_dgnss',
+                namespace=LaunchConfiguration('namespace'),
                 parameters=params,
             )
         ],
@@ -64,6 +65,7 @@ def generate_launch_description():
                 package='amr_sweeper_gnss',
                 plugin='ublox_nav_sat_fix_hp::UbloxNavSatHpFixNode',
                 name='ublox_nav_sat_fix_hp',
+                namespace=LaunchConfiguration('namespace'),
                 remappings=[('fix', 'navsat')],
             )
         ],
