@@ -1,42 +1,28 @@
-# ROS2 Package for ODrive
+# amr_sweeper_odrive
 
-This repository contains ROS2 packages for the [ODrive motor controller](https://odriverobotics.com):
+`ros2 launch amr_sweeper_odrive odrive.launch.py`
 
-- **`odrive_node`**: Standalone ROS2 node for communication with ODrives via CAN bus. → [More info](odrive_node/README.md)
-This package consolidates:
-- `odrive_can_node` (CAN-based ODrive node)
-- `odrive_ros2_control_plugin` (ros2_control integration for ODrive CAN)
+Dependencies to other AMR Sweeper packages:
+- None
 
-`odrive_can_node` and the ros2_control plugin are two alternative approaches and cannot be used at the same time.
+## Purpose
+This package provides the ODrive integration for the AMR Sweeper wheel drive system.
 
-For information about installation, prerequisites and getting started, check out the ODrive [ROS CAN Package Guide](https://docs.odriverobotics.com/v/latest/guides/ros-package.html).
+## Main Launch File
+`launch/odrive.launch.py`
 
-## Compatible Devices
+## Available Launch Files
+- `odrive.launch.py`
 
-- [ODrive Pro](https://shop.odriverobotics.com/products/odrive-pro)
-- [ODrive S1](https://shop.odriverobotics.com/products/odrive-s1)
-- [ODrive Micro](https://shop.odriverobotics.com/products/odrive-micro)
+## Launch Arguments
+- `namespace`: default `amr_sweeper`
+- `interface`: default `can0`
+- `node_id`: default `0`
 
-(not compatible with ODrive 3.x)
+## Overview
+`amr_sweeper_odrive` contains the standalone ODrive CAN node as well as the ros2_control integration used by the robot's wheel drive. It is the package that bridges the wheel hardware into ROS 2 and is the downstream execution target for the layer 2 wheel-controller package.
 
-## System Requirements
-
-- Ubuntu >= 20.04
-- ROS2 >= Humble
-
-## Developer Notes
-
-(For user instructions, see [this guide](https://docs.odriverobotics.com/v/latest/guides/ros-package.html) instead.)
-
-You can build this node on a non-ROS developer PC by using the DevContainer configurations in this repository. For example with VSCode:
-
-1. Clone repository
-2. Open the repository folder in VSCode. It should automatically present an option "Reopen in Dev Container". Click on that and select the desired ROS version.
-3. Once it's re-opened, in the VSCode terminal, run:
-
-   ```bash
-   colcon build --packages-select amr_sweeper_odrive
-   source ./install/setup.bash
-   ```
-
-4. Running the node requires hardware access and only works if the container host is Linux.
+## Notes
+- Main node: `odrive_node`.
+- The ros2_control plugin in this package is used by the layer 1 ros2_control launch.
+- Layer 2 wheel control ultimately feeds commands into this package's `diff_cont` controller path.

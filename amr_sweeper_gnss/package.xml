@@ -4,7 +4,7 @@
   <name>amr_sweeper_gnss</name>
   <version>0.0.0</version>
   <description>Consolidated GNSS stack for AMR Sweeper (ublox + NTRIP)</description>
-  <maintainer email="dev@example.com">dev</maintainer>
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

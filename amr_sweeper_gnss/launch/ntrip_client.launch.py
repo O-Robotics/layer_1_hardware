@@ -32,7 +32,7 @@ def generate_launch_description():
         'password', default_value=EnvironmentVariable(name='NTRIP_PASSWORD', default_value='password')
     )
     namespace_arg = DeclareLaunchArgument(
-        'namespace', default_value=TextSubstitution(text='')
+        'namespace', default_value=TextSubstitution(text='amr_sweeper')
     )
 
     params = [{

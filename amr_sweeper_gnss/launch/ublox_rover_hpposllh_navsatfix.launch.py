@@ -22,7 +22,7 @@ def generate_launch_description():
     )
     declare_namespace = DeclareLaunchArgument(
         'namespace',
-        default_value=TextSubstitution(text=''),
+        default_value=TextSubstitution(text='amr_sweeper'),
         description='Namespace for GNSS containers',
     )
 

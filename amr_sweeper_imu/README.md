@@ -1,77 +1,31 @@
-# JY901 ROS 2 IMU Driver
+# amr_sweeper_imu
 
-Lean ROS 2 C++ driver for the JY901 IMU.
+`ros2 launch amr_sweeper_imu imu.launch.py`
 
-```bash
-ros2 launch amr_sweeper_imu imu.launch.py
-```
+Dependencies to other AMR Sweeper packages:
+- None
 
-## What It Does
+## Purpose
+This package runs the JY901 IMU driver used by the AMR Sweeper.
 
-- Opens the IMU on `/dev/imu_usb` by default
-- Parses JY901 11-byte serial frames with checksum validation
-- Publishes `sensor_msgs/msg/Imu` on `imu/data_raw`
-- Retries opening the serial device if it is not available at startup
+## Main Launch File
+`launch/imu.launch.py`
 
-## Defaults
+## Available Launch Files
+- `imu.launch.py`
 
-- `port`: `/dev/imu_usb`
-- `baud`: `9600`
-- `frame_id`: `imu_link`
-- `publish_hz`: `10.0`
+## Launch Arguments
+- `namespace`: default `amr_sweeper`
+- `use_sim_time`: default `false`
+- `port`: default `/dev/imu_usb`
+- `baud`: default `9600`
+- `frame_id`: default `imu_link`
+- `publish_hz`: default `10.0`
+- `use_imu_node`: default `true`
 
-## Build
-
-```bash
-colcon build --packages-select amr_sweeper_imu --symlink-install
-source install/setup.bash
-```
-
-## Launch
-
-```bash
-ros2 launch amr_sweeper_imu imu.launch.py
-```
-
-Example with explicit parameters:
-
-```bash
-ros2 launch amr_sweeper_imu imu.launch.py \
-  port:=/dev/imu_usb \
-  baud:=9600 \
-  frame_id:=imu_link \
-  publish_hz:=10.0
-```
-
-## Run Directly
-
-```bash
-ros2 run amr_sweeper_imu imu_node --ros-args \
-  -p port:=/dev/imu_usb \
-  -p baud:=9600 \
-  -p frame_id:=imu_link \
-  -p publish_hz:=10.0
-```
-
-## Parameters
-
-- `port`: serial device path
-- `baud`: serial baud rate
-- `frame_id`: frame ID written into the IMU message header
-- `publish_hz`: maximum publish rate; values below `1.0` are clamped to `1.0`
-
-## Topics
-
-- Publishes `imu/data_raw` as `sensor_msgs/msg/Imu`
+## Overview
+`amr_sweeper_imu` provides the ROS 2 node that reads the physical IMU and publishes the orientation-related data used by the rest of the robot stack. It is a foundational sensor package for localization and is typically started as part of layer 1 bringup.
 
 ## Notes
-
-- Orientation is derived from the JY901 Euler-angle frame and published as a quaternion.
-- Linear acceleration is published in `m/s^2`.
-- Angular velocity is published in `rad/s`.
-- This package is IMU-only and contains no RViz or visualization components.
-
-## Current Limitations
-
-- The node publishes when it receives an angle frame, so one outgoing IMU message may combine the latest accel, gyro, and angle samples rather than one fully grouped measurement burst.
-- IMU covariance matrices are left at the ROS message defaults.
+- Main node: `imu_node`.
+- Layer 3 localization relies on this package for IMU data.

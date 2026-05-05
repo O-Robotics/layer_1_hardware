@@ -8,12 +8,12 @@ from launch_ros.actions import Node
 def generate_launch_description():
     declare_namespace = DeclareLaunchArgument(
         name='namespace',
-        default_value='hardware_layer',
+        default_value='amr_sweeper',
         description='Namespace for IMU node')
     declare_use_sim_time = DeclareLaunchArgument(
         name='use_sim_time',
         default_value='false',
-        description='Use simulation time if true')
+        description='Use ROS time if true')
     declare_port = DeclareLaunchArgument(
         name='port',
         default_value='/dev/imu_usb',

@@ -1,28 +1,25 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot">
+  <ros2_control name="steadydrive_ros2_control" type="system">
+    <hardware>
+      <plugin>steadydrive_hw_interface/SteadydriveHardwareInterface</plugin>
+      <param name="topic_speed_output_left">steadydrive_left/speed_control</param>
+      <param name="topic_speed_output_right">steadydrive_right/speed_control</param>
+      <param name="topic_motor_state_left">steadydrive_left/joint_state</param>
+      <param name="topic_motor_state_right">steadydrive_right/joint_state</param>
+    </hardware>
 
-  <xacro:unless value="$(arg sim_mode)">
-    <ros2_control name="steadydrive_ros2_control" type="system">
-      <hardware>
-        <plugin>steadydrive_hw_interface/SteadydriveHardwareInterface</plugin>
-        <param name="topic_speed_output_left">steadydrive_left/speed_control</param>
-        <param name="topic_speed_output_right">steadydrive_right/speed_control</param>
-        <param name="topic_motor_state_left">steadydrive_left/joint_state</param>
-        <param name="topic_motor_state_right">steadydrive_right/joint_state</param>
-      </hardware>
+    <joint name="LeftBrush_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="velocity"/>
+      <state_interface name="position"/>
+    </joint>
 
-      <joint name="LeftBrush_joint">
-        <command_interface name="velocity"/>
-        <state_interface name="velocity"/>
-        <state_interface name="position"/>
-      </joint>
-
-      <joint name="RightBrush_joint">
-        <command_interface name="velocity"/>
-        <state_interface name="velocity"/>
-        <state_interface name="position"/>
-      </joint>
-    </ros2_control>
-  </xacro:unless>
+    <joint name="RightBrush_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="velocity"/>
+      <state_interface name="position"/>
+    </joint>
+  </ros2_control>
 
 </robot>

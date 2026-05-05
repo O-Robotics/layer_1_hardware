@@ -4,7 +4,7 @@
   <name>amr_sweeper_description</name>
   <version>0.1.0</version>
   <description>Slim onboard-oriented robot description package for the AMR Sweeper platform.</description>
-  <maintainer email="info@o-robotics.com">O-Robotics</maintainer>
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
   <license>Proprietary</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

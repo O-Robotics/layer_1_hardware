@@ -4,8 +4,8 @@
   <name>amr_sweeper_odrive</name>
   <version>0.0.0</version>
   <description>Consolidated ODrive CAN and ros2_control integration</description>
-  <maintainer email="dev@example.com">dev</maintainer>
-  <license>TODO: License declaration</license>
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>rosidl_default_generators</buildtool_depend>

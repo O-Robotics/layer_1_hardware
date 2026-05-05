@@ -4,8 +4,8 @@
   <name>amr_sweeper_system_info_msgs</name>
   <version>0.9.0</version>
   <description>System Information Messages</description>
-  <maintainer email="oledo@o-robotics.com">dev</maintainer>
-  <license>Apache 2.0</license>
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

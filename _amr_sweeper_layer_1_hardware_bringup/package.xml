@@ -4,8 +4,8 @@
   <name>amr_sweeper_layer_1_hardware_bringup</name>
   <version>0.0.0</version>
   <description>Bringup file to initiate the hardware layer of the AMR-Sweeper</description>
-  <maintainer email="sylmi@o-robotics.com">sylle</maintainer>
-  <license>TODO: License declaration</license>
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>launch</exec_depend>

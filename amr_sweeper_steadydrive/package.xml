@@ -5,8 +5,8 @@
   <version>0.0.0</version>
   <description>ROS2 Control Hardware Interface wrapper for the steadydrive motors.</description>
 
-  <author email="todo@todo.com">todo</author>
-  <maintainer email="todo@todo.com">todo</maintainer>
+  <author email="info@O-Robotics.com">O-Robotics</author>
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
 
   <license>BSD</license>
 

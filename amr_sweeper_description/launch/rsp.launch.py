@@ -24,7 +24,6 @@ def generate_launch_description():
         'xacro ',
         xacro_file,
         ' use_ros2_control:=', use_ros2_control,
-        ' sim_mode:=', use_sim_time,
         ' enable_top_cameras:=', enable_top_cameras,
         ' enable_gnss:=', enable_gnss,
         ' enable_imu:=', enable_imu,
@@ -32,7 +31,7 @@ def generate_launch_description():
     ]), value_type=str)
 
     return LaunchDescription([
-        DeclareLaunchArgument('namespace', default_value='hardware_layer'),
+        DeclareLaunchArgument('namespace', default_value='amr_sweeper'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('use_ros2_control', default_value='true'),
         DeclareLaunchArgument('enable_top_cameras', default_value='true'),

@@ -1,29 +1,31 @@
 # amr_sweeper_description
 
-Slim ROS 2 robot description package for the AMR Sweeper platform.
+`ros2 launch amr_sweeper_description rsp.launch.py`
 
-This package is intentionally focused on the onboard robot model and ROS 2
-control description. It keeps the working mesh, frame, and joint layout from
-`ROS2_Control-main` while avoiding the larger simulation and demo surface from
-other archives.
+Dependencies to other AMR Sweeper packages:
+- None
 
-## Included
+## Purpose
+This package contains the robot description used by the AMR Sweeper runtime stack.
 
-- robot meshes
-- xacro/URDF description
-- hardware-oriented ros2_control xacros
-- `rsp.launch.py` for `robot_state_publisher`
+## Main Launch File
+`launch/rsp.launch.py`
 
-## Build
+## Available Launch Files
+- `rsp.launch.py`
 
-```bash
-source /opt/ros/humble/setup.bash
-colcon build --packages-select amr_sweeper_description --symlink-install
-```
+## Launch Arguments
+- `namespace`: default `amr_sweeper`
+- `use_sim_time`: default `false`
+- `use_ros2_control`: default `true`
+- `enable_top_cameras`: default `true`
+- `enable_gnss`: default `true`
+- `enable_imu`: default `true`
+- `enable_depth_camera`: default `true`
 
-## Launch
+## Overview
+`amr_sweeper_description` provides the URDF/Xacro model, meshes, and robot_state_publisher launch setup for the platform. It is used by the hardware layer to expose the robot model and by higher layers that rely on a consistent frame tree and robot description.
 
-```bash
-source install/setup.bash
-ros2 launch amr_sweeper_description rsp.launch.py
-```
+## Notes
+- The package is commonly started as part of `amr_sweeper_layer_1_hardware_bringup`.
+- It provides the robot model foundation used by ros2_control and localization.

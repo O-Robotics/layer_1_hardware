@@ -1,9 +1,8 @@
-# layer_1_hardware
+# amr_sweeper_layer_1_hardware_bringup
 
 `ros2 launch amr_sweeper_layer_1_hardware_bringup amr_sweeper_layer_1_hardware_bringup.launch.py`
 
 Dependencies to other AMR Sweeper packages:
-- `amr_sweeper_layer_1_hardware_bringup`
 - `amr_sweeper_battery`
 - `amr_sweeper_description`
 - `amr_sweeper_gnss`
@@ -14,7 +13,14 @@ Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_usb_cameras`
 
 ## Purpose
-This repository is the real-robot hardware layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, battery monitoring, GNSS, IMU, USB cameras, and system-health publishing.
+This package is the main entrypoint for the AMR Sweeper hardware layer. It gathers the hardware-related packages in layer 1 and launches them in a coordinated way for the real robot.
+
+## Main Launch File
+`launch/amr_sweeper_layer_1_hardware_bringup.launch.py`
+
+## Available Launch Files
+- `amr_sweeper_layer_1_hardware_bringup.launch.py`
+- `amr_sweeper_ros2_control.launch.py`
 
 ## Launch Arguments
 - `robot_namespace`: default `amr_sweeper`
@@ -38,9 +44,8 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `odrive_node_id`: default `0`
 
 ## Overview
-Layer 1 is the base runtime layer for the rest of the stack. It is responsible for making the robot's hardware available as ROS 2 topics, services, and ros2_control interfaces. Layer 2 controllers and layer 3 navigation depend on this layer to provide odometry, transforms, actuator interfaces, and sensor data.
+The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. Depending on launch arguments, it can enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node.
 
 ## Notes
-- The default command launches the full layer 1 hardware bringup package.
-- This layer is intended for the physical AMR Sweeper robot, not simulation.
-- Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
+- Use this package when you want to start the whole layer 1 stack from a single command.
+- `amr_sweeper_ros2_control.launch.py` is the lower-level ros2_control launch used by the main bringup.

@@ -4,7 +4,7 @@
   <name>amr_sweeper_imu</name>
   <version>0.0.0</version>
   <description>Lean ROS 2 C++ driver for the JY901 IMU.</description>
-  <maintainer email="pi@todo.todo">pi</maintainer>
+  <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

@@ -32,8 +32,6 @@ def generate_launch_description():
                 " ",
                 "use_ros2_control:=", use_ros2_control,
                 " ",
-                "sim_mode:=", use_sim_time,
-                " ",
                 "enable_top_cameras:=", enable_top_cameras,
                 " ",
                 "enable_gnss:=", enable_gnss,
