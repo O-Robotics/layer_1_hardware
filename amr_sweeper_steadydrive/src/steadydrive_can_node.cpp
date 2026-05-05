@@ -319,9 +319,13 @@ void SteadyDriveCanNode::speed_control_callback(const std_msgs::msg::Float32::Sh
 
   struct can_frame response_frame {};
   if (send_can_command(0xA2, response_frame, 0x00, 0x00, 0x00, byte4, byte5, byte6, byte7)) {
-    RCLCPP_INFO_THROTTLE(
-      this->get_logger(), *this->get_clock(), 2500,
-      "Speed Control command sent successfully: Desired Speed = %.2f dps", msg->data);
+    if (!last_logged_speed_dps_ || *last_logged_speed_dps_ != msg->data) {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Speed Control command sent successfully: Desired Speed = %.2f dps",
+        msg->data);
+      last_logged_speed_dps_ = msg->data;
+    }
   } else {
     RCLCPP_ERROR(this->get_logger(), "Failed to send Speed Control command.");
   }

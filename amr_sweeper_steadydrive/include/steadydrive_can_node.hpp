@@ -1,6 +1,7 @@
 #ifndef AMR_SWEEPER_STEADYDRIVE__STEADYDRIVE_CAN_NODE_HPP_
 #define AMR_SWEEPER_STEADYDRIVE__STEADYDRIVE_CAN_NODE_HPP_
 
+#include <optional>
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
@@ -56,6 +57,7 @@ private:
   int can_socket_{-1};
   std::string can_interface_;
   uint32_t motor_can_id_{0x141};
+  std::optional<float> last_logged_speed_dps_;
 
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr motor_off_service_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr motor_on_service_;
