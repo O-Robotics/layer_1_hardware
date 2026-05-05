@@ -27,7 +27,7 @@ def generate_launch_description():
     )
 
     params = [
-        {'FRAME_ID': 'GNSS_link'},
+        {'FRAME_ID': 'gnss_link'},
         {'CFG_USBOUTPROT_NMEA': False},
         {'CFG_RATE_MEAS': 200},
         {'CFG_RATE_NAV': 1},
