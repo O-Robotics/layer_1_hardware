@@ -14,7 +14,7 @@ def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_ros2_control = LaunchConfiguration("use_ros2_control")
-    enable_top_cameras = LaunchConfiguration("enable_top_cameras")
+    enable_usb_cameras = LaunchConfiguration("enable_usb_cameras")
     enable_gnss = LaunchConfiguration("enable_gnss")
     enable_imu = LaunchConfiguration("enable_imu")
     enable_depth_camera = LaunchConfiguration("enable_depth_camera")
@@ -32,7 +32,7 @@ def generate_launch_description():
                 " ",
                 "use_ros2_control:=", use_ros2_control,
                 " ",
-                "enable_top_cameras:=", enable_top_cameras,
+                "enable_usb_cameras:=", enable_usb_cameras,
                 " ",
                 "enable_gnss:=", enable_gnss,
                 " ",
@@ -93,7 +93,7 @@ def generate_launch_description():
         DeclareLaunchArgument("namespace", default_value="amr_sweeper"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("use_ros2_control", default_value="true"),
-        DeclareLaunchArgument("enable_top_cameras", default_value="true"),
+        DeclareLaunchArgument("enable_usb_cameras", default_value="true"),
         DeclareLaunchArgument("enable_gnss", default_value="true"),
         DeclareLaunchArgument("enable_imu", default_value="true"),
         DeclareLaunchArgument("enable_depth_camera", default_value="true"),

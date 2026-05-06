@@ -20,7 +20,7 @@ This package contains the robot description used by the AMR Sweeper runtime stac
 - `namespace`: default `amr_sweeper`
 - `use_sim_time`: default `false`
 - `use_ros2_control`: default `true`
-- `enable_top_cameras`: default `true`
+- `enable_usb_cameras`: default `true`
 - `enable_gnss`: default `true`
 - `enable_imu`: default `true`
 - `enable_depth_camera`: default `true`
