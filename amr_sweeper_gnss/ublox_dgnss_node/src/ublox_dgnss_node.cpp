@@ -170,49 +170,52 @@ public:
     }
 
     auto qos = rclcpp::SensorDataQoS();
+    publish_debug_topics_ = this->declare_parameter<bool>("publish_debug_topics", false);
 
-    ubx_nav_clock_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavClock>(
-      "ubx_nav_clock",
-      qos);
     ubx_nav_cov_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavCov>("ubx_nav_cov", qos);
-    ubx_nav_dop_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavDOP>("ubx_nav_dop", qos);
-    ubx_nav_eoe_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavEOE>("ubx_nav_eoe", qos);
-    ubx_nav_hp_pos_ecef_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavHPPosECEF>(
-      "ubx_nav_hp_pos_ecef", qos);
     ubx_nav_hp_pos_llh_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavHPPosLLH>(
       "ubx_nav_hp_pos_llh", qos);
-    ubx_nav_odo_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavOdo>("ubx_nav_odo", qos);
-    ubx_nav_orb_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavOrb>("ubx_nav_orb", qos);
-    ubx_nav_sat_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavSat>("ubx_nav_sat", qos);
-    ubx_nav_sig_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavSig>("ubx_nav_sig", qos);
-    ubx_nav_pos_ecef_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavPosECEF>(
-      "ubx_nav_pos_ecef", qos);
-    ubx_nav_pos_llh_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavPosLLH>(
-      "ubx_nav_pos_llh", qos);
-    ubx_nav_pvt_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavPVT>("ubx_nav_pvt", qos);
-    ubx_nav_rel_pos_ned_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavRelPosNED>(
-      "ubx_nav_rel_pos_ned", qos);
     ubx_nav_status_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavStatus>(
       "ubx_nav_status", qos);
-    ubx_nav_time_utc_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavTimeUTC>(
-      "ubx_nav_time_utc", qos);
-    ubx_nav_vel_ecef_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavVelECEF>(
-      "ubx_nav_vel_ecef", qos);
-    ubx_nav_vel_ned_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavVelNED>(
-      "ubx_nav_vel_ned", qos);
-    ubx_rxm_rtcm_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXRxmRTCM>(
-      "ubx_rxm_rtcm", qos);
-    ubx_rxm_measx_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXRxmMeasx>(
-      "ubx_rxm_measx", qos);
-    ubx_rxm_rawx_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXRxmRawx>(
-      "ubx_rxm_rawx", qos);
-    ubx_esf_status_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXEsfStatus>(
-      "ubx_esf_status", qos);
-    ubx_esf_meas_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXEsfMeas>(
-      "ubx_esf_meas", qos);
-    ubx_sec_sig_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXSecSig>("ubx_sec_sig", qos);
-    ubx_sec_sig_log_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXSecSigLog>(
-      "ubx_sec_sig_log", qos);
+    if (publish_debug_topics_) {
+      ubx_nav_clock_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavClock>(
+        "ubx_nav_clock",
+        qos);
+      ubx_nav_dop_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavDOP>("ubx_nav_dop", qos);
+      ubx_nav_eoe_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavEOE>("ubx_nav_eoe", qos);
+      ubx_nav_hp_pos_ecef_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavHPPosECEF>(
+        "ubx_nav_hp_pos_ecef", qos);
+      ubx_nav_odo_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavOdo>("ubx_nav_odo", qos);
+      ubx_nav_orb_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavOrb>("ubx_nav_orb", qos);
+      ubx_nav_sat_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavSat>("ubx_nav_sat", qos);
+      ubx_nav_sig_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavSig>("ubx_nav_sig", qos);
+      ubx_nav_pos_ecef_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavPosECEF>(
+        "ubx_nav_pos_ecef", qos);
+      ubx_nav_pos_llh_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavPosLLH>(
+        "ubx_nav_pos_llh", qos);
+      ubx_nav_pvt_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavPVT>("ubx_nav_pvt", qos);
+      ubx_nav_rel_pos_ned_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavRelPosNED>(
+        "ubx_nav_rel_pos_ned", qos);
+      ubx_nav_time_utc_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavTimeUTC>(
+        "ubx_nav_time_utc", qos);
+      ubx_nav_vel_ecef_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavVelECEF>(
+        "ubx_nav_vel_ecef", qos);
+      ubx_nav_vel_ned_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavVelNED>(
+        "ubx_nav_vel_ned", qos);
+      ubx_rxm_rtcm_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXRxmRTCM>(
+        "ubx_rxm_rtcm", qos);
+      ubx_rxm_measx_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXRxmMeasx>(
+        "ubx_rxm_measx", qos);
+      ubx_rxm_rawx_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXRxmRawx>(
+        "ubx_rxm_rawx", qos);
+      ubx_esf_status_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXEsfStatus>(
+        "ubx_esf_status", qos);
+      ubx_esf_meas_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXEsfMeas>(
+        "ubx_esf_meas", qos);
+      ubx_sec_sig_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXSecSig>("ubx_sec_sig", qos);
+      ubx_sec_sig_log_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXSecSigLog>(
+        "ubx_sec_sig_log", qos);
+    }
 
     // ros2 parameter call backs
     parameters_callback_handle_ =
@@ -396,6 +399,7 @@ private:
   const std::string DEV_STRING_PARAM_NAME = "DEVICE_SERIAL_STRING";
 
   std::string unique_id_;
+  bool publish_debug_topics_{false};
 
   rclcpp::Publisher<amr_sweeper_gnss::msg::UBXNavClock>::SharedPtr ubx_nav_clock_pub_;
   rclcpp::Publisher<amr_sweeper_gnss::msg::UBXNavCov>::SharedPtr ubx_nav_cov_pub_;
@@ -1581,59 +1585,59 @@ private:
   {
     ubx_nav_->frame(f->ubx_frame);
     switch (f->ubx_frame->msg_id) {
-      case ubx::UBX_NAV_CLOCK:
-        ubx_nav_clock_pub(f, ubx_nav_->clock()->payload());
-        break;
       case ubx::UBX_NAV_COV:
         ubx_nav_cov_pub(f, ubx_nav_->cov()->payload());
-        break;
-      case ubx::UBX_NAV_DOP:
-        ubx_nav_dop_pub(f, ubx_nav_->dop()->payload());
-        break;
-      case ubx::UBX_NAV_EOE:
-        ubx_nav_eoe_pub(f, ubx_nav_->eoe()->payload());
-        break;
-      case ubx::UBX_NAV_HPPOSECEF:
-        ubx_nav_hp_pos_ecef_pub(f, ubx_nav_->hpposecef()->payload());
         break;
       case ubx::UBX_NAV_HPPOSLLH:
         ubx_nav_hp_pos_llh_pub(f, ubx_nav_->hpposllh()->payload());
         break;
-      case ubx::UBX_NAV_ODO:
-        ubx_nav_odo_pub(f, ubx_nav_->odo()->payload());
-        break;
-      case ubx::UBX_NAV_ORB:
-        ubx_nav_orb_pub(f, ubx_nav_->orb()->payload());
-        break;
-      case ubx::UBX_NAV_SAT:
-        ubx_nav_sat_pub(f, ubx_nav_->sat()->payload());
-        break;
-      case ubx::UBX_NAV_SIG:
-        ubx_nav_sig_pub(f, ubx_nav_->sig()->payload());
-        break;
-      case ubx::UBX_NAV_POSECEF:
-        ubx_nav_pos_ecef_pub(f, ubx_nav_->posecef()->payload());
-        break;
-      case ubx::UBX_NAV_POSLLH:
-        ubx_nav_pos_llh_pub(f, ubx_nav_->posllh()->payload());
-        break;
-      case ubx::UBX_NAV_PVT:
-        ubx_nav_pvt_pub(f, ubx_nav_->pvt()->payload());
-        break;
-      case ubx::UBX_NAV_RELPOSNED:
-        ubx_nav_rel_pos_ned_pub(f, ubx_nav_->relposned()->payload());
-        break;
       case ubx::UBX_NAV_STATUS:
         ubx_nav_status_pub(f, ubx_nav_->status()->payload());
         break;
+      case ubx::UBX_NAV_CLOCK:
+        if (publish_debug_topics_) {ubx_nav_clock_pub(f, ubx_nav_->clock()->payload());}
+        break;
+      case ubx::UBX_NAV_DOP:
+        if (publish_debug_topics_) {ubx_nav_dop_pub(f, ubx_nav_->dop()->payload());}
+        break;
+      case ubx::UBX_NAV_EOE:
+        if (publish_debug_topics_) {ubx_nav_eoe_pub(f, ubx_nav_->eoe()->payload());}
+        break;
+      case ubx::UBX_NAV_HPPOSECEF:
+        if (publish_debug_topics_) {ubx_nav_hp_pos_ecef_pub(f, ubx_nav_->hpposecef()->payload());}
+        break;
+      case ubx::UBX_NAV_ODO:
+        if (publish_debug_topics_) {ubx_nav_odo_pub(f, ubx_nav_->odo()->payload());}
+        break;
+      case ubx::UBX_NAV_ORB:
+        if (publish_debug_topics_) {ubx_nav_orb_pub(f, ubx_nav_->orb()->payload());}
+        break;
+      case ubx::UBX_NAV_SAT:
+        if (publish_debug_topics_) {ubx_nav_sat_pub(f, ubx_nav_->sat()->payload());}
+        break;
+      case ubx::UBX_NAV_SIG:
+        if (publish_debug_topics_) {ubx_nav_sig_pub(f, ubx_nav_->sig()->payload());}
+        break;
+      case ubx::UBX_NAV_POSECEF:
+        if (publish_debug_topics_) {ubx_nav_pos_ecef_pub(f, ubx_nav_->posecef()->payload());}
+        break;
+      case ubx::UBX_NAV_POSLLH:
+        if (publish_debug_topics_) {ubx_nav_pos_llh_pub(f, ubx_nav_->posllh()->payload());}
+        break;
+      case ubx::UBX_NAV_PVT:
+        if (publish_debug_topics_) {ubx_nav_pvt_pub(f, ubx_nav_->pvt()->payload());}
+        break;
+      case ubx::UBX_NAV_RELPOSNED:
+        if (publish_debug_topics_) {ubx_nav_rel_pos_ned_pub(f, ubx_nav_->relposned()->payload());}
+        break;
       case ubx::UBX_NAV_TIMEUTC:
-        ubx_nav_time_utc_pub(f, ubx_nav_->timeutc()->payload());
+        if (publish_debug_topics_) {ubx_nav_time_utc_pub(f, ubx_nav_->timeutc()->payload());}
         break;
       case ubx::UBX_NAV_VELECEF:
-        ubx_nav_vel_ecef_pub(f, ubx_nav_->velecef()->payload());
+        if (publish_debug_topics_) {ubx_nav_vel_ecef_pub(f, ubx_nav_->velecef()->payload());}
         break;
       case ubx::UBX_NAV_VELNED:
-        ubx_nav_vel_ned_pub(f, ubx_nav_->velned()->payload());
+        if (publish_debug_topics_) {ubx_nav_vel_ned_pub(f, ubx_nav_->velned()->payload());}
         break;
       default:
         RCLCPP_WARN(
@@ -1646,6 +1650,9 @@ private:
   UBLOX_DGNSS_NODE_LOCAL
   void ubx_rxm_in_frame(ubx_queue_frame_t * f)
   {
+    if (!publish_debug_topics_) {
+      return;
+    }
     switch (f->ubx_frame->msg_id) {
       case ubx::UBX_RXM_RTCM:
         ubx_rxm_->rtcm()->frame(f->ubx_frame);
@@ -1670,6 +1677,9 @@ private:
   UBLOX_DGNSS_NODE_LOCAL
   void ubx_esf_in_frame(ubx_queue_frame_t * f)
   {
+    if (!publish_debug_topics_) {
+      return;
+    }
     switch (f->ubx_frame->msg_id) {
       case ubx::UBX_ESF_STATUS:
         ubx_esf_->status()->frame(f->ubx_frame);
@@ -1693,12 +1703,12 @@ private:
     switch (f->ubx_frame->msg_id) {
       case ubx::UBX_SEC_SIG: {
           ubx_sec_->sig()->frame(f->ubx_frame);
-          ubx_sec_sig_pub(f, ubx_sec_->sig()->payload());
+          if (publish_debug_topics_) {ubx_sec_sig_pub(f, ubx_sec_->sig()->payload());}
           break;
         }
       case ubx::UBX_SEC_SIGLOG: {
           ubx_sec_->siglog()->frame(f->ubx_frame);
-          ubx_sec_siglog_pub(f, ubx_sec_->siglog()->payload());
+          if (publish_debug_topics_) {ubx_sec_siglog_pub(f, ubx_sec_->siglog()->payload());}
           break;
         }
       case ubx::UBX_SEC_UNIQID: {

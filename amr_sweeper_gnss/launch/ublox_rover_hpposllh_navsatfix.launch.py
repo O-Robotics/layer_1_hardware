@@ -49,7 +49,7 @@ def generate_launch_description():
                 plugin='amr_sweeper_ublox_dgnss::UbloxDGNSSNode',
                 name='ublox_dgnss',
                 namespace=LaunchConfiguration('namespace'),
-                parameters=params,
+                parameters=params + [{'publish_debug_topics': False}],
             )
         ],
         condition=IfCondition(LaunchConfiguration('use_ublox_dgnss_node')),
