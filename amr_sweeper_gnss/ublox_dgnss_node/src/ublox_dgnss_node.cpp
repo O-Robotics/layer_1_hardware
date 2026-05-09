@@ -170,7 +170,9 @@ public:
     }
 
     auto qos = rclcpp::SensorDataQoS();
-    publish_debug_topics_ = this->declare_parameter<bool>("publish_debug_topics", false);
+    publish_debug_topics_ = this->has_parameter("publish_debug_topics") ?
+      this->get_parameter("publish_debug_topics").as_bool() :
+      this->declare_parameter<bool>("publish_debug_topics", false);
 
     ubx_nav_cov_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavCov>("ubx_nav_cov", qos);
     ubx_nav_hp_pos_llh_pub_ = this->create_publisher<amr_sweeper_gnss::msg::UBXNavHPPosLLH>(

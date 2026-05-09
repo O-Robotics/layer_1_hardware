@@ -43,9 +43,15 @@ public:
     RCLCPP_INFO(this->get_logger(), "starting %s", get_name());
 
     enu_pos_cov_.fill(0.0);  // initialise values to zero
-    covariance_scale_ = this->declare_parameter<double>("covariance_scale", 9.0);
-    min_horizontal_variance_ = this->declare_parameter<double>("min_horizontal_variance", 4.0);
-    min_vertical_variance_ = this->declare_parameter<double>("min_vertical_variance", 9.0);
+    covariance_scale_ = this->has_parameter("covariance_scale") ?
+      this->get_parameter("covariance_scale").as_double() :
+      this->declare_parameter<double>("covariance_scale", 9.0);
+    min_horizontal_variance_ = this->has_parameter("min_horizontal_variance") ?
+      this->get_parameter("min_horizontal_variance").as_double() :
+      this->declare_parameter<double>("min_horizontal_variance", 4.0);
+    min_vertical_variance_ = this->has_parameter("min_vertical_variance") ?
+      this->get_parameter("min_vertical_variance").as_double() :
+      this->declare_parameter<double>("min_vertical_variance", 9.0);
 
     auto qos = rclcpp::SensorDataQoS();
 
