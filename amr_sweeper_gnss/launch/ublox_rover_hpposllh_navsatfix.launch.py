@@ -66,6 +66,11 @@ def generate_launch_description():
                 plugin='ublox_nav_sat_fix_hp::UbloxNavSatHpFixNode',
                 name='ublox_nav_sat_fix_hp',
                 namespace=LaunchConfiguration('namespace'),
+                parameters=[
+                    {'covariance_scale': 9.0},
+                    {'min_horizontal_variance': 4.0},
+                    {'min_vertical_variance': 9.0},
+                ],
                 remappings=[('fix', 'navsat')],
             )
         ],

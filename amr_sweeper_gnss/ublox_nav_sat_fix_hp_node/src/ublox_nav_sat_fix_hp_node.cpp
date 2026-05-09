@@ -43,6 +43,9 @@ public:
     RCLCPP_INFO(this->get_logger(), "starting %s", get_name());
 
     enu_pos_cov_.fill(0.0);  // initialise values to zero
+    covariance_scale_ = this->declare_parameter<double>("covariance_scale", 9.0);
+    min_horizontal_variance_ = this->declare_parameter<double>("min_horizontal_variance", 4.0);
+    min_vertical_variance_ = this->declare_parameter<double>("min_vertical_variance", 9.0);
 
     auto qos = rclcpp::SensorDataQoS();
 
@@ -75,9 +78,11 @@ private:
   rclcpp::Subscription<amr_sweeper_gnss::msg::UBXNavCov>::SharedPtr ubx_nav_cov_sub_;
   rclcpp::Subscription<amr_sweeper_gnss::msg::UBXNavStatus>::SharedPtr ubx_nav_status_sub_;
 
-  // std::vector<double> enu_covariance_diagonal_;
   std::array<double, POS_COV_ARR_SIZE> enu_pos_cov_;
   sensor_msgs::msg::NavSatStatus nav_sat_stat_;
+  double covariance_scale_;
+  double min_horizontal_variance_;
+  double min_vertical_variance_;
 
   // flags used to check whether we have received corresponding messages
   bool have_recd_enu_pos_cov_ = false;
@@ -130,6 +135,15 @@ private:
   UBLOX_NAV_SAT_FIX_HP_NODE_LOCAL
   void nav_cov_callback(const amr_sweeper_gnss::msg::UBXNavCov::SharedPtr ubx_cov_msg)
   {
+    if (!ubx_cov_msg->pos_cor_valid) {
+      have_recd_enu_pos_cov_ = false;
+      enu_pos_cov_.fill(0.0);
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(), *this->get_clock(), 5000,
+        "Received GNSS covariance message marked invalid; NavSatFix covariance will remain unknown.");
+      return;
+    }
+
     // 6 position covariance values available in UBX-NAV-COV matrix
     // Matrix is symmetrix, so only upper triangular values are shown
     // pos_cov_nn
@@ -151,15 +165,19 @@ private:
 
     // Tranform the covariance matrix from NED to ENU format in row-major order
     static_assert(POS_COV_ARR_SIZE == 9, "size of enu_pos_cov_ must be 9");
-    enu_pos_cov_[0] = ubx_cov_msg->pos_cov_ee;
-    enu_pos_cov_[1] = ubx_cov_msg->pos_cov_ne;
-    enu_pos_cov_[2] = -ubx_cov_msg->pos_cov_ed;
-    enu_pos_cov_[3] = ubx_cov_msg->pos_cov_ne;
-    enu_pos_cov_[4] = ubx_cov_msg->pos_cov_nn;
-    enu_pos_cov_[5] = -ubx_cov_msg->pos_cov_nd;
-    enu_pos_cov_[6] = -ubx_cov_msg->pos_cov_ed;
-    enu_pos_cov_[7] = -ubx_cov_msg->pos_cov_nd;
-    enu_pos_cov_[8] = ubx_cov_msg->pos_cov_dd;
+    enu_pos_cov_[0] = ubx_cov_msg->pos_cov_ee * covariance_scale_;
+    enu_pos_cov_[1] = ubx_cov_msg->pos_cov_ne * covariance_scale_;
+    enu_pos_cov_[2] = -ubx_cov_msg->pos_cov_ed * covariance_scale_;
+    enu_pos_cov_[3] = ubx_cov_msg->pos_cov_ne * covariance_scale_;
+    enu_pos_cov_[4] = ubx_cov_msg->pos_cov_nn * covariance_scale_;
+    enu_pos_cov_[5] = -ubx_cov_msg->pos_cov_nd * covariance_scale_;
+    enu_pos_cov_[6] = -ubx_cov_msg->pos_cov_ed * covariance_scale_;
+    enu_pos_cov_[7] = -ubx_cov_msg->pos_cov_nd * covariance_scale_;
+    enu_pos_cov_[8] = ubx_cov_msg->pos_cov_dd * covariance_scale_;
+
+    enu_pos_cov_[0] = std::max(enu_pos_cov_[0], min_horizontal_variance_);
+    enu_pos_cov_[4] = std::max(enu_pos_cov_[4], min_horizontal_variance_);
+    enu_pos_cov_[8] = std::max(enu_pos_cov_[8], min_vertical_variance_);
 
     // set flag to show we have received fresh data for this message
     have_recd_enu_pos_cov_ = true;
