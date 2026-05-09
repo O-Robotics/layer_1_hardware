@@ -229,14 +229,29 @@ private:
     msg.orientation.y = cr * sp * cy + sr * cp * sy;
     msg.orientation.z = cr * cp * sy - sr * sp * cy;
     msg.orientation.w = cr * cp * cy + sr * sp * sy;
+    msg.orientation_covariance = {
+      0.2, 0.0, 0.0,
+      0.0, 0.2, 0.0,
+      0.0, 0.0, 0.05
+    };
 
     msg.angular_velocity.x = gyro_[0];
     msg.angular_velocity.y = gyro_[1];
     msg.angular_velocity.z = gyro_[2];
+    msg.angular_velocity_covariance = {
+      0.02, 0.0, 0.0,
+      0.0, 0.02, 0.0,
+      0.0, 0.0, 0.01
+    };
 
     msg.linear_acceleration.x = accel_[0];
     msg.linear_acceleration.y = accel_[1];
     msg.linear_acceleration.z = accel_[2];
+    msg.linear_acceleration_covariance = {
+      0.5, 0.0, 0.0,
+      0.0, 0.5, 0.0,
+      0.0, 0.0, 0.5
+    };
 
     imu_pub_->publish(msg);
   }
