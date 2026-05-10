@@ -23,7 +23,7 @@ def generate_launch_description():
         default_value='9600',
         description='Baud rate for the JY901 IMU')
     declare_frame_id = DeclareLaunchArgument(
-        name='frame_id',
+        name='imu_frame_id',
         default_value='imu_link',
         description='Frame ID for published IMU messages')
     declare_publish_hz = DeclareLaunchArgument(
@@ -39,7 +39,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     port = LaunchConfiguration('port')
     baud = LaunchConfiguration('baud')
-    frame_id = LaunchConfiguration('frame_id')
+    frame_id = LaunchConfiguration('imu_frame_id')
     publish_hz = LaunchConfiguration('publish_hz')
     use_imu_node = LaunchConfiguration('use_imu_node')
 

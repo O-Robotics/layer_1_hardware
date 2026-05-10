@@ -26,13 +26,13 @@ def generate_launch_description():
         description='Namespace for GNSS containers',
     )
     declare_frame_id = DeclareLaunchArgument(
-        'frame_id',
+        'gnss_frame_id',
         default_value=TextSubstitution(text='gnss_link'),
         description='Frame ID to publish in GNSS message headers',
     )
 
     params = [
-        {'FRAME_ID': LaunchConfiguration('frame_id')},
+        {'FRAME_ID': LaunchConfiguration('gnss_frame_id')},
         {'CFG_USBOUTPROT_NMEA': False},
         {'CFG_USBINPROT_RTCM3X': False},
         {'CFG_USBOUTPROT_RTCM3X': False},
