@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
@@ -43,6 +45,20 @@ public:
     RCLCPP_INFO(this->get_logger(), "starting %s", get_name());
 
     enu_pos_cov_.fill(0.0);  // initialise values to zero
+
+    declare_parameter("min_fix_type", static_cast<int>(amr_sweeper_gnss::msg::GpsFix::GPS_FIX_3D));
+    declare_parameter("min_horizontal_stddev_m", 1.5);
+    declare_parameter("min_vertical_stddev_m", 3.0);
+    declare_parameter("horizontal_covariance_scale", 4.0);
+    declare_parameter("vertical_covariance_scale", 4.0);
+    declare_parameter("use_hacc_vacc_covariance_floor", true);
+
+    min_fix_type_ = get_parameter("min_fix_type").as_int();
+    min_horizontal_stddev_m_ = get_parameter("min_horizontal_stddev_m").as_double();
+    min_vertical_stddev_m_ = get_parameter("min_vertical_stddev_m").as_double();
+    horizontal_covariance_scale_ = get_parameter("horizontal_covariance_scale").as_double();
+    vertical_covariance_scale_ = get_parameter("vertical_covariance_scale").as_double();
+    use_hacc_vacc_covariance_floor_ = get_parameter("use_hacc_vacc_covariance_floor").as_bool();
 
     auto qos = rclcpp::SensorDataQoS();
 
@@ -78,14 +94,35 @@ private:
   // std::vector<double> enu_covariance_diagonal_;
   std::array<double, POS_COV_ARR_SIZE> enu_pos_cov_;
   sensor_msgs::msg::NavSatStatus nav_sat_stat_;
+  int min_fix_type_;
+  double min_horizontal_stddev_m_;
+  double min_vertical_stddev_m_;
+  double horizontal_covariance_scale_;
+  double vertical_covariance_scale_;
+  bool use_hacc_vacc_covariance_floor_;
 
   // flags used to check whether we have received corresponding messages
   bool have_recd_enu_pos_cov_ = false;
+  int last_fix_type_ = amr_sweeper_gnss::msg::GpsFix::GPS_NO_FIX;
 
   UBLOX_NAV_SAT_FIX_HP_NODE_LOCAL
   void nav_hp_pos_llh_callback(
     const amr_sweeper_gnss::msg::UBXNavHPPosLLH::SharedPtr ubx_hppos_llh_msg)
   {
+    if (ubx_hppos_llh_msg->invalid_lon || ubx_hppos_llh_msg->invalid_lat ||
+      ubx_hppos_llh_msg->invalid_height)
+    {
+      RCLCPP_DEBUG(this->get_logger(), "Skipping NavSatFix publish because HPPOSLLH is invalid");
+      return;
+    }
+
+    if (last_fix_type_ < min_fix_type_) {
+      RCLCPP_DEBUG(
+        this->get_logger(), "Skipping NavSatFix publish because fix type %d is below minimum %d",
+        last_fix_type_, min_fix_type_);
+      return;
+    }
+
     // Create the NavSatFix message
     sensor_msgs::msg::NavSatFix nav_sat_fix_msg;
     // header - copy from Pos message
@@ -112,6 +149,7 @@ private:
     for (size_t i = 0; i < enu_pos_cov_.size(); i++) {
       nav_sat_fix_msg.position_covariance[i] = enu_pos_cov_[i];
     }
+    apply_covariance_floor(*ubx_hppos_llh_msg, nav_sat_fix_msg);
     if (have_recd_enu_pos_cov_) {
       // Set covariance type to estimated from the converted NED to ENU covariance
       nav_sat_fix_msg.position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_KNOWN;
@@ -127,9 +165,38 @@ private:
       this->get_logger(), "Published NavSatFix with lat %4f lon %4f alt %4f", lat, lon, alt);
   }
 
+  void apply_covariance_floor(
+    const amr_sweeper_gnss::msg::UBXNavHPPosLLH & ubx_hppos_llh_msg,
+    sensor_msgs::msg::NavSatFix & nav_sat_fix_msg)
+  {
+    const double min_horizontal_var = min_horizontal_stddev_m_ * min_horizontal_stddev_m_;
+    const double min_vertical_var = min_vertical_stddev_m_ * min_vertical_stddev_m_;
+
+    double hacc_var = min_horizontal_var;
+    double vacc_var = min_vertical_var;
+    if (use_hacc_vacc_covariance_floor_) {
+      const double hacc_m = static_cast<double>(ubx_hppos_llh_msg.h_acc) * 1e-4;
+      const double vacc_m = static_cast<double>(ubx_hppos_llh_msg.v_acc) * 1e-4;
+      hacc_var = std::pow(hacc_m * horizontal_covariance_scale_, 2);
+      vacc_var = std::pow(vacc_m * vertical_covariance_scale_, 2);
+    }
+
+    nav_sat_fix_msg.position_covariance[0] =
+      std::max(nav_sat_fix_msg.position_covariance[0], std::max(min_horizontal_var, hacc_var));
+    nav_sat_fix_msg.position_covariance[4] =
+      std::max(nav_sat_fix_msg.position_covariance[4], std::max(min_horizontal_var, hacc_var));
+    nav_sat_fix_msg.position_covariance[8] =
+      std::max(nav_sat_fix_msg.position_covariance[8], std::max(min_vertical_var, vacc_var));
+  }
+
   UBLOX_NAV_SAT_FIX_HP_NODE_LOCAL
   void nav_cov_callback(const amr_sweeper_gnss::msg::UBXNavCov::SharedPtr ubx_cov_msg)
   {
+    if (!ubx_cov_msg->pos_cor_valid) {
+      have_recd_enu_pos_cov_ = false;
+      return;
+    }
+
     // 6 position covariance values available in UBX-NAV-COV matrix
     // Matrix is symmetrix, so only upper triangular values are shown
     // pos_cov_nn
@@ -168,6 +235,8 @@ private:
   UBLOX_NAV_SAT_FIX_HP_NODE_LOCAL
   void nav_sta_callback(const amr_sweeper_gnss::msg::UBXNavStatus::SharedPtr ubx_sta_msg)
   {
+    last_fix_type_ = ubx_sta_msg->gps_fix.fix_type;
+
     // UBX NAV STATUS values do not map very cleanly to ROS2 sensor_msgs/msg/NavSatStatus values.
     // Do the best we can to indicate whether we have GPS fix or not
     switch (ubx_sta_msg->gps_fix.fix_type) {

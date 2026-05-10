@@ -196,6 +196,26 @@ enum CFG_NAVSPG_DYNMODEL_ENUM
   DYN_MODEL_ESCOOTER = 12,    // E-scooter (not available in all products)
 };
 
+// cfg signal - constellation and signal selection
+const ubx_cfg_item_t CFG_SIGNAL_GPS_ENA = {"CFG_SIGNAL_GPS_ENA", 0x1031001f, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GPS_L1CA_ENA = {"CFG_SIGNAL_GPS_L1CA_ENA", 0x10310001, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GPS_L2C_ENA = {"CFG_SIGNAL_GPS_L2C_ENA", 0x10310003, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_SBAS_ENA = {"CFG_SIGNAL_SBAS_ENA", 0x10310020, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_SBAS_L1CA_ENA = {"CFG_SIGNAL_SBAS_L1CA_ENA", 0x10310005, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GAL_ENA = {"CFG_SIGNAL_GAL_ENA", 0x10310021, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GAL_E1_ENA = {"CFG_SIGNAL_GAL_E1_ENA", 0x10310007, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GAL_E5B_ENA = {"CFG_SIGNAL_GAL_E5B_ENA", 0x1031000a, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_BDS_ENA = {"CFG_SIGNAL_BDS_ENA", 0x10310022, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_BDS_B1_ENA = {"CFG_SIGNAL_BDS_B1_ENA", 0x1031000d, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_BDS_B2_ENA = {"CFG_SIGNAL_BDS_B2_ENA", 0x1031000e, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_QZSS_ENA = {"CFG_SIGNAL_QZSS_ENA", 0x10310024, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_QZSS_L1CA_ENA = {"CFG_SIGNAL_QZSS_L1CA_ENA", 0x10310012, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_QZSS_L1S_ENA = {"CFG_SIGNAL_QZSS_L1S_ENA", 0x10310014, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_QZSS_L2C_ENA = {"CFG_SIGNAL_QZSS_L2C_ENA", 0x10310015, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GLO_ENA = {"CFG_SIGNAL_GLO_ENA", 0x10310025, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GLO_L1_ENA = {"CFG_SIGNAL_GLO_L1_ENA", 0x10310018, L, 1, NA};
+const ubx_cfg_item_t CFG_SIGNAL_GLO_L2_ENA = {"CFG_SIGNAL_GLO_L2_ENA", 0x1031001a, L, 1, NA};
+
 // cfg odo
 const ubx_cfg_item_t CFG_ODO_USE_ODO = {"CFG_ODO_USE_ODO", 0x10220001, L, 1, NA};
 const ubx_cfg_item_t CFG_ODO_USE_COG = {"CFG_ODO_USE_COG", 0x10220002, L, 1, NA};
@@ -343,6 +363,24 @@ std::map<ubx_key_id_t, ubx_cfg_item_t> ubxKeyCfgItemMap = {
   {CFG_NAVSPG_INIFIX3D.ubx_key_id, CFG_NAVSPG_INIFIX3D},
   {CFG_NAVSPG_UTCSTANDARD.ubx_key_id, CFG_NAVSPG_UTCSTANDARD},
   {CFG_NAVSPG_DYNMODEL.ubx_key_id, CFG_NAVSPG_DYNMODEL},
+  {CFG_SIGNAL_GPS_ENA.ubx_key_id, CFG_SIGNAL_GPS_ENA},
+  {CFG_SIGNAL_GPS_L1CA_ENA.ubx_key_id, CFG_SIGNAL_GPS_L1CA_ENA},
+  {CFG_SIGNAL_GPS_L2C_ENA.ubx_key_id, CFG_SIGNAL_GPS_L2C_ENA},
+  {CFG_SIGNAL_SBAS_ENA.ubx_key_id, CFG_SIGNAL_SBAS_ENA},
+  {CFG_SIGNAL_SBAS_L1CA_ENA.ubx_key_id, CFG_SIGNAL_SBAS_L1CA_ENA},
+  {CFG_SIGNAL_GAL_ENA.ubx_key_id, CFG_SIGNAL_GAL_ENA},
+  {CFG_SIGNAL_GAL_E1_ENA.ubx_key_id, CFG_SIGNAL_GAL_E1_ENA},
+  {CFG_SIGNAL_GAL_E5B_ENA.ubx_key_id, CFG_SIGNAL_GAL_E5B_ENA},
+  {CFG_SIGNAL_BDS_ENA.ubx_key_id, CFG_SIGNAL_BDS_ENA},
+  {CFG_SIGNAL_BDS_B1_ENA.ubx_key_id, CFG_SIGNAL_BDS_B1_ENA},
+  {CFG_SIGNAL_BDS_B2_ENA.ubx_key_id, CFG_SIGNAL_BDS_B2_ENA},
+  {CFG_SIGNAL_QZSS_ENA.ubx_key_id, CFG_SIGNAL_QZSS_ENA},
+  {CFG_SIGNAL_QZSS_L1CA_ENA.ubx_key_id, CFG_SIGNAL_QZSS_L1CA_ENA},
+  {CFG_SIGNAL_QZSS_L1S_ENA.ubx_key_id, CFG_SIGNAL_QZSS_L1S_ENA},
+  {CFG_SIGNAL_QZSS_L2C_ENA.ubx_key_id, CFG_SIGNAL_QZSS_L2C_ENA},
+  {CFG_SIGNAL_GLO_ENA.ubx_key_id, CFG_SIGNAL_GLO_ENA},
+  {CFG_SIGNAL_GLO_L1_ENA.ubx_key_id, CFG_SIGNAL_GLO_L1_ENA},
+  {CFG_SIGNAL_GLO_L2_ENA.ubx_key_id, CFG_SIGNAL_GLO_L2_ENA},
 
   {CFG_ODO_USE_ODO.ubx_key_id, CFG_ODO_USE_ODO},
   {CFG_ODO_USE_COG.ubx_key_id, CFG_ODO_USE_COG},
