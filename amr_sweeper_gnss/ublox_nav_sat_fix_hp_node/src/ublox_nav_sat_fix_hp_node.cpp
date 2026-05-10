@@ -46,12 +46,25 @@ public:
 
     enu_pos_cov_.fill(0.0);  // initialise values to zero
 
-    declare_parameter("min_fix_type", static_cast<int>(amr_sweeper_gnss::msg::GpsFix::GPS_FIX_3D));
-    declare_parameter("min_horizontal_stddev_m", 1.5);
-    declare_parameter("min_vertical_stddev_m", 3.0);
-    declare_parameter("horizontal_covariance_scale", 4.0);
-    declare_parameter("vertical_covariance_scale", 4.0);
-    declare_parameter("use_hacc_vacc_covariance_floor", true);
+    if (!has_parameter("min_fix_type")) {
+      declare_parameter(
+        "min_fix_type", static_cast<int>(amr_sweeper_gnss::msg::GpsFix::GPS_FIX_3D));
+    }
+    if (!has_parameter("min_horizontal_stddev_m")) {
+      declare_parameter("min_horizontal_stddev_m", 1.5);
+    }
+    if (!has_parameter("min_vertical_stddev_m")) {
+      declare_parameter("min_vertical_stddev_m", 3.0);
+    }
+    if (!has_parameter("horizontal_covariance_scale")) {
+      declare_parameter("horizontal_covariance_scale", 4.0);
+    }
+    if (!has_parameter("vertical_covariance_scale")) {
+      declare_parameter("vertical_covariance_scale", 4.0);
+    }
+    if (!has_parameter("use_hacc_vacc_covariance_floor")) {
+      declare_parameter("use_hacc_vacc_covariance_floor", true);
+    }
 
     min_fix_type_ = get_parameter("min_fix_type").as_int();
     min_horizontal_stddev_m_ = get_parameter("min_horizontal_stddev_m").as_double();
