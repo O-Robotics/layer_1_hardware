@@ -1,57 +1,31 @@
 import os
 
-from ament_index_python.packages import get_package_share_directory
-
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, TimerAction
 from launch.conditions import UnlessCondition
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterValue
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
     use_sim_time = LaunchConfiguration("use_sim_time")
-    use_ros2_control = LaunchConfiguration("use_ros2_control")
-    enable_usb_cameras = LaunchConfiguration("enable_usb_cameras")
-    enable_gnss = LaunchConfiguration("enable_gnss")
-    enable_imu = LaunchConfiguration("enable_imu")
-    enable_depth_camera = LaunchConfiguration("enable_depth_camera")
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
-
-    description_pkg_path = get_package_share_directory("amr_sweeper_description")
-    xacro_file = os.path.join(description_pkg_path, "urdf", "robot", "robot.urdf.xacro")
-
-    robot_description = {
-        "robot_description": ParameterValue(
-            Command([
-                "xacro",
-                " ",
-                xacro_file,
-                " ",
-                "use_ros2_control:=", use_ros2_control,
-                " ",
-                "enable_usb_cameras:=", enable_usb_cameras,
-                " ",
-                "enable_gnss:=", enable_gnss,
-                " ",
-                "enable_imu:=", enable_imu,
-                " ",
-                "enable_depth_camera:=", enable_depth_camera,
-            ]),
-            value_type=str,
-        )
-    }
 
     controller_manager = Node(
         package="controller_manager",
         executable="ros2_control_node",
         condition=UnlessCondition(use_sim_time),
         parameters=[
-            robot_description,
             {"use_sim_time": use_sim_time},
             ros2_control_config_file,
+        ],
+        # Keep the controller manager on the robot_description topic path that
+        # works with Humble's deprecated subscriber and Jazzy's required one.
+        remappings=[
+            ("~/robot_description", "robot_description"),
+            ("/robot_description", "robot_description"),
         ],
         namespace=namespace,
         output="screen",
@@ -83,7 +57,7 @@ def generate_launch_description():
     steadydrive_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["controller_steadydrive"],
+        arguments=["controller_steadydrive", "--param-file", ros2_control_config_file],
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
         output="screen",
