@@ -46,8 +46,9 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `odrive_node_id`: default `0`
 
 ## Overview
-The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. Depending on launch arguments, it can enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node.
+The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. Depending on launch arguments, it can enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node. The USB camera nodes are launched under `/amr_sweeper/usb_cameras/<camera_name>`.
 
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.
 - `amr_sweeper_ros2_control.launch.py` is the lower-level ros2_control launch used by the main bringup.
+- The `robot_namespace` argument becomes the root of the hardware stack, while USB camera nodes are placed in the nested `usb_cameras` namespace under that root.

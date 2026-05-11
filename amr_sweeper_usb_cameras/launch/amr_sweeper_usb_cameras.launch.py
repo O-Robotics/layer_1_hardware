@@ -27,7 +27,7 @@ def generate_launch_description():
     log_level = LaunchConfiguration("log_level")
 
     ld = LaunchDescription()
-    ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper"))
+    ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper/usb_cameras"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
 
     for camera_key in [

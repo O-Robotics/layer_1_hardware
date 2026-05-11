@@ -17,7 +17,7 @@ This package runs the USB camera nodes used by the AMR Sweeper camera set.
 - `amr_sweeper_usb_cameras.launch.py`
 
 ## Launch Arguments
-- `namespace`: default `amr_sweeper`
+- `namespace`: default `amr_sweeper/usb_cameras`
 - `log_level`: default `info`
 - `front_left_camera_enabled`: default `true`
 - `front_right_camera_enabled`: default `true`
@@ -26,8 +26,9 @@ This package runs the USB camera nodes used by the AMR Sweeper camera set.
 - `tools_camera_enabled`: default `true`
 
 ## Overview
-`amr_sweeper_usb_cameras` contains the camera driver node and the launch configuration needed to start the onboard MJPEG USB cameras. It is part of the layer 1 sensor stack and is usually brought up through the hardware layer bringup package.
+`amr_sweeper_usb_cameras` contains the camera driver node and the launch configuration needed to start the onboard MJPEG USB cameras. It is part of the layer 1 sensor stack and is usually brought up through the hardware layer bringup package. By default it launches the camera nodes under `/amr_sweeper/usb_cameras/<camera_name>`.
 
 ## Notes
 - Main node: `amr_sweeper_usb_cameras_node`.
 - Used to expose the camera topics required by higher-level perception or operator tools.
+- Each enabled camera node gets its own namespace below the configured camera root, for example `/amr_sweeper/usb_cameras/front_left_camera`.

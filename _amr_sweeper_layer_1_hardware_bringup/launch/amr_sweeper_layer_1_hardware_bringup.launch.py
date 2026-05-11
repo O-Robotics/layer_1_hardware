@@ -19,6 +19,7 @@ def _launch_file(package_name: str, launch_file_name: str):
 
 def generate_launch_description():
     robot_namespace = LaunchConfiguration("robot_namespace")
+    usb_cameras_namespace = PathJoinSubstitution([robot_namespace, "usb_cameras"])
     log_level = LaunchConfiguration("log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
@@ -102,7 +103,7 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_usb_cameras", "amr_sweeper_usb_cameras.launch.py")),
         launch_arguments={
-            "namespace": robot_namespace,
+            "namespace": usb_cameras_namespace,
             "log_level": log_level,
         }.items(),
         condition=IfCondition(use_usb_cameras),
