@@ -51,4 +51,6 @@ The main bringup launch starts the core hardware stack under the `amr_sweeper` n
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.
 - `amr_sweeper_ros2_control.launch.py` is the lower-level ros2_control launch used by the main bringup.
+- `amr_sweeper_ros2_control.launch.py` expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
+- The ros2_control controller spawners load controller settings from `config/ros2_control.yaml` with `--param-file`.
 - The `robot_namespace` argument becomes the root of the hardware stack, while USB camera nodes are placed in the nested `usb_cameras` namespace under that root.
