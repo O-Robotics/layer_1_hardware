@@ -46,3 +46,5 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - The default command launches the full layer 1 hardware bringup package.
 - This layer is intended for the physical AMR Sweeper robot, not simulation.
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
+- The layer 1 ros2_control bringup relies on `robot_state_publisher` for the `robot_description` topic instead of passing the description directly into `ros2_control_node`.
+- Controller spawners in the layer 1 ros2_control launch load controller settings from the shared ros2_control YAML file, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.
