@@ -20,6 +20,7 @@ def _launch_file(package_name: str, launch_file_name: str):
 def generate_launch_description():
     robot_namespace = LaunchConfiguration("robot_namespace")
     usb_cameras_namespace = PathJoinSubstitution([robot_namespace, "usb_cameras"])
+    depth_camera_namespace = robot_namespace
     log_level = LaunchConfiguration("log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
@@ -28,6 +29,7 @@ def generate_launch_description():
     use_battery_node = LaunchConfiguration("use_battery_node")
     use_system_info_node = LaunchConfiguration("use_system_info_node")
     use_usb_cameras = LaunchConfiguration("use_usb_cameras")
+    use_depth_camera = LaunchConfiguration("use_depth_camera")
     use_imu_node = LaunchConfiguration("use_imu_node")
     use_gnss_rover = LaunchConfiguration("use_gnss_rover")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
@@ -51,6 +53,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_battery_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_system_info_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_usb_cameras", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_depth_camera", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="false"))
@@ -73,6 +76,7 @@ def generate_launch_description():
             "enable_usb_cameras": use_usb_cameras,
             "enable_gnss": use_gnss_rover,
             "enable_imu": use_imu_node,
+            "enable_depth_camera": use_depth_camera,
         }.items(),
         condition=IfCondition(use_robot_description),
     ))
@@ -110,6 +114,16 @@ def generate_launch_description():
     ))
 
     ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_depth_camera", "depth_camera.launch.py")),
+        launch_arguments={
+            "namespace": depth_camera_namespace,
+            "use_depth_camera": use_depth_camera,
+            "log_level": log_level,
+        }.items(),
+        condition=IfCondition(use_depth_camera),
+    ))
+
+    ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "imu.launch.py")),
         launch_arguments={
             "namespace": robot_namespace,
@@ -130,6 +144,7 @@ def generate_launch_description():
             "enable_usb_cameras": use_usb_cameras,
             "enable_gnss": use_gnss_rover,
             "enable_imu": use_imu_node,
+            "enable_depth_camera": use_depth_camera,
         }.items(),
         condition=IfCondition(use_ros2_control),
     ))

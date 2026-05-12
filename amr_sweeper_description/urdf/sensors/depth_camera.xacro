@@ -9,60 +9,60 @@
 
   <link name="realsense_mount"/>
 
-  <joint name="realsense_mount_to_camera_link" type="fixed">
+  <joint name="realsense_mount_to_depth_camera_link" type="fixed">
     <parent link="realsense_mount"/>
-    <child link="camera_link"/>
+    <child link="depth_camera_link"/>
     <origin xyz="0.015 0 -0.003" rpy="0 0 0"/>
   </joint>
 
-  <link name="camera_link"/>
+  <link name="depth_camera_link"/>
 
-  <joint name="camera_depth_frame_joint" type="fixed">
-    <parent link="camera_link"/>
-    <child link="camera_depth_frame"/>
+  <joint name="depth_camera_depth_frame_joint" type="fixed">
+    <parent link="depth_camera_link"/>
+    <child link="depth_camera_depth_frame"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <link name="camera_depth_frame"/>
+  <link name="depth_camera_depth_frame"/>
 
-  <joint name="camera_color_frame_joint" type="fixed">
-    <parent link="camera_link"/>
-    <child link="camera_color_frame"/>
+  <joint name="depth_camera_color_frame_joint" type="fixed">
+    <parent link="depth_camera_link"/>
+    <child link="depth_camera_color_frame"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <link name="camera_color_frame"/>
+  <link name="depth_camera_color_frame"/>
 
-  <joint name="camera_imu_frame_joint" type="fixed">
-    <parent link="camera_link"/>
-    <child link="camera_imu_frame"/>
+  <joint name="depth_camera_imu_frame_joint" type="fixed">
+    <parent link="depth_camera_link"/>
+    <child link="depth_camera_imu_frame"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <link name="camera_imu_frame"/>
+  <link name="depth_camera_imu_frame"/>
 
-  <joint name="camera_depth_optical_joint" type="fixed">
-    <parent link="camera_depth_frame"/>
-    <child link="camera_depth_optical_frame"/>
+  <joint name="depth_camera_depth_optical_joint" type="fixed">
+    <parent link="depth_camera_depth_frame"/>
+    <child link="depth_camera_depth_optical_frame"/>
     <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
-  <link name="camera_depth_optical_frame"/>
+  <link name="depth_camera_depth_optical_frame"/>
 
-  <joint name="camera_color_optical_joint" type="fixed">
-    <parent link="camera_color_frame"/>
-    <child link="camera_color_optical_frame"/>
+  <joint name="depth_camera_color_optical_joint" type="fixed">
+    <parent link="depth_camera_color_frame"/>
+    <child link="depth_camera_color_optical_frame"/>
     <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
-  <link name="camera_color_optical_frame"/>
+  <link name="depth_camera_color_optical_frame"/>
 
-  <joint name="camera_optical_joint" type="fixed">
-    <parent link="camera_link"/>
-    <child link="camera_link_optical"/>
+  <joint name="depth_camera_optical_joint" type="fixed">
+    <parent link="depth_camera_link"/>
+    <child link="depth_camera_link_optical"/>
     <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
-  <link name="camera_link_optical"/>
+  <link name="depth_camera_link_optical"/>
 
 </robot>

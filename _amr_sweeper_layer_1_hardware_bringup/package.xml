@@ -13,6 +13,7 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>amr_sweeper_battery</exec_depend>
   <exec_depend>amr_sweeper_description</exec_depend>
+  <exec_depend>amr_sweeper_depth_camera</exec_depend>
   <exec_depend>amr_sweeper_gnss</exec_depend>
   <exec_depend>amr_sweeper_imu</exec_depend>
   <exec_depend>amr_sweeper_odrive</exec_depend>
