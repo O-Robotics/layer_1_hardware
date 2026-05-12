@@ -8,7 +8,7 @@ Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_description`
 
 ## Purpose
-This package vendors and launches the RealSense depth-camera stack used by the AMR Sweeper.
+This package launches the RealSense depth-camera stack used by the AMR Sweeper.
 
 ## Main Launch File
 `launch/depth_camera.launch.py`
@@ -29,11 +29,11 @@ This package vendors and launches the RealSense depth-camera stack used by the A
 - `initial_reset`: default `false`
 
 ## Overview
-`amr_sweeper_depth_camera` is a vendor-style layer 1 package. During build it fetches and builds `librealsense`, `realsense-ros`, and `depthimage_to_laserscan` inside the workspace, then installs those upstream packages into the same workspace prefix so the launch file can use them like normal ROS packages.
+`amr_sweeper_depth_camera` is a layer 1 integration package. It provides launch and configuration for `realsense2_camera` and `depthimage_to_laserscan`, both of which must already be installed in the robot build and runtime environment.
 
 ## Notes
 - The launch starts `realsense2_camera` and `depthimage_to_laserscan` together.
 - The default namespace layout is `/amr_sweeper/depth_camera/...` for the RealSense topics and `/amr_sweeper/depth_camera/scan` for the derived laser scan.
 - The default `camera_name` is `depth_camera`, so the runtime frame IDs align with the URDF frames `depth_camera_link`, `depth_camera_depth_frame`, and `depth_camera_color_frame`.
 - TF publication is disabled in the RealSense driver because the robot description already defines the camera frame tree.
-- The vendored sources are controlled by CMake cache variables for repository URLs and Git refs, so they can be pinned later without changing the launch interface.
+- `realsense2_camera` and `depthimage_to_laserscan` must be installed and discoverable in the sourced ROS environment before launching this package.

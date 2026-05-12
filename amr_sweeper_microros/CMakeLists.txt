@@ -40,6 +40,7 @@ ExternalProject_Add(microros_vendor
   PATCH_COMMAND ""
   SOURCE_DIR "${vendor_dummy_source}"
   CONFIGURE_COMMAND ""
+  BUILD_ALWAYS 1
   BUILD_COMMAND bash "${build_microros_script}"
   INSTALL_COMMAND ""
   BUILD_BYPRODUCTS
@@ -50,6 +51,7 @@ ExternalProject_Add(microros_vendor
 add_custom_target(${PROJECT_NAME}_vendor ALL
   DEPENDS microros_vendor
 )
+
 
 install(DIRECTORY
   launch

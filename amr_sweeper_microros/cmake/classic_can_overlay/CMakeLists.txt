@@ -4,6 +4,7 @@ project(amr_sweeper_microros_classic_can_agent LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(ament_cmake REQUIRED)
 find_package(microxrcedds_agent CONFIG REQUIRED)
 find_package(rclcpp REQUIRED)
 
