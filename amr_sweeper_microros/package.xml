@@ -3,12 +3,13 @@
 <package format="3">
   <name>amr_sweeper_microros</name>
   <version>0.0.0</version>
-  <description>Vendor-style micro-ROS agent integration for the AMR Sweeper.</description>
+  <description>micro-ROS agent integration for the AMR Sweeper.</description>
   <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>microxrcedds_agent</depend>
   <depend>rclcpp</depend>
 
   <exec_depend>launch</exec_depend>
