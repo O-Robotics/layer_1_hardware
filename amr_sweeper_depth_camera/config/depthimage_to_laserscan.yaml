@@ -1,7 +1,0 @@
-/**:
-  ros__parameters:
-    scan_time: 0.1
-    range_min: 0.2
-    range_max: 8.0
-    scan_height: 10
-    output_frame: depth_camera_depth_frame
