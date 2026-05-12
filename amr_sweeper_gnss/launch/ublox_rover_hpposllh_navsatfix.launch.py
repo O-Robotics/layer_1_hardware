@@ -3,8 +3,7 @@ import launch
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, TextSubstitution
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -66,45 +65,31 @@ def generate_launch_description():
         {'CFG_MSGOUT_UBX_NAV_PVT_USB': 0},
     ]
 
-    container1 = ComposableNodeContainer(
-        name='ublox_dgnss_container',
+    ublox_dgnss_node = Node(
+        package='amr_sweeper_gnss',
+        executable='amr_sweeper_ublox_dgnss_node',
+        name='ublox_dgnss',
         namespace=LaunchConfiguration('namespace'),
-        package='rclcpp_components',
-        executable='component_container_mt',
-        composable_node_descriptions=[
-            ComposableNode(
-                package='amr_sweeper_gnss',
-                plugin='amr_sweeper_ublox_dgnss::UbloxDGNSSNode',
-                name='ublox_dgnss',
-                namespace=LaunchConfiguration('namespace'),
-                parameters=params,
-            )
-        ],
+        parameters=params,
+        output='screen',
         condition=IfCondition(LaunchConfiguration('use_ublox_dgnss_node')),
     )
 
-    container2 = ComposableNodeContainer(
-        name='ublox_nav_sat_fix_hp_container',
+    ublox_nav_sat_fix_hp_node = Node(
+        package='amr_sweeper_gnss',
+        executable='ublox_nav_sat_fix_hp',
+        name='ublox_nav_sat_fix_hp',
         namespace=LaunchConfiguration('namespace'),
-        package='rclcpp_components',
-        executable='component_container_mt',
-        composable_node_descriptions=[
-            ComposableNode(
-                package='amr_sweeper_gnss',
-                plugin='ublox_nav_sat_fix_hp::UbloxNavSatHpFixNode',
-                name='ublox_nav_sat_fix_hp',
-                namespace=LaunchConfiguration('namespace'),
-                parameters=[{
-                    'min_fix_type': 3,
-                    'min_horizontal_stddev_m': 1.5,
-                    'min_vertical_stddev_m': 3.0,
-                    'horizontal_covariance_scale': 4.0,
-                    'vertical_covariance_scale': 4.0,
-                    'use_hacc_vacc_covariance_floor': True,
-                }],
-                remappings=[('fix', 'navsat')],
-            )
-        ],
+        parameters=[{
+            'min_fix_type': 3,
+            'min_horizontal_stddev_m': 1.5,
+            'min_vertical_stddev_m': 3.0,
+            'horizontal_covariance_scale': 4.0,
+            'vertical_covariance_scale': 4.0,
+            'use_hacc_vacc_covariance_floor': True,
+        }],
+        remappings=[('fix', 'navsat')],
+        output='screen',
         condition=IfCondition(LaunchConfiguration('use_ublox_nav_sat_fix_hp')),
     )
 
@@ -113,6 +98,6 @@ def generate_launch_description():
         declare_use_ublox_nav_sat_fix_hp,
         declare_namespace,
         declare_frame_id,
-        container1,
-        container2,
+        ublox_dgnss_node,
+        ublox_nav_sat_fix_hp_node,
     ])

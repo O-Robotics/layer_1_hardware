@@ -104,7 +104,7 @@ void UsbCameraNode::init()
   m_camera->start();
 
   if (std::abs(m_camera->get_configured_framerate() - m_parameters.framerate) > 0.01) {
-    RCLCPP_WARN(
+    RCLCPP_INFO(
       get_logger(),
       "Camera driver accepted %.3f fps; publishing %s at requested %.3f fps",
       m_camera->get_configured_framerate(),
