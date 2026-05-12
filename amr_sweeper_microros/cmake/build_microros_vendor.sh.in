@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+agent_repo_dir="@vendor_src@/microxrce_agent"
+agent_build_dir="@vendor_build@/microxrce_agent_build"
+overlay_build_dir="@vendor_build@/classic_can_overlay_build"
+install_root="@vendor_install@"
+vendor_jobs="${MICROROS_VENDOR_JOBS:-2}"
+
+mkdir -p "@vendor_src@" "${agent_build_dir}" "${overlay_build_dir}" "${install_root}"
+
+if [ ! -d "${agent_repo_dir}/.git" ]; then
+  git clone --branch "@MICRO_XRCE_DDS_AGENT_GIT_TAG@" --depth 1 "@MICRO_XRCE_DDS_AGENT_GIT_REPOSITORY@" "${agent_repo_dir}"
+else
+  git -C "${agent_repo_dir}" fetch --depth 1 origin "@MICRO_XRCE_DDS_AGENT_GIT_TAG@"
+  git -C "${agent_repo_dir}" checkout -f FETCH_HEAD
+fi
+
+cmake -S "${agent_repo_dir}" -B "${agent_build_dir}" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="${install_root}" \
+  -DUAGENT_SUPERBUILD=ON \
+  -DUAGENT_BUILD_EXECUTABLE=OFF \
+  -DUAGENT_BUILD_USAGE_EXAMPLES=OFF \
+  -DUAGENT_BUILD_TESTS=OFF
+
+cmake --build "${agent_build_dir}" --parallel "${vendor_jobs}"
+cmake --install "${agent_build_dir}"
+
+cmake -S "@CMAKE_CURRENT_SOURCE_DIR@/cmake/classic_can_overlay" -B "${overlay_build_dir}" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="${install_root}" \
+  "-DCMAKE_PREFIX_PATH=${install_root}:${CMAKE_PREFIX_PATH:-}"
+
+cmake --build "${overlay_build_dir}" --parallel "${vendor_jobs}"
+cmake --install "${overlay_build_dir}"

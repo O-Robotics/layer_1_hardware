@@ -30,6 +30,7 @@ def generate_launch_description():
     use_system_info_node = LaunchConfiguration("use_system_info_node")
     use_usb_cameras = LaunchConfiguration("use_usb_cameras")
     use_depth_camera = LaunchConfiguration("use_depth_camera")
+    use_microros = LaunchConfiguration("use_microros")
     use_imu_node = LaunchConfiguration("use_imu_node")
     use_gnss_rover = LaunchConfiguration("use_gnss_rover")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
@@ -37,6 +38,12 @@ def generate_launch_description():
     use_odrive_node = LaunchConfiguration("use_odrive_node")
 
     battery_can_interface = LaunchConfiguration("battery_can_interface")
+    microros_can_interface = LaunchConfiguration("microros_can_interface")
+    microros_request_id_min = LaunchConfiguration("microros_request_id_min")
+    microros_request_id_max = LaunchConfiguration("microros_request_id_max")
+    microros_reply_id_offset = LaunchConfiguration("microros_reply_id_offset")
+    microros_same_id_reply = LaunchConfiguration("microros_same_id_reply")
+    microros_verbosity = LaunchConfiguration("microros_verbosity")
     steadydrive_can_interface = LaunchConfiguration("steadydrive_can_interface")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
@@ -54,6 +61,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_system_info_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_usb_cameras", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_depth_camera", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_microros", default_value="false"))
     ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="false"))
@@ -61,11 +69,33 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_odrive_node", default_value="false"))
 
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
+    ld.add_action(DeclareLaunchArgument("microros_can_interface", default_value="can0"))
+    ld.add_action(DeclareLaunchArgument("microros_request_id_min", default_value="0x500"))
+    ld.add_action(DeclareLaunchArgument("microros_request_id_max", default_value="0x57F"))
+    ld.add_action(DeclareLaunchArgument("microros_reply_id_offset", default_value="0x80"))
+    ld.add_action(DeclareLaunchArgument("microros_same_id_reply", default_value="false"))
+    ld.add_action(DeclareLaunchArgument("microros_verbosity", default_value="4"))
     ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
     ld.add_action(DeclareLaunchArgument("odrive_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("odrive_node_id", default_value="0"))
+
+    # Start micro-ROS first so downstream CAN-connected hardware nodes can depend on it.
+    ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_microros", "microros_agent.launch.py")),
+        launch_arguments={
+            "namespace": robot_namespace,
+            "use_microros": use_microros,
+            "can_interface": microros_can_interface,
+            "request_id_min": microros_request_id_min,
+            "request_id_max": microros_request_id_max,
+            "reply_id_offset": microros_reply_id_offset,
+            "same_id_reply": microros_same_id_reply,
+            "verbosity": microros_verbosity,
+        }.items(),
+        condition=IfCondition(use_microros),
+    ))
 
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_description", "rsp.launch.py")),
