@@ -23,7 +23,6 @@ This package contains the robot description used by the AMR Sweeper runtime stac
 - `enable_usb_cameras`: default `true`
 - `enable_gnss`: default `true`
 - `enable_imu`: default `true`
-- `enable_depth_camera`: default `true`
 
 ## Overview
 `amr_sweeper_description` provides the URDF/Xacro model, meshes, and robot_state_publisher launch setup for the platform. It is used by the hardware layer to expose the robot model and by higher layers that rely on a consistent frame tree and robot description.

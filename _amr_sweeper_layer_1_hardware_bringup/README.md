@@ -6,7 +6,6 @@ ros2 launch amr_sweeper_layer_1_hardware_bringup amr_sweeper_layer_1_hardware_br
 
 Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_battery`
-- `amr_sweeper_depth_camera`
 - `amr_sweeper_description`
 - `amr_sweeper_gnss`
 - `amr_sweeper_imu`
@@ -35,7 +34,6 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `use_battery_node`: default `true`
 - `use_system_info_node`: default `true`
 - `use_usb_cameras`: default `true`
-- `use_depth_camera`: default `true`
 - `use_microros`: default `false`
 - `use_imu_node`: default `true`
 - `use_gnss_rover`: default `true`
@@ -56,7 +54,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `odrive_node_id`: default `0`
 
 ## Overview
-The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. When enabled, the custom classic-CAN micro-ROS agent is launched first so dependent hardware packages can rely on it before the rest of layer 1 comes up. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the RealSense depth camera, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node. The USB camera nodes are launched under `/amr_sweeper/usb_cameras/<camera_name>`, while the default RealSense topic root is `/amr_sweeper/depth_camera` and the derived depth scan is published on `/amr_sweeper/depth_camera/scan`.
+The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. When enabled, the custom classic-CAN micro-ROS agent is launched first so dependent hardware packages can rely on it before the rest of layer 1 comes up. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node. The USB camera nodes are launched under `/amr_sweeper/usb_cameras/<camera_name>`.
 
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.
@@ -64,6 +62,5 @@ The main bringup launch starts the core hardware stack under the `amr_sweeper` n
 - `amr_sweeper_ros2_control.launch.py` expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
 - The ros2_control controller spawners load controller settings from `config/ros2_control.yaml` with `--param-file`.
 - The `robot_namespace` argument becomes the root of the hardware stack, while USB camera nodes are placed in the nested `usb_cameras` namespace under that root.
-- The depth camera launch keeps the upstream RealSense `camera_name` at `depth_camera` by default so its frame names stay aligned with the depth camera frames already defined in the robot description.
 - The micro-ROS launch is disabled by default and can be enabled with `use_microros:=true` when the robot needs the vendored custom classic-CAN micro-ROS agent.
 - The micro-ROS agent uses `microros_can_interface`, `microros_request_id_min`, `microros_request_id_max`, `microros_reply_id_offset`, and `microros_same_id_reply` to define how XRCE-DDS packets are mapped onto classic CAN identifiers.

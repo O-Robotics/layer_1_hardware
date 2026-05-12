@@ -15,7 +15,6 @@ def generate_launch_description():
     enable_usb_cameras = LaunchConfiguration('enable_usb_cameras')
     enable_gnss = LaunchConfiguration('enable_gnss')
     enable_imu = LaunchConfiguration('enable_imu')
-    enable_depth_camera = LaunchConfiguration('enable_depth_camera')
 
     pkg_path = get_package_share_directory('amr_sweeper_description')
     xacro_file = os.path.join(pkg_path, 'urdf', 'robot', 'robot.urdf.xacro')
@@ -27,7 +26,6 @@ def generate_launch_description():
         ' enable_usb_cameras:=', enable_usb_cameras,
         ' enable_gnss:=', enable_gnss,
         ' enable_imu:=', enable_imu,
-        ' enable_depth_camera:=', enable_depth_camera,
     ]), value_type=str)
 
     return LaunchDescription([
@@ -37,7 +35,6 @@ def generate_launch_description():
         DeclareLaunchArgument('enable_usb_cameras', default_value='true'),
         DeclareLaunchArgument('enable_gnss', default_value='true'),
         DeclareLaunchArgument('enable_imu', default_value='true'),
-        DeclareLaunchArgument('enable_depth_camera', default_value='true'),
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',

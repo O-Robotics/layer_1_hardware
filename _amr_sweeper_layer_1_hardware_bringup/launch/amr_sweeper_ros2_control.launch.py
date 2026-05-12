@@ -70,7 +70,6 @@ def generate_launch_description():
         DeclareLaunchArgument("enable_usb_cameras", default_value="true"),
         DeclareLaunchArgument("enable_gnss", default_value="true"),
         DeclareLaunchArgument("enable_imu", default_value="true"),
-        DeclareLaunchArgument("enable_depth_camera", default_value="true"),
         DeclareLaunchArgument(
             "ros2_control_config_file",
             default_value=os.path.join(

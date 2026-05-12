@@ -7,7 +7,6 @@ ros2 launch amr_sweeper_layer_1_hardware_bringup amr_sweeper_layer_1_hardware_br
 Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_layer_1_hardware_bringup`
 - `amr_sweeper_battery`
-- `amr_sweeper_depth_camera`
 - `amr_sweeper_description`
 - `amr_sweeper_gnss`
 - `amr_sweeper_imu`
@@ -29,7 +28,6 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `use_battery_node`: default `true`
 - `use_system_info_node`: default `true`
 - `use_usb_cameras`: default `true`
-- `use_depth_camera`: default `true`
 - `use_microros`: default `false`
 - `use_imu_node`: default `true`
 - `use_gnss_rover`: default `true`
@@ -50,7 +48,7 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `odrive_node_id`: default `0`
 
 ## Overview
-Layer 1 is the base runtime layer for the rest of the stack. It is responsible for making the robot's hardware available as ROS 2 topics, services, and ros2_control interfaces. Layer 2 controllers and layer 3 navigation depend on this layer to provide odometry, transforms, actuator interfaces, and sensor data. This includes the vendor-style RealSense depth camera package, which also publishes a derived scan from the depth stream, and the optional vendor-style custom classic-CAN micro-ROS agent package. When enabled, the micro-ROS agent is launched first so downstream hardware packages can depend on it before the rest of layer 1 comes up.
+Layer 1 is the base runtime layer for the rest of the stack. It is responsible for making the robot's hardware available as ROS 2 topics, services, and ros2_control interfaces. Layer 2 controllers and layer 3 navigation depend on this layer to provide odometry, transforms, actuator interfaces, and sensor data. This includes the optional vendor-style custom classic-CAN micro-ROS agent package. When enabled, the micro-ROS agent is launched first so downstream hardware packages can depend on it before the rest of layer 1 comes up.
 
 ## Notes
 - The default command launches the full layer 1 hardware bringup package.
