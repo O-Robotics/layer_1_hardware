@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(microxrcedds_agent CONFIG REQUIRED)
+find_package(rclcpp REQUIRED)
 
 add_executable(amr_sweeper_microros_classic_can_agent
   ../../src/classic_can_agent.cpp
@@ -13,6 +14,10 @@ add_executable(amr_sweeper_microros_classic_can_agent
 target_link_libraries(amr_sweeper_microros_classic_can_agent
   PRIVATE
     microxrcedds_agent
+)
+
+ament_target_dependencies(amr_sweeper_microros_classic_can_agent
+  rclcpp
 )
 
 install(TARGETS amr_sweeper_microros_classic_can_agent

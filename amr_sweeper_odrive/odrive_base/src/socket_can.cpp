@@ -1,7 +1,7 @@
 #include "socket_can.hpp"
+#include <rclcpp/rclcpp.hpp>
 #include <unistd.h>
 #include <cstring>
-#include <iostream>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <sys/types.h>
@@ -11,20 +11,29 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 
+namespace
+{
+const rclcpp::Logger& logger()
+{
+    static const auto kLogger = rclcpp::get_logger("amr_sweeper_odrive.socket_can");
+    return kLogger;
+}
+}
+
 bool SocketCanIntf::init(const std::string& interface, EpollEventLoop* event_loop, FrameProcessor frame_processor) {
     interface_ = interface;
     event_loop_ = event_loop;
     frame_processor_ = std::move(frame_processor);
     socket_id_ = socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
     if (socket_id_ == -1) {
-        std::cerr << "Failed to create socket" << std::endl;
+        RCLCPP_ERROR(logger(), "Failed to create SocketCAN socket on '%s': %s", interface_.c_str(), std::strerror(errno));
         return false;
     }
 
     struct ifreq ifr;
     std::strcpy(ifr.ifr_name, interface_.c_str());
     if (ioctl(socket_id_, SIOCGIFINDEX, &ifr) == -1) {
-        std::cerr << "Failed to get interface index" << std::endl;
+        RCLCPP_ERROR(logger(), "Failed to resolve SocketCAN interface '%s': %s", interface_.c_str(), std::strerror(errno));
         close(socket_id_);
         return false;
     }
@@ -34,7 +43,7 @@ bool SocketCanIntf::init(const std::string& interface, EpollEventLoop* event_loo
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
     if (bind(socket_id_, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == -1) {
-        std::cerr << "Failed to bind socket" << std::endl;
+        RCLCPP_ERROR(logger(), "Failed to bind SocketCAN interface '%s': %s", interface_.c_str(), std::strerror(errno));
         close(socket_id_);
         return false;
     }
@@ -57,7 +66,7 @@ bool SocketCanIntf::init(const std::string& interface, EpollEventLoop* event_loo
     }
 
     if (!event_loop_->register_event(&socket_evt_id_, socket_id_, EPOLLIN, [this](uint32_t mask) { on_socket_event(mask); })) {
-        std::cerr << "Failed to register socket with event loop" << std::endl;
+        RCLCPP_ERROR(logger(), "Failed to register SocketCAN fd for interface '%s' with event loop", interface_.c_str());
         close(socket_id_);
         socket_id_ = 0;
         return false;
@@ -77,7 +86,7 @@ void SocketCanIntf::deinit() {
 bool SocketCanIntf::send_can_frame(const can_frame& frame) {
     ssize_t nbytes = write(socket_id_, &frame, sizeof(frame));
     if (nbytes == -1) {
-        std::cerr << "Failed to send CAN frame" << std::endl;
+        RCLCPP_ERROR(logger(), "Failed to send CAN frame on '%s': %s", interface_.c_str(), std::strerror(errno));
         return false;
     }
 
@@ -89,12 +98,12 @@ void SocketCanIntf::on_socket_event(uint32_t mask) {
         while (read_nonblocking() && !broken_);
     }
     if (mask & EPOLLERR) {
-        std::cerr << "interface disappeared" << std::endl;
+        RCLCPP_ERROR(logger(), "SocketCAN interface '%s' disappeared", interface_.c_str());
         deinit();
         return;
     }
     if (mask & ~(EPOLLIN | EPOLLERR)) {
-        std::cerr << "unexpected event " << mask << std::endl;
+        RCLCPP_ERROR(logger(), "Unexpected epoll mask 0x%X on SocketCAN interface '%s'", mask, interface_.c_str());
         deinit();
         return;
     }
@@ -122,13 +131,13 @@ bool SocketCanIntf::read_nonblocking() {
             // std::cerr << "no message received" << std::endl;
             return false;
         } else {
-            std::cerr << "Socket read failed: " << std::endl;
+            RCLCPP_ERROR(logger(), "SocketCAN read failed on '%s': %s", interface_.c_str(), std::strerror(errno));
             return false;
         }
     }
 
     if (n_received < static_cast<ssize_t>(sizeof(struct can_frame))) {
-        std::cerr << "invalid message length " << n_received << std::endl;
+        RCLCPP_ERROR(logger(), "Invalid CAN frame length on '%s': %zd", interface_.c_str(), n_received);
         return true;
     }
 

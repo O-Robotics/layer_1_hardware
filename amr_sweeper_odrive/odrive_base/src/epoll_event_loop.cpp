@@ -1,4 +1,16 @@
 #include "epoll_event_loop.hpp"
+#include <rclcpp/rclcpp.hpp>
+#include <cerrno>
+#include <cstring>
+
+namespace
+{
+const rclcpp::Logger& logger()
+{
+    static const auto kLogger = rclcpp::get_logger("amr_sweeper_odrive.epoll");
+    return kLogger;
+}
+}
 
 EpollEventLoop::EpollEventLoop() {
     epollfd = epoll_create1(0);
@@ -62,7 +74,7 @@ bool EpollEvent::init(EpollEventLoop* event_loop, const Callback& callback) {
 
     if (!event_loop->register_event(&evt_, fd_, EPOLLIN, std::bind(&EpollEvent::on_trigger, this, _1))) {
         close(fd_);
-        std::cerr << "Failed to register event" << std::endl;
+        RCLCPP_ERROR(logger(), "Failed to register epoll eventfd: %s", std::strerror(errno));
         return false;
     }
 
@@ -84,7 +96,7 @@ bool EpollEvent::set() {
 void EpollEvent::on_trigger(uint32_t event_id) {
     uint64_t val;
     if (read(fd_, &val, sizeof(val)) != sizeof(val)) {
-        std::cerr << "Failed to read eventfd" << std::endl;
+        RCLCPP_ERROR(logger(), "Failed to read epoll eventfd: %s", std::strerror(errno));
         return;
     }
 

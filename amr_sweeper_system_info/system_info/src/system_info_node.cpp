@@ -1,6 +1,6 @@
 #include <chrono>
 #include <fstream>
-#include <iostream>
+#include <rcutils/logging_macros.h>
 #include <stdexcept>
 #include <string>
 
@@ -121,16 +121,23 @@ void SystemInfoPublisher::apply_key_value(
 
 int main(int argc, char * argv[])
 {
-  std::cout.setf(std::ios::unitbuf);
-  std::cout << "\033[2J\033[1;1H";
-  std::cout << "Loaded SystemInfoPublisher node. Please wait.\n";
-
   try {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<SystemInfoPublisher>());
+    auto node = std::make_shared<SystemInfoPublisher>();
+    RCLCPP_INFO(node->get_logger(), "Loaded SystemInfoPublisher node. Please wait.");
+    rclcpp::spin(node);
     rclcpp::shutdown();
   } catch (const std::exception & exception) {
-    std::fprintf(stderr, "Exception: %s\n", exception.what());
+    if (rclcpp::ok()) {
+      RCLCPP_FATAL(
+        rclcpp::get_logger("amr_sweeper_system_info_node"),
+        "Unhandled exception: %s", exception.what());
+      rclcpp::shutdown();
+    } else {
+      RCUTILS_LOG_FATAL_NAMED(
+        "amr_sweeper_system_info_node", "Unhandled exception before ROS startup: %s",
+        exception.what());
+    }
     return 1;
   }
   return 0;

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cerrno>
 #include <cstring>
 #include <string>
 
@@ -83,14 +84,20 @@ bool SteadyDriveCanNode::initialize_can_socket()
 {
   can_socket_ = ::socket(PF_CAN, SOCK_RAW, CAN_RAW);
   if (can_socket_ < 0) {
-    perror("Socket");
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN socket creation failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
     return false;
   }
 
   struct ifreq ifr {};
   std::strncpy(ifr.ifr_name, can_interface_.c_str(), IFNAMSIZ - 1);
   if (ioctl(can_socket_, SIOCGIFINDEX, &ifr) < 0) {
-    perror("ioctl");
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN ioctl(SIOCGIFINDEX) failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(can_socket_);
+    can_socket_ = -1;
     return false;
   }
 
@@ -99,7 +106,11 @@ bool SteadyDriveCanNode::initialize_can_socket()
   addr.can_ifindex = ifr.ifr_ifindex;
 
   if (bind(can_socket_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
-    perror("Bind");
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN bind failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(can_socket_);
+    can_socket_ = -1;
     return false;
   }
   return true;
@@ -126,12 +137,16 @@ bool SteadyDriveCanNode::send_can_command(
   frame.data[7] = byte7;
 
   if (::write(can_socket_, &frame, sizeof(frame)) != static_cast<ssize_t>(sizeof(frame))) {
-    perror("Write");
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN write failed for command 0x%02X on '%s': %s",
+      command_byte, can_interface_.c_str(), std::strerror(errno));
     return false;
   }
 
   if (::read(can_socket_, &response, sizeof(response)) < 0) {
-    perror("Read");
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN read failed for command 0x%02X on '%s': %s",
+      command_byte, can_interface_.c_str(), std::strerror(errno));
     return false;
   }
 

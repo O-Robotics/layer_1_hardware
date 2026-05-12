@@ -1,4 +1,6 @@
 #include <uxr/agent/transport/custom/CustomAgent.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <rcutils/logging_macros.h>
 
 #include <algorithm>
 #include <linux/can.h>
@@ -16,7 +18,6 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
-#include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -66,6 +67,16 @@ struct AgentContext
 };
 
 std::atomic_bool g_should_run{true};
+std::shared_ptr<rclcpp::Node> g_log_node;
+
+rclcpp::Logger get_logger()
+{
+    if (g_log_node)
+    {
+        return g_log_node->get_logger();
+    }
+    return rclcpp::get_logger("amr_sweeper_microros_classic_can_agent");
+}
 
 uint32_t parse_u32(const std::string& text)
 {
@@ -91,19 +102,19 @@ bool parse_bool(const std::string& text)
     throw std::invalid_argument("invalid boolean value: " + text);
 }
 
-Config parse_args(int argc, char** argv)
+Config parse_args(const std::vector<std::string>& args)
 {
     Config config;
-    for (int i = 1; i < argc; ++i)
+    for (std::size_t i = 1; i < args.size(); ++i)
     {
-        const std::string arg = argv[i];
+        const std::string& arg = args[i];
         auto require_value = [&](const std::string& name) -> std::string
         {
-            if (i + 1 >= argc)
+            if (i + 1 >= args.size())
             {
                 throw std::invalid_argument("missing value for " + name);
             }
-            return argv[++i];
+            return args[++i];
         };
 
         if (arg == "--can-interface")
@@ -162,7 +173,11 @@ bool open_socket(AgentContext& context)
     context.socket_fd = ::socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (context.socket_fd < 0)
     {
-        std::perror("socket");
+        RCLCPP_ERROR(
+            get_logger(),
+            "SocketCAN socket creation failed on '%s': %s",
+            context.config.can_interface.c_str(),
+            std::strerror(errno));
         return false;
     }
 
@@ -170,7 +185,11 @@ bool open_socket(AgentContext& context)
     std::strncpy(ifr.ifr_name, context.config.can_interface.c_str(), IFNAMSIZ - 1);
     if (ioctl(context.socket_fd, SIOCGIFINDEX, &ifr) < 0)
     {
-        std::perror("ioctl(SIOCGIFINDEX)");
+        RCLCPP_ERROR(
+            get_logger(),
+            "SocketCAN ioctl(SIOCGIFINDEX) failed on '%s': %s",
+            context.config.can_interface.c_str(),
+            std::strerror(errno));
         ::close(context.socket_fd);
         context.socket_fd = -1;
         return false;
@@ -181,7 +200,11 @@ bool open_socket(AgentContext& context)
     addr.can_ifindex = ifr.ifr_ifindex;
     if (bind(context.socket_fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
     {
-        std::perror("bind");
+        RCLCPP_ERROR(
+            get_logger(),
+            "SocketCAN bind failed on '%s': %s",
+            context.config.can_interface.c_str(),
+            std::strerror(errno));
         ::close(context.socket_fd);
         context.socket_fd = -1;
         return false;
@@ -415,8 +438,11 @@ int main(int argc, char** argv)
 {
     try
     {
+        const auto args = rclcpp::init_and_remove_ros_arguments(argc, argv);
+        g_log_node = std::make_shared<rclcpp::Node>("amr_sweeper_microros_classic_can_agent");
+
         AgentContext context;
-        context.config = parse_args(argc, argv);
+        context.config = parse_args(args);
 
         std::signal(SIGINT, signal_handler);
         std::signal(SIGTERM, signal_handler);
@@ -485,11 +511,25 @@ int main(int argc, char** argv)
         }
 
         custom_agent.stop();
+        g_log_node.reset();
+        rclcpp::shutdown();
         return 0;
     }
     catch (const std::exception& error)
     {
-        std::cerr << error.what() << std::endl;
+        if (rclcpp::ok())
+        {
+            RCLCPP_FATAL(get_logger(), "Unhandled exception: %s", error.what());
+            g_log_node.reset();
+            rclcpp::shutdown();
+        }
+        else
+        {
+            RCUTILS_LOG_FATAL_NAMED(
+                "amr_sweeper_microros_classic_can_agent",
+                "Unhandled exception before ROS startup: %s",
+                error.what());
+        }
         return 1;
     }
 }
