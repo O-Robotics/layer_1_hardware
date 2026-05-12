@@ -1,8 +1,9 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, TimerAction
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler, TimerAction
 from launch.conditions import UnlessCondition
+from launch.event_handlers import OnProcessStart
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -39,7 +40,13 @@ def generate_launch_description():
     joint_broad_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["joint_broad"],
+        arguments=[
+            "joint_broad",
+            "--controller-manager",
+            ["/", namespace, "/controller_manager"],
+            "--controller-manager-timeout",
+            "60",
+        ],
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
         output="screen",
@@ -48,7 +55,15 @@ def generate_launch_description():
     diff_drive_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["diff_cont", "--param-file", ros2_control_config_file],
+        arguments=[
+            "diff_cont",
+            "--controller-manager",
+            ["/", namespace, "/controller_manager"],
+            "--controller-manager-timeout",
+            "60",
+            "--param-file",
+            ros2_control_config_file,
+        ],
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
         output="screen",
@@ -57,10 +72,54 @@ def generate_launch_description():
     steadydrive_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["controller_steadydrive", "--param-file", ros2_control_config_file],
+        arguments=[
+            "controller_steadydrive",
+            "--controller-manager",
+            ["/", namespace, "/controller_manager"],
+            "--controller-manager-timeout",
+            "60",
+            "--param-file",
+            ros2_control_config_file,
+        ],
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
         output="screen",
+    )
+
+    delayed_joint_broad_spawner = RegisterEventHandler(
+        OnProcessStart(
+            target_action=controller_manager,
+            on_start=[
+                TimerAction(
+                    period=2.0,
+                    actions=[joint_broad_spawner],
+                ),
+            ],
+        )
+    )
+
+    delayed_diff_drive_spawner = RegisterEventHandler(
+        OnProcessStart(
+            target_action=controller_manager,
+            on_start=[
+                TimerAction(
+                    period=4.0,
+                    actions=[diff_drive_spawner],
+                ),
+            ],
+        )
+    )
+
+    delayed_steadydrive_spawner = RegisterEventHandler(
+        OnProcessStart(
+            target_action=controller_manager,
+            on_start=[
+                TimerAction(
+                    period=6.0,
+                    actions=[steadydrive_spawner],
+                ),
+            ],
+        )
     )
 
     return LaunchDescription([
@@ -79,7 +138,7 @@ def generate_launch_description():
             ),
         ),
         delayed_controller_manager,
-        joint_broad_spawner,
-        diff_drive_spawner,
-        steadydrive_spawner,
+        delayed_joint_broad_spawner,
+        delayed_diff_drive_spawner,
+        delayed_steadydrive_spawner,
     ])

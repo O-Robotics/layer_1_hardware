@@ -14,9 +14,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rmw/qos_profiles.h"
 #include "rclcpp_components/register_node_macro.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "sensor_msgs/msg/nav_sat_status.hpp"
@@ -65,6 +67,9 @@ public:
     if (!has_parameter("use_hacc_vacc_covariance_floor")) {
       declare_parameter("use_hacc_vacc_covariance_floor", true);
     }
+    if (!has_parameter("navsat_reliability")) {
+      declare_parameter("navsat_reliability", "reliable");
+    }
 
     min_fix_type_ = get_parameter("min_fix_type").as_int();
     min_horizontal_stddev_m_ = get_parameter("min_horizontal_stddev_m").as_double();
@@ -72,11 +77,24 @@ public:
     horizontal_covariance_scale_ = get_parameter("horizontal_covariance_scale").as_double();
     vertical_covariance_scale_ = get_parameter("vertical_covariance_scale").as_double();
     use_hacc_vacc_covariance_floor_ = get_parameter("use_hacc_vacc_covariance_floor").as_bool();
+    const auto navsat_reliability = get_parameter("navsat_reliability").as_string();
 
     auto qos = rclcpp::SensorDataQoS();
+    auto navsat_qos = rclcpp::QoS(qos);
+    if (navsat_reliability == "best_effort") {
+      navsat_qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+    } else {
+      if (navsat_reliability != "reliable") {
+        RCLCPP_WARN(
+          this->get_logger(),
+          "Unknown navsat_reliability '%s'. Falling back to reliable.",
+          navsat_reliability.c_str());
+      }
+      navsat_qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
+    }
 
     // Create publishers
-    nav_sat_fix_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("fix", qos);
+    nav_sat_fix_pub_ = this->create_publisher<sensor_msgs::msg::NavSatFix>("fix", navsat_qos);
 
     // Create subscribers
     ubx_nav_hp_pos_llh_sub_ = this->create_subscription<amr_sweeper_gnss::msg::UBXNavHPPosLLH>(
