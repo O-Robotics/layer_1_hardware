@@ -13,7 +13,7 @@
       <command_interface name="velocity"/>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
-      <param name="gear_ratio">1.0</param>
+      <param name="gear_ratio">10.0</param>
       <param name="positive_motor_direction">CCW</param>
     </joint>
 

@@ -42,5 +42,5 @@
     command_interfaces:
       - velocity
     state_interfaces:
-      - velocity
       - position
+      - velocity
