@@ -7,6 +7,7 @@ ros2 launch amr_sweeper_layer_1_hardware_bringup amr_sweeper_layer_1_hardware_br
 Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_layer_1_hardware_bringup`
 - `amr_sweeper_battery`
+- `amr_sweeper_depth_camera`
 - `amr_sweeper_description`
 - `amr_sweeper_gnss`
 - `amr_sweeper_imu`
@@ -17,7 +18,7 @@ Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_usb_cameras`
 
 ## Purpose
-This repository is the real-robot hardware layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, battery monitoring, GNSS, IMU, USB cameras, and system-health publishing.
+This repository is the real-robot hardware layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, battery monitoring, GNSS, IMU, USB cameras, depth-camera laser-scan conversion, and system-health publishing.
 
 ## Launch Arguments
 - `robot_namespace`: default `amr_sweeper`
@@ -28,6 +29,7 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `use_battery_node`: default `true`
 - `use_system_info_node`: default `true`
 - `use_usb_cameras`: default `true`
+- `use_depth_camera`: default `true`
 - `use_microros`: default `false`
 - `use_imu_node`: default `true`
 - `use_gnss_rover`: default `true`
