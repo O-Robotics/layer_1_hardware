@@ -9,7 +9,6 @@ namespace {
     constexpr int LEFT_MOTOR_INDEX = 0;
     constexpr int RIGHT_MOTOR_INDEX = 1;
     constexpr double RAD_TO_DEG = 180.0 / M_PI;
-    constexpr double VELOCITY_DEADBAND_RAD_PER_SEC = 0.02;
 
     double parse_positive_motor_direction_sign(const std::string & direction, const std::string & joint_name)
     {
@@ -283,17 +282,10 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_deactivate(c
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
-hardware_interface::return_type SteadydriveHardwareInterface::read(const rclcpp::Time & /*time*/, const rclcpp::Duration & period)
+hardware_interface::return_type SteadydriveHardwareInterface::read(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Reading from hardware");
   updateJointsFromHardware();
-  const double dt = period.seconds();
-  for (auto i = 0u; i < num_joints_; ++i) {
-    if (std::abs(velocity_states_[i]) < VELOCITY_DEADBAND_RAD_PER_SEC) {
-      velocity_states_[i] = 0.0;
-    }
-    position_states_[i] += velocity_states_[i] * dt;
-  }
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Joints successfully read!");
   return hardware_interface::return_type::OK;
 }
@@ -313,6 +305,9 @@ void SteadydriveHardwareInterface::callback_motor_state_left(const sensor_msgs::
         velocity_states_[LEFT_MOTOR_INDEX] =
           msg->velocity[0] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX] /
           gear_ratios_[LEFT_MOTOR_INDEX];
+        position_states_[LEFT_MOTOR_INDEX] =
+          msg->position[0] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX] /
+          gear_ratios_[LEFT_MOTOR_INDEX];
     }
     else
     {
@@ -326,6 +321,9 @@ void SteadydriveHardwareInterface::callback_motor_state_right(const sensor_msgs:
     {
         velocity_states_[RIGHT_MOTOR_INDEX] =
           msg->velocity[0] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX] /
+          gear_ratios_[RIGHT_MOTOR_INDEX];
+        position_states_[RIGHT_MOTOR_INDEX] =
+          msg->position[0] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX] /
           gear_ratios_[RIGHT_MOTOR_INDEX];
     }
     else

@@ -23,6 +23,7 @@ def generate_launch_description():
     robot_description = ParameterValue(Command([
         'xacro ',
         xacro_file,
+        ' robot_namespace:=', namespace,
         ' use_ros2_control:=', use_ros2_control,
         ' enable_usb_cameras:=', enable_usb_cameras,
         ' enable_gnss:=', enable_gnss,

@@ -2,6 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="amr_sweeper">
 
   <xacro:arg name="use_ros2_control" default="true"/>
+  <xacro:arg name="robot_namespace" default="amr_sweeper"/>
   <xacro:arg name="enable_usb_cameras" default="true"/>
   <xacro:arg name="enable_gnss" default="true"/>
   <xacro:arg name="enable_imu" default="true"/>
