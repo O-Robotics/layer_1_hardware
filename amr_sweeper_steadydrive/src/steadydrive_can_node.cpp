@@ -12,6 +12,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 namespace
@@ -120,6 +121,44 @@ bool SteadyDriveCanNode::initialize_can_socket()
   addr.can_family = AF_CAN;
   addr.can_ifindex = ifr.ifr_ifindex;
 
+  // Only receive frames for this motor node and avoid reading back our own writes.
+  can_filter filter{};
+  filter.can_id = motor_can_id_;
+  filter.can_mask = CAN_SFF_MASK;
+  if (setsockopt(can_socket_, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter)) < 0) {
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN filter setup failed for 0x%03X on '%s': %s",
+      motor_can_id_, can_interface_.c_str(), std::strerror(errno));
+    ::close(can_socket_);
+    can_socket_ = -1;
+    return false;
+  }
+
+  const int recv_own_msgs = 0;
+  if (setsockopt(
+      can_socket_, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
+      &recv_own_msgs, sizeof(recv_own_msgs)) < 0)
+  {
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN own-message suppression failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(can_socket_);
+    can_socket_ = -1;
+    return false;
+  }
+
+  timeval read_timeout{};
+  read_timeout.tv_sec = 0;
+  read_timeout.tv_usec = 200000;
+  if (setsockopt(can_socket_, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof(read_timeout)) < 0) {
+    RCLCPP_ERROR(
+      this->get_logger(), "SocketCAN receive timeout setup failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(can_socket_);
+    can_socket_ = -1;
+    return false;
+  }
+
   if (bind(can_socket_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
     RCLCPP_ERROR(
       this->get_logger(), "SocketCAN bind failed on '%s': %s",
@@ -158,14 +197,39 @@ bool SteadyDriveCanNode::send_can_command(
     return false;
   }
 
-  if (::read(can_socket_, &response, sizeof(response)) < 0) {
-    RCLCPP_ERROR(
-      this->get_logger(), "SocketCAN read failed for command 0x%02X on '%s': %s",
-      command_byte, can_interface_.c_str(), std::strerror(errno));
-    return false;
+  for (int attempt = 0; attempt < 5; ++attempt) {
+    const ssize_t bytes_read = ::read(can_socket_, &response, sizeof(response));
+    if (bytes_read < 0) {
+      RCLCPP_ERROR(
+        this->get_logger(), "SocketCAN read failed for command 0x%02X on '%s': %s",
+        command_byte, can_interface_.c_str(), std::strerror(errno));
+      return false;
+    }
+
+    if (bytes_read != static_cast<ssize_t>(sizeof(response))) {
+      continue;
+    }
+
+    if (response.can_id != motor_can_id_) {
+      continue;
+    }
+
+    if (response.data[0] != command_byte) {
+      RCLCPP_DEBUG(
+        this->get_logger(),
+        "Skipping CAN frame for 0x%03X with unexpected command byte 0x%02X while waiting for 0x%02X",
+        motor_can_id_, response.data[0], command_byte);
+      continue;
+    }
+
+    return true;
   }
 
-  return true;
+  RCLCPP_ERROR(
+    this->get_logger(),
+    "SocketCAN did not receive a valid response for command 0x%02X from 0x%03X on '%s'",
+    command_byte, motor_can_id_, can_interface_.c_str());
+  return false;
 }
 
 void SteadyDriveCanNode::joint_state_update_callback()
