@@ -1,9 +1,14 @@
 #include "steadydrive_hw_interface/robot_hardware_interface_steadydrive.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+
 // Replace defines with constexpr for motor indices
 namespace {
     constexpr int LEFT_MOTOR_INDEX = 0;
     constexpr int RIGHT_MOTOR_INDEX = 1;
+    constexpr double RAD_TO_DEG = 180.0 / M_PI;
 
     double parse_positive_motor_direction_sign(const std::string & direction, const std::string & joint_name)
     {
@@ -25,6 +30,26 @@ namespace {
         direction.c_str(),
         joint_name.c_str());
       return 1.0;
+    }
+
+    double parse_gear_ratio(const hardware_interface::ComponentInfo & joint)
+    {
+      const auto it = joint.parameters.find("gear_ratio");
+      if (it == joint.parameters.end()) {
+        return 1.0;
+      }
+
+      try {
+        const double ratio = std::stod(it->second);
+        if (ratio <= 0.0) {
+          throw std::out_of_range("gear_ratio must be positive");
+        }
+        return ratio;
+      } catch (const std::exception & error) {
+        throw std::runtime_error(
+                "Joint '" + joint.name + "' has invalid gear_ratio '" + it->second + "': " +
+                error.what());
+      }
     }
 }
 
@@ -50,6 +75,7 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(const h
   velocity_states_.resize(num_joints_);
   position_states_.resize(num_joints_);
   positive_motor_direction_signs_.resize(num_joints_, 1.0);
+  gear_ratios_.resize(num_joints_, 1.0);
 
   if(num_joints_ != 2)
   {
@@ -59,12 +85,17 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(const h
 
   try
   {
+    if (validateJoints() != hardware_interface::CallbackReturn::SUCCESS) {
+      return hardware_interface::CallbackReturn::ERROR;
+    }
+
     for (size_t i = 0; i < info_.joints.size(); ++i) {
       const auto & joint = info_.joints[i];
       const auto it = joint.parameters.find("positive_motor_direction");
       const std::string positive_motor_direction = it != joint.parameters.end() ? it->second : "CCW";
       positive_motor_direction_signs_[i] =
         parse_positive_motor_direction_sign(positive_motor_direction, joint.name);
+      gear_ratios_[i] = parse_gear_ratio(joint);
     }
 
     std::string topic_speed_output_left = info_.hardware_parameters.at("topic_speed_output_left");
@@ -111,14 +142,18 @@ void SteadydriveHardwareInterface::writeCommandsToHardware()
 {
   std_msgs::msg::Float32 msg_left;
   std_msgs::msg::Float32 msg_right;
-  msg_left.data = velocity_commands_[LEFT_MOTOR_INDEX] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX];
-  msg_right.data = velocity_commands_[RIGHT_MOTOR_INDEX] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX];
+  msg_left.data = static_cast<float>(
+    velocity_commands_[LEFT_MOTOR_INDEX] * gear_ratios_[LEFT_MOTOR_INDEX] * RAD_TO_DEG *
+    positive_motor_direction_signs_[LEFT_MOTOR_INDEX]);
+  msg_right.data = static_cast<float>(
+    velocity_commands_[RIGHT_MOTOR_INDEX] * gear_ratios_[RIGHT_MOTOR_INDEX] * RAD_TO_DEG *
+    positive_motor_direction_signs_[RIGHT_MOTOR_INDEX]);
   publisher_left_->publish(msg_left);
   publisher_right_->publish(msg_right);
 
   RCLCPP_DEBUG(
     rclcpp::get_logger(hw_name_),
-    "Publishing command velocities (L: %f, R: %f)",
+    "Publishing motor command velocities in deg/s (L: %f, R: %f)",
     msg_left.data, msg_right.data);
 
 
@@ -267,8 +302,12 @@ void SteadydriveHardwareInterface::callback_motor_state_left(const sensor_msgs::
 {
     if (msg->velocity.size() > 0 && msg->position.size() > 0)
     {
-        velocity_states_[LEFT_MOTOR_INDEX] = msg->velocity[0];
-        position_states_[LEFT_MOTOR_INDEX] = msg->position[0];
+        velocity_states_[LEFT_MOTOR_INDEX] =
+          msg->velocity[0] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX] /
+          gear_ratios_[LEFT_MOTOR_INDEX];
+        position_states_[LEFT_MOTOR_INDEX] =
+          msg->position[0] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX] /
+          gear_ratios_[LEFT_MOTOR_INDEX];
     }
     else
     {
@@ -280,8 +319,12 @@ void SteadydriveHardwareInterface::callback_motor_state_right(const sensor_msgs:
 {
     if (msg->velocity.size() > 0 && msg->position.size() > 0)
     {
-        velocity_states_[RIGHT_MOTOR_INDEX] = msg->velocity[0];
-        position_states_[RIGHT_MOTOR_INDEX] = msg->position[0];
+        velocity_states_[RIGHT_MOTOR_INDEX] =
+          msg->velocity[0] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX] /
+          gear_ratios_[RIGHT_MOTOR_INDEX];
+        position_states_[RIGHT_MOTOR_INDEX] =
+          msg->position[0] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX] /
+          gear_ratios_[RIGHT_MOTOR_INDEX];
     }
     else
     {

@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cerrno>
+#include <cmath>
 #include <cstring>
+#include <cstdint>
 #include <string>
 
 #include <linux/can/raw.h>
@@ -11,6 +13,19 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+namespace
+{
+constexpr double TWO_PI = 2.0 * M_PI;
+constexpr double DEG_TO_RAD = M_PI / 180.0;
+constexpr double ENCODER_COUNTS_PER_REV = 16384.0;
+constexpr double RAD_PER_COUNT = TWO_PI / ENCODER_COUNTS_PER_REV;
+
+int16_t decode_signed_16bit(uint8_t low_byte, uint8_t high_byte)
+{
+  return static_cast<int16_t>(static_cast<uint16_t>(low_byte) | (static_cast<uint16_t>(high_byte) << 8));
+}
+}
 
 SteadyDriveCanNode::SteadyDriveCanNode()
 : Node("steadymotor_driver")
@@ -157,16 +172,44 @@ void SteadyDriveCanNode::joint_state_update_callback()
 {
   struct can_frame response_frame {};
   if (send_can_command(0x9C, response_frame)) {
+    const int16_t torque_current = decode_signed_16bit(response_frame.data[2], response_frame.data[3]);
+    const int16_t speed_deg_per_sec = decode_signed_16bit(response_frame.data[4], response_frame.data[5]);
+    const uint16_t encoder_position_raw =
+      (static_cast<uint16_t>(response_frame.data[6]) |
+      (static_cast<uint16_t>(response_frame.data[7]) << 8)) & 0x3fff;
+
     sensor_msgs::msg::JointState joint_state_msg;
     joint_state_msg.header.stamp = this->now();
     joint_state_msg.name.push_back("motor");
-    joint_state_msg.position.push_back(response_frame.data[2] | (response_frame.data[3] << 8));
-    joint_state_msg.velocity.push_back(response_frame.data[4] | (response_frame.data[5] << 8));
-    joint_state_msg.effort.push_back((response_frame.data[6] | (response_frame.data[7] << 8)) & 0x3fff);
+    joint_state_msg.position.push_back(unwrap_encoder_position_rad(encoder_position_raw));
+    joint_state_msg.velocity.push_back(static_cast<double>(speed_deg_per_sec) * DEG_TO_RAD);
+    joint_state_msg.effort.push_back(static_cast<double>(torque_current));
     joint_state_publisher_->publish(joint_state_msg);
   } else {
     RCLCPP_ERROR(this->get_logger(), "Failed to read joint state.");
   }
+}
+
+double SteadyDriveCanNode::unwrap_encoder_position_rad(uint16_t encoder_position_raw)
+{
+  if (!last_encoder_position_raw_) {
+    last_encoder_position_raw_ = encoder_position_raw;
+    accumulated_motor_position_rad_ = static_cast<double>(encoder_position_raw) * RAD_PER_COUNT;
+    return accumulated_motor_position_rad_;
+  }
+
+  int delta_counts = static_cast<int>(encoder_position_raw) - static_cast<int>(*last_encoder_position_raw_);
+  const int half_turn_counts = static_cast<int>(ENCODER_COUNTS_PER_REV / 2.0);
+
+  if (delta_counts > half_turn_counts) {
+    delta_counts -= static_cast<int>(ENCODER_COUNTS_PER_REV);
+  } else if (delta_counts < -half_turn_counts) {
+    delta_counts += static_cast<int>(ENCODER_COUNTS_PER_REV);
+  }
+
+  accumulated_motor_position_rad_ += static_cast<double>(delta_counts) * RAD_PER_COUNT;
+  last_encoder_position_raw_ = encoder_position_raw;
+  return accumulated_motor_position_rad_;
 }
 
 void SteadyDriveCanNode::motor_off_callback(

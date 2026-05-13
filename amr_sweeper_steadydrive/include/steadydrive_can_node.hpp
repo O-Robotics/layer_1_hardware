@@ -3,6 +3,7 @@
 
 #include <optional>
 #include <string>
+#include <cstdint>
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
@@ -53,11 +54,14 @@ private:
 
   void speed_control_callback(const std_msgs::msg::Float32::SharedPtr msg);
   void torque_control_callback(const std_msgs::msg::Float32::SharedPtr msg);
+  double unwrap_encoder_position_rad(uint16_t encoder_position_raw);
 
   int can_socket_{-1};
   std::string can_interface_;
   uint32_t motor_can_id_{0x141};
   std::optional<float> last_logged_speed_dps_;
+  std::optional<uint16_t> last_encoder_position_raw_;
+  double accumulated_motor_position_rad_{0.0};
   bool motor_enabled_{false};
 
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr motor_off_service_;
