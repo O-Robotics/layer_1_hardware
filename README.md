@@ -48,6 +48,7 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `imu_baud`: default `9600`
 - `odrive_interface`: default `can0`
 - `odrive_node_id`: default `0`
+- `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
 Layer 1 is the base runtime layer for the rest of the stack. It is responsible for making the robot's hardware available as ROS 2 topics, services, and ros2_control interfaces. Layer 2 controllers and layer 3 navigation depend on this layer to provide odometry, transforms, actuator interfaces, and sensor data. This includes the optional vendor-style custom classic-CAN micro-ROS agent package. When enabled, the micro-ROS agent is launched first so downstream hardware packages can depend on it before the rest of layer 1 comes up.
@@ -59,3 +60,4 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - The micro-ROS agent uses `microros_can_interface`, `microros_request_id_min`, `microros_request_id_max`, `microros_reply_id_offset`, and `microros_same_id_reply` to map XRCE-DDS traffic onto classic CAN identifiers.
 - The layer 1 ros2_control bringup relies on `robot_state_publisher` for the `robot_description` topic instead of passing the description directly into `ros2_control_node`.
 - Controller spawners in the layer 1 ros2_control launch load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml`, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.
+- The robot description entrypoint is `amr_sweeper_description.launch.py`, which also owns the default controller-config path used by the bringup.

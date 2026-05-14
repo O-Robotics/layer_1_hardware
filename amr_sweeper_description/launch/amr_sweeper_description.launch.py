@@ -19,6 +19,7 @@ def generate_launch_description():
 
     pkg_path = get_package_share_directory('amr_sweeper_description')
     xacro_file = os.path.join(pkg_path, 'urdf', 'robot', 'robot.urdf.xacro')
+    default_ros2_control_file = os.path.join(pkg_path, 'urdf', 'control', 'ros2_control.yaml')
 
     robot_description = ParameterValue(Command([
         'xacro ',
@@ -35,6 +36,8 @@ def generate_launch_description():
         DeclareLaunchArgument('robot_namespace', default_value='amr_sweeper'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('use_ros2_control', default_value='true'),
+        # The description package owns the default controller config path used by layer 1 bringup.
+        DeclareLaunchArgument('ros2_control_config_file', default_value=default_ros2_control_file),
         DeclareLaunchArgument('enable_usb_cameras', default_value='true'),
         DeclareLaunchArgument('enable_gnss', default_value='true'),
         DeclareLaunchArgument('enable_imu', default_value='true'),

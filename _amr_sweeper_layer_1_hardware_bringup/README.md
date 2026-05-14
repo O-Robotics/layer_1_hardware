@@ -54,12 +54,14 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `imu_baud`: default `9600`
 - `odrive_interface`: default `can0`
 - `odrive_node_id`: default `0`
+- `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
 The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. When enabled, the custom classic-CAN micro-ROS agent is launched first so dependent hardware packages can rely on it before the rest of layer 1 comes up. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera laser-scan conversion, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node. The USB camera nodes are launched under `/amr_sweeper/usb_cameras/<camera_name>`, while the depth camera conversion node is launched under `/amr_sweeper/depth_camera`.
 
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.
+- `amr_sweeper_description.launch.py` is the robot description entrypoint used by the main bringup.
 - `amr_sweeper_ros2_control.launch.py` is the lower-level ros2_control launch used by the main bringup.
 - `amr_sweeper_ros2_control.launch.py` expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
 - The ros2_control controller spawners load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml` with `--param-file`.

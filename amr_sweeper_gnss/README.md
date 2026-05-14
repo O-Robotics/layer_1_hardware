@@ -23,8 +23,8 @@ implementation comes from the dependency packages:
   Example install:
 
 ```bash
-git clone https://github.com/tilk/rtcm_msgs.git 
 git clone https://github.com/aussierobots/ublox_dgnss
+git clone https://github.com/tilk/rtcm_msgs.git 
 ```
 
 ## Main Launch File

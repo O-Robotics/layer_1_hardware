@@ -52,6 +52,7 @@ def generate_launch_description():
     odrive_node_id = LaunchConfiguration("odrive_node_id")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
+    ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("robot_namespace", default_value="amr_sweeper"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
@@ -88,6 +89,12 @@ def generate_launch_description():
         "config",
         "ntrip_client.yaml",
     ])))
+    ld.add_action(DeclareLaunchArgument("ros2_control_config_file", default_value=PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_description"),
+        "urdf",
+        "control",
+        "ros2_control.yaml",
+    ])))
     # Start micro-ROS first so downstream CAN-connected hardware nodes can depend on it.
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_microros", "microros_agent.launch.py")),
@@ -105,11 +112,14 @@ def generate_launch_description():
     ))
 
     ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_description", "rsp.launch.py")),
+        PythonLaunchDescriptionSource(
+            _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
+        ),
         launch_arguments={
             "robot_namespace": robot_namespace,
             "use_sim_time": use_sim_time,
             "use_ros2_control": use_ros2_control,
+            "ros2_control_config_file": ros2_control_config_file,
             "enable_usb_cameras": use_usb_cameras,
             "enable_gnss": use_gnss_rover,
             "enable_imu": use_imu_node,
@@ -177,6 +187,7 @@ def generate_launch_description():
         launch_arguments={
             "namespace": robot_namespace,
             "use_sim_time": use_sim_time,
+            "ros2_control_config_file": ros2_control_config_file,
             "use_ros2_control": use_ros2_control,
             "enable_usb_cameras": use_usb_cameras,
             "enable_gnss": use_gnss_rover,
