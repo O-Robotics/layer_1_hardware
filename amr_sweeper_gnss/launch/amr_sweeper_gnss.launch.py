@@ -61,27 +61,30 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "ntrip_use_https",
-            default_value=TextSubstitution(text="true"),
+            default_value=TextSubstitution(text="false"),
         ),
         DeclareLaunchArgument(
             "ntrip_host",
-            default_value=TextSubstitution(text="ntrip.data.gnss.ga.gov.au"),
+            default_value=TextSubstitution(text="rtk2go.com"),
         ),
         DeclareLaunchArgument(
             "ntrip_port",
-            default_value=TextSubstitution(text="443"),
+            default_value=TextSubstitution(text="2101"),
         ),
         DeclareLaunchArgument(
             "ntrip_mountpoint",
-            default_value=TextSubstitution(text="MBCH00AUS0"),
+            default_value=TextSubstitution(text="REPLACE_WITH_RTK2GO_MOUNTPOINT"),
         ),
         DeclareLaunchArgument(
             "ntrip_username",
-            default_value=EnvironmentVariable(name="NTRIP_USERNAME", default_value="noname"),
+            default_value=EnvironmentVariable(
+                name="NTRIP_USERNAME",
+                default_value="REPLACE_WITH_VALID_EMAIL",
+            ),
         ),
         DeclareLaunchArgument(
             "ntrip_password",
-            default_value=EnvironmentVariable(name="NTRIP_PASSWORD", default_value="password"),
+            default_value=EnvironmentVariable(name="NTRIP_PASSWORD", default_value="none"),
         ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(_launch_file("ublox_rover_hpposllh_navsatfix.launch.py")),

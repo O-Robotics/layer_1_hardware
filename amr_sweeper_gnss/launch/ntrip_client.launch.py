@@ -16,22 +16,26 @@ def generate_launch_description():
         'use_ntrip_client_node', default_value=TextSubstitution(text='true')
     )
     use_https_arg = DeclareLaunchArgument(
-        'use_https', default_value=TextSubstitution(text='true')
+        'use_https', default_value=TextSubstitution(text='false')
     )
     host_arg = DeclareLaunchArgument(
-        'host', default_value=TextSubstitution(text='ntrip.data.gnss.ga.gov.au')
+        'host', default_value=TextSubstitution(text='rtk2go.com')
     )
     port_arg = DeclareLaunchArgument(
-        'port', default_value=TextSubstitution(text='443')
+        'port', default_value=TextSubstitution(text='2101')
     )
     mountpoint_arg = DeclareLaunchArgument(
-        'mountpoint', default_value=TextSubstitution(text='MBCH00AUS0')
+        'mountpoint', default_value=TextSubstitution(text='REPLACE_WITH_RTK2GO_MOUNTPOINT')
     )
     username_arg = DeclareLaunchArgument(
-        'username', default_value=EnvironmentVariable(name='NTRIP_USERNAME', default_value='noname')
+        'username',
+        default_value=EnvironmentVariable(
+            name='NTRIP_USERNAME',
+            default_value='REPLACE_WITH_VALID_EMAIL',
+        )
     )
     password_arg = DeclareLaunchArgument(
-        'password', default_value=EnvironmentVariable(name='NTRIP_PASSWORD', default_value='password')
+        'password', default_value=EnvironmentVariable(name='NTRIP_PASSWORD', default_value='none')
     )
     params_file_arg = DeclareLaunchArgument(
         'params_file',

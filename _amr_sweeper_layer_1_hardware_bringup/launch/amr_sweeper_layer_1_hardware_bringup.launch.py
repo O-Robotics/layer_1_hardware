@@ -94,18 +94,18 @@ def generate_launch_description():
         "config",
         "ntrip_client.yaml",
     ])))
-    ld.add_action(DeclareLaunchArgument("ntrip_host", default_value="ntrip.data.gnss.ga.gov.au"))
-    ld.add_action(DeclareLaunchArgument("ntrip_port", default_value="443"))
-    ld.add_action(DeclareLaunchArgument("ntrip_mountpoint", default_value="MBCH00AUS0"))
+    ld.add_action(DeclareLaunchArgument("ntrip_host", default_value="rtk2go.com"))
+    ld.add_action(DeclareLaunchArgument("ntrip_port", default_value="2101"))
+    ld.add_action(DeclareLaunchArgument("ntrip_mountpoint", default_value="REPLACE_WITH_RTK2GO_MOUNTPOINT"))
     ld.add_action(DeclareLaunchArgument(
         "ntrip_username",
-        default_value=EnvironmentVariable(name="NTRIP_USERNAME", default_value="noname"),
+        default_value=EnvironmentVariable(name="NTRIP_USERNAME", default_value="REPLACE_WITH_VALID_EMAIL"),
     ))
     ld.add_action(DeclareLaunchArgument(
         "ntrip_password",
-        default_value=EnvironmentVariable(name="NTRIP_PASSWORD", default_value="password"),
+        default_value=EnvironmentVariable(name="NTRIP_PASSWORD", default_value="none"),
     ))
-    ld.add_action(DeclareLaunchArgument("ntrip_use_https", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("ntrip_use_https", default_value="false"))
 
     # Start micro-ROS first so downstream CAN-connected hardware nodes can depend on it.
     ld.add_action(IncludeLaunchDescription(
