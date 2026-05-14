@@ -13,7 +13,7 @@ Dependencies to other AMR Sweeper packages:
 ## Main Launch File
 `launch/amr_sweeper_gnss.launch.py`
 
-# Launch Arguments
+### Launch Arguments
 - `use_ublox_dgnss_node`: default `true`
 - `use_ublox_nav_sat_fix_hp`: default `true`
 - `use_ntrip_client`: default `false`
@@ -27,7 +27,7 @@ This launch starts the standard AMR Sweeper GNSS stack:
 - Optional `NTRIPClientNode` when `use_ntrip_client:=true` for RTCM correction streaming from an NTRIP caster
 
 
-# Notes
+### Notes
 - This package is normally launched through layer 1 bringup rather than by itself.
 - Layer 3 localization depends on the GNSS topics produced by this package.
 
@@ -43,7 +43,7 @@ This launch starts the standard AMR Sweeper GNSS stack:
 
 
 ## NTRIP Caster Configuration
-The NTRIP client launch now supports a YAML parameter file for caster details.
+The NTRIP client launch supports a YAML parameter file for caster details.
 
 Installed default config:
 - `share/amr_sweeper_gnss/config/ntrip_client.yaml`
@@ -59,7 +59,6 @@ export NTRIP_PASSWORD=your_password
 
 ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py \
   namespace:=amr_sweeper \
-  use_ntrip_client:=true \
   ntrip_params_file:=/absolute/path/to/ntrip_client.yaml
 ```
 
