@@ -72,7 +72,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_microros", default_value="false"))
     ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="false"))
+    ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_steadydrive_can_nodes", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_odrive_node", default_value="false"))
 

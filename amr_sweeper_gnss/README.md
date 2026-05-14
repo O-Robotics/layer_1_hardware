@@ -16,7 +16,7 @@ Dependencies to other AMR Sweeper packages:
 ### Launch Arguments
 - `use_ublox_dgnss_node`: default `true`
 - `use_ublox_nav_sat_fix_hp`: default `true`
-- `use_ntrip_client`: default `false`
+- `use_ntrip_client`: default `true`
 - `ntrip_params_file`: default `config/ntrip_client.yaml`
 - `namespace`: default `amr_sweeper`
 - `gnss_frame_id`: default `gnss_link`
