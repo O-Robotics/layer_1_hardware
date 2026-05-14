@@ -2,7 +2,9 @@
 import launch
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
+from launch.substitutions import PathJoinSubstitution
 from launch.substitutions import EnvironmentVariable, LaunchConfiguration, TextSubstitution
+from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
@@ -31,18 +33,29 @@ def generate_launch_description():
     password_arg = DeclareLaunchArgument(
         'password', default_value=EnvironmentVariable(name='NTRIP_PASSWORD', default_value='password')
     )
+    params_file_arg = DeclareLaunchArgument(
+        'params_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('amr_sweeper_gnss'),
+            'config',
+            'ntrip_client.yaml',
+        ]),
+    )
     namespace_arg = DeclareLaunchArgument(
         'namespace', default_value=TextSubstitution(text='amr_sweeper')
     )
 
-    params = [{
-        'use_https': LaunchConfiguration('use_https'),
-        'host': LaunchConfiguration('host'),
-        'port': LaunchConfiguration('port'),
-        'mountpoint': LaunchConfiguration('mountpoint'),
-        'username': LaunchConfiguration('username'),
-        'password': LaunchConfiguration('password'),
-    }]
+    params = [
+        LaunchConfiguration('params_file'),
+        {
+            'use_https': LaunchConfiguration('use_https'),
+            'host': LaunchConfiguration('host'),
+            'port': LaunchConfiguration('port'),
+            'mountpoint': LaunchConfiguration('mountpoint'),
+            'username': LaunchConfiguration('username'),
+            'password': LaunchConfiguration('password'),
+        },
+    ]
 
     container1 = ComposableNodeContainer(
         name='ntrip_client_container',
@@ -68,6 +81,7 @@ def generate_launch_description():
         mountpoint_arg,
         username_arg,
         password_arg,
+        params_file_arg,
         namespace_arg,
         container1,
     ])

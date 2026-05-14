@@ -1,0 +1,8 @@
+/amr_sweeper/ntrip_client:
+  ros__parameters:
+    use_https: true
+    host: ntrip.data.gnss.ga.gov.au
+    port: "443"
+    mountpoint: MBCH00AUS0
+    username: noname
+    password: password

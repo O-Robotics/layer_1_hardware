@@ -4,7 +4,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -49,6 +49,14 @@ def generate_launch_description():
     imu_baud = LaunchConfiguration("imu_baud")
     odrive_interface = LaunchConfiguration("odrive_interface")
     odrive_node_id = LaunchConfiguration("odrive_node_id")
+    gnss_frame_id = LaunchConfiguration("gnss_frame_id")
+    ntrip_params_file = LaunchConfiguration("ntrip_params_file")
+    ntrip_host = LaunchConfiguration("ntrip_host")
+    ntrip_port = LaunchConfiguration("ntrip_port")
+    ntrip_mountpoint = LaunchConfiguration("ntrip_mountpoint")
+    ntrip_username = LaunchConfiguration("ntrip_username")
+    ntrip_password = LaunchConfiguration("ntrip_password")
+    ntrip_use_https = LaunchConfiguration("ntrip_use_https")
 
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("robot_namespace", default_value="amr_sweeper"))
@@ -80,6 +88,24 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
     ld.add_action(DeclareLaunchArgument("odrive_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("odrive_node_id", default_value="0"))
+    ld.add_action(DeclareLaunchArgument("gnss_frame_id", default_value="gnss_link"))
+    ld.add_action(DeclareLaunchArgument("ntrip_params_file", default_value=PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_gnss"),
+        "config",
+        "ntrip_client.yaml",
+    ])))
+    ld.add_action(DeclareLaunchArgument("ntrip_host", default_value="ntrip.data.gnss.ga.gov.au"))
+    ld.add_action(DeclareLaunchArgument("ntrip_port", default_value="443"))
+    ld.add_action(DeclareLaunchArgument("ntrip_mountpoint", default_value="MBCH00AUS0"))
+    ld.add_action(DeclareLaunchArgument(
+        "ntrip_username",
+        default_value=EnvironmentVariable(name="NTRIP_USERNAME", default_value="noname"),
+    ))
+    ld.add_action(DeclareLaunchArgument(
+        "ntrip_password",
+        default_value=EnvironmentVariable(name="NTRIP_PASSWORD", default_value="password"),
+    ))
+    ld.add_action(DeclareLaunchArgument("ntrip_use_https", default_value="true"))
 
     # Start micro-ROS first so downstream CAN-connected hardware nodes can depend on it.
     ld.add_action(IncludeLaunchDescription(
@@ -188,20 +214,22 @@ def generate_launch_description():
     ))
 
     ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "ublox_rover_hpposllh_navsatfix.launch.py")),
+        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")),
         launch_arguments={
+            "use_ublox_dgnss_node": use_gnss_rover,
+            "use_ublox_nav_sat_fix_hp": use_gnss_rover,
+            "use_ntrip_client": use_ntrip_client,
             "namespace": robot_namespace,
+            "gnss_frame_id": gnss_frame_id,
+            "ntrip_params_file": ntrip_params_file,
+            "ntrip_use_https": ntrip_use_https,
+            "ntrip_host": ntrip_host,
+            "ntrip_port": ntrip_port,
+            "ntrip_mountpoint": ntrip_mountpoint,
+            "ntrip_username": ntrip_username,
+            "ntrip_password": ntrip_password,
         }.items(),
         condition=IfCondition(use_gnss_rover),
-    ))
-
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "ntrip_client.launch.py")),
-        launch_arguments={
-            "namespace": robot_namespace,
-            "use_ntrip_client_node": use_ntrip_client,
-        }.items(),
-        condition=IfCondition(use_ntrip_client),
     ))
 
     ld.add_action(Node(

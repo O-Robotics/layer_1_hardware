@@ -33,7 +33,7 @@ def generate_launch_description():
     params = [
         {'FRAME_ID': LaunchConfiguration('gnss_frame_id')},
         {'CFG_USBOUTPROT_NMEA': False},
-        {'CFG_USBINPROT_RTCM3X': False},
+        {'CFG_USBINPROT_RTCM3X': True},
         {'CFG_USBOUTPROT_RTCM3X': False},
         {'CFG_RATE_MEAS': 200},
         {'CFG_RATE_NAV': 1},
