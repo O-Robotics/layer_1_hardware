@@ -4,11 +4,27 @@
 ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py
 ```
 
-Dependencies to other AMR Sweeper packages:
-- None
-
 ## Overview
-`amr_sweeper_gnss` consolidates the GNSS-related functionality for the robot into one package. It includes launch files for rover and base modes as well as the NTRIP client path needed for correction data. The package-level `amr_sweeper_gnss.launch.py` is now the standard entrypoint for both standalone use and layer 1 bringup integration.
+`amr_sweeper_gnss` is the AMR Sweeper wrapper package for the upstream
+`ublox_dgnss` stack. It keeps the workspace-specific launch entrypoint,
+namespace defaults, and NTRIP YAML config, while the actual GNSS
+implementation comes from the dependency packages:
+
+- `ublox_dgnss`
+- `ublox_dgnss_node`
+- `ublox_nav_sat_fix_hp_node`
+- `ntrip_client_node`
+
+## External Dependencies
+- `ublox_dgnss`: vendored in this workspace under `src/dependencies/ublox_dgnss`
+  GitHub: `https://github.com/aussierobots/ublox_dgnss`
+- `rtcm_msgs`: vendored in this workspace under `src/dependencies/rtcm_msgs` and required by `ntrip_client_node`
+  GitHub: `https://github.com/tilk/rtcm_msgs`
+  Example install:
+
+```bash
+git clone https://github.com/tilk/rtcm_msgs.git src/dependencies/rtcm_msgs
+```
 
 ## Main Launch File
 `launch/amr_sweeper_gnss.launch.py`
@@ -20,16 +36,19 @@ Dependencies to other AMR Sweeper packages:
 - `ntrip_params_file`: default `config/ntrip_client.yaml`
 - `namespace`: default `amr_sweeper`
 - `gnss_frame_id`: default `gnss_link`
+- `device_family`: default `F9P`
+- `device_serial_string`: default `""`
+- `log_level`: default `INFO`
 
 This launch starts the standard AMR Sweeper GNSS stack:
-- `UbloxDGNSSNode` for the u-blox receiver connection and UBX topic publishing
-- `UbloxNavSatHpFixNode` for converting high-precision u-blox outputs into the `navsat` topic
-- Optional `NTRIPClientNode` when `use_ntrip_client:=true` for RTCM correction streaming from an NTRIP caster
-
+- Upstream `ublox_dgnss_node` for the u-blox receiver connection and UBX topic publishing
+- Upstream `ublox_nav_sat_fix_hp_node` for converting high-precision u-blox outputs into the `navsat` topic
+- Optional upstream `ntrip_client_node` when `use_ntrip_client:=true` for RTCM correction streaming from an NTRIP caster
 
 ### Notes
 - This package is normally launched through layer 1 bringup rather than by itself.
 - Layer 3 localization depends on the GNSS topics produced by this package.
+- No GNSS driver source code or custom UBX messages are implemented in this package anymore.
 
 
 ## Package Launch Options
@@ -61,7 +80,3 @@ ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py \
   namespace:=amr_sweeper \
   ntrip_params_file:=/absolute/path/to/ntrip_client.yaml
 ```
-
-The package-level launch still accepts direct NTRIP overrides such as
-`ntrip_host:=...` and `ntrip_mountpoint:=...`. Those launch arguments override values from the
-YAML file, which is useful for temporary mountpoint changes or per-machine secrets handling.

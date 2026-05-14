@@ -33,7 +33,7 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `use_microros`: default `false`
 - `use_imu_node`: default `true`
 - `use_gnss_rover`: default `true`
-- `use_ntrip_client`: default `false`
+- `use_ntrip_client`: default `true`
 - `use_steadydrive_can_nodes`: default `true`
 - `use_odrive_node`: default `false`
 - `battery_can_interface`: default `can0`

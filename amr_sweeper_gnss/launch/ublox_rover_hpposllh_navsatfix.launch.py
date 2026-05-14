@@ -1,13 +1,15 @@
-"""Launch amr_sweeper_gnss components for a standalone ZED-F9P rover."""
+"""Launch the AMR Sweeper rover GNSS wrapper."""
+
 import launch
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, TextSubstitution
-from launch_ros.actions import Node
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
-    """Generate launch description for amr_sweeper_ublox_dgnss components."""
+    """Generate launch description for the upstream ublox GNSS components."""
     declare_use_ublox_dgnss_node = DeclareLaunchArgument(
         'use_ublox_dgnss_node',
         default_value=TextSubstitution(text='true'),
@@ -29,8 +31,25 @@ def generate_launch_description():
         default_value=TextSubstitution(text='gnss_link'),
         description='Frame ID to publish in GNSS message headers',
     )
+    declare_device_family = DeclareLaunchArgument(
+        'device_family',
+        default_value=TextSubstitution(text='F9P'),
+        description='u-blox device family',
+    )
+    declare_device_serial_string = DeclareLaunchArgument(
+        'device_serial_string',
+        default_value=TextSubstitution(text=''),
+        description='Optional serial string of the device to use',
+    )
+    declare_log_level = DeclareLaunchArgument(
+        'log_level',
+        default_value=TextSubstitution(text='INFO'),
+        description='Log level for GNSS component containers',
+    )
 
     params = [
+        {'DEVICE_FAMILY': LaunchConfiguration('device_family')},
+        {'DEVICE_SERIAL_STRING': LaunchConfiguration('device_serial_string')},
         {'FRAME_ID': LaunchConfiguration('gnss_frame_id')},
         {'CFG_USBOUTPROT_NMEA': False},
         {'CFG_USBINPROT_RTCM3X': True},
@@ -65,31 +84,47 @@ def generate_launch_description():
         {'CFG_MSGOUT_UBX_NAV_PVT_USB': 0},
     ]
 
-    ublox_dgnss_node = Node(
-        package='amr_sweeper_gnss',
-        executable='amr_sweeper_ublox_dgnss_node',
-        name='ublox_dgnss',
-        namespace=LaunchConfiguration('namespace'),
-        parameters=params,
-        output='screen',
+    ublox_dgnss_container = ComposableNodeContainer(
+        name='ublox_dgnss_container',
+        namespace='',
+        package='rclcpp_components',
+        executable='component_container_mt',
+        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+        composable_node_descriptions=[
+            ComposableNode(
+                package='ublox_dgnss_node',
+                plugin='ublox_dgnss::UbloxDGNSSNode',
+                name='ublox_dgnss',
+                namespace=LaunchConfiguration('namespace'),
+                parameters=params,
+            )
+        ],
         condition=IfCondition(LaunchConfiguration('use_ublox_dgnss_node')),
     )
 
-    ublox_nav_sat_fix_hp_node = Node(
-        package='amr_sweeper_gnss',
-        executable='ublox_nav_sat_fix_hp',
-        name='ublox_nav_sat_fix_hp',
-        namespace=LaunchConfiguration('namespace'),
-        parameters=[{
-            'min_fix_type': 3,
-            'min_horizontal_stddev_m': 1.5,
-            'min_vertical_stddev_m': 3.0,
-            'horizontal_covariance_scale': 4.0,
-            'vertical_covariance_scale': 4.0,
-            'use_hacc_vacc_covariance_floor': True,
-        }],
-        remappings=[('fix', 'navsat')],
-        output='screen',
+    ublox_nav_sat_fix_hp_container = ComposableNodeContainer(
+        name='ublox_nav_sat_fix_hp_container',
+        namespace='',
+        package='rclcpp_components',
+        executable='component_container_mt',
+        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+        composable_node_descriptions=[
+            ComposableNode(
+                package='ublox_nav_sat_fix_hp_node',
+                plugin='ublox_nav_sat_fix_hp::UbloxNavSatHpFixNode',
+                name='ublox_nav_sat_fix_hp',
+                namespace=LaunchConfiguration('namespace'),
+                parameters=[{
+                    'min_fix_type': 3,
+                    'min_horizontal_stddev_m': 1.5,
+                    'min_vertical_stddev_m': 3.0,
+                    'horizontal_covariance_scale': 4.0,
+                    'vertical_covariance_scale': 4.0,
+                    'use_hacc_vacc_covariance_floor': True,
+                }],
+                remappings=[('fix', 'navsat')],
+            )
+        ],
         condition=IfCondition(LaunchConfiguration('use_ublox_nav_sat_fix_hp')),
     )
 
@@ -98,6 +133,9 @@ def generate_launch_description():
         declare_use_ublox_nav_sat_fix_hp,
         declare_namespace,
         declare_frame_id,
-        ublox_dgnss_node,
-        ublox_nav_sat_fix_hp_node,
+        declare_device_family,
+        declare_device_serial_string,
+        declare_log_level,
+        ublox_dgnss_container,
+        ublox_nav_sat_fix_hp_container,
     ])

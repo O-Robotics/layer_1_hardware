@@ -1,91 +1,21 @@
-""" Launch amr_sweeper_ublox_dgnss_node publishing high precision Lon/Lat messages"""
-import launch
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
+"""Launch the upstream moving-base GNSS base configuration."""
+
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+
 
 def generate_launch_description():
-  """Generate launch description for amr_sweeper_ublox_dgnss components."""
-  params_base= [
-            {'DEVICE_SERIAL_STRING': "Test Base"},
-            {'FRAME_ID': "base"},
-
-            # config measurement interval to 200 ms (ie 5 Hz) and nav update rate to once per measurement
-            {'CFG_RATE_MEAS': 0xc8},
-            {'CFG_RATE_NAV': 0x1},
-
-            # disable all messages on UART1
-            {'CFG_UART1INPROT_NMEA': False},
-            {'CFG_UART1INPROT_RTCM3X': False},
-            {'CFG_UART1INPROT_UBX': False},
-            {'CFG_UART1OUTPROT_NMEA': False},
-            {'CFG_UART1OUTPROT_RTCM3X': False},
-            {'CFG_UART1OUTPROT_UBX': False},
-
-            # set UART2 baud rate to 460800
-            {'CFG-UART2-BAUDRATE': 0x70800},
-
-            # send RTCM messages only (to rover) on UART2
-            {'CFG_UART2INPROT_NMEA': False},
-            {'CFG_UART2INPROT_RTCM3X': False},
-            {'CFG_UART2INPROT_UBX': False},
-            {'CFG_UART2OUTPROT_NMEA': False},
-            {'CFG_UART2OUTPROT_RTCM3X': True},
-            {'CFG_UART2OUTPROT_UBX': False},
-
-            # RTCM and UBX messages as required on USB
-            {'CFG_USBINPROT_NMEA': False},
-            {'CFG_USBINPROT_RTCM3X': True},
-            {'CFG_USBINPROT_UBX': True},
-            {'CFG_USBOUTPROT_NMEA': False},
-            {'CFG_USBOUTPROT_RTCM3X': False},
-            {'CFG_USBOUTPROT_UBX': True},
-
-            # output RTCM messages required for moving base+rover mode on UART2
-            {'CFG-MSGOUT-RTCM_3X_TYPE4072_0_UART2': 0x1},
-            {'CFG-MSGOUT-RTCM_3X_TYPE1074_UART2': 0x1},
-            {'CFG-MSGOUT-RTCM_3X_TYPE1084_UART2': 0x1},
-            {'CFG-MSGOUT-RTCM_3X_TYPE1124_UART2': 0x1},
-            {'CFG-MSGOUT-RTCM_3X_TYPE1230_UART2': 0x1},
-
-            # messages required for navsatfix calcs by ROS node
-            {'CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB': 0x1},
-            {'CFG_MSGOUT_UBX_NAV_COV_USB': 0x1},
-            {'CFG_MSGOUT_UBX_NAV_STATUS_USB': 0x1},
-            {'CFG_MSGOUT_UBX_NAV_PVT_USB': 0x1},            
-            ]
-
-  container_base = ComposableNodeContainer(
-    name='ublox_dgnss_moving_base',
-    namespace='',
-    package='rclcpp_components',
-    executable='component_container_mt',
-    composable_node_descriptions=[
-      ComposableNode(
-        package='amr_sweeper_gnss',
-        plugin='amr_sweeper_ublox_dgnss::UbloxDGNSSNode',
-        name='amr_sweeper_ublox_dgnss',
-        namespace='base',
-        parameters=params_base
-      )
-    ]
-  )
-
-  container_navsatfix = ComposableNodeContainer(
-    name='ublox_nav_sat_fix_hp_container',
-    namespace='',
-    package='rclcpp_components',
-    executable='component_container_mt',
-    composable_node_descriptions=[
-      ComposableNode(
-        package='amr_sweeper_gnss',
-        plugin='ublox_nav_sat_fix_hp::UbloxNavSatHpFixNode',
-        namespace='base',
-        name='ublox_nav_sat_fix_hp'
-      )
-    ]
-  )
-
-  return launch.LaunchDescription([
-    container_base,
-    container_navsatfix,
+    return LaunchDescription([
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('ublox_dgnss'),
+                    'launch',
+                    'ublox_mb+r_base.launch.py',
+                ])
+            )
+        )
     ])

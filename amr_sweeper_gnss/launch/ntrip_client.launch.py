@@ -1,16 +1,16 @@
-"""Launch amr_sweeper_gnss NTRIP client component."""
+"""Launch the AMR Sweeper NTRIP client wrapper."""
+
 import launch
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import PathJoinSubstitution
-from launch.substitutions import LaunchConfiguration, TextSubstitution
-from launch_ros.substitutions import FindPackageShare
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    """Generate launch description for ntrip client component."""
+    """Generate launch description for the upstream ntrip client node."""
 
     use_ntrip_client_node_arg = DeclareLaunchArgument(
         'use_ntrip_client_node', default_value=TextSubstitution(text='true')
@@ -26,18 +26,23 @@ def generate_launch_description():
     namespace_arg = DeclareLaunchArgument(
         'namespace', default_value=TextSubstitution(text='amr_sweeper')
     )
+    log_level_arg = DeclareLaunchArgument(
+        'log_level', default_value=TextSubstitution(text='INFO')
+    )
     params = [LaunchConfiguration('params_file')]
 
-    container1 = ComposableNodeContainer(
+    container = ComposableNodeContainer(
         name='ntrip_client_container',
-        namespace=LaunchConfiguration('namespace'),
+        namespace='',
         package='rclcpp_components',
         executable='component_container_mt',
+        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         composable_node_descriptions=[
             ComposableNode(
-                package='amr_sweeper_gnss',
-                plugin='amr_sweeper_ublox_dgnss::NTRIPClientNode',
+                package='ntrip_client_node',
+                plugin='ublox_dgnss::NTRIPClientNode',
                 name='ntrip_client',
+                namespace=LaunchConfiguration('namespace'),
                 parameters=params,
             )
         ],
@@ -48,5 +53,6 @@ def generate_launch_description():
         use_ntrip_client_node_arg,
         params_file_arg,
         namespace_arg,
-        container1,
+        log_level_arg,
+        container,
     ])

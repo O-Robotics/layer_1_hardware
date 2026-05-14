@@ -8,20 +8,13 @@
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>rosidl_default_generators</buildtool_depend>
-
-  <depend>rclcpp</depend>
-  <depend>rclcpp_components</depend>
-  <depend>std_msgs</depend>
-  <depend>sensor_msgs</depend>
-  <depend>builtin_interfaces</depend>
-  <depend>libcurl</depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-
-  <exec_depend>rosidl_default_runtime</exec_depend>
-
-  <member_of_group>rosidl_interface_packages</member_of_group>
+  <exec_depend>rclcpp_components</exec_depend>
+  <depend>ublox_dgnss</depend>
+  <depend>ublox_dgnss_node</depend>
+  <depend>ublox_nav_sat_fix_hp_node</depend>
+  <depend>ntrip_client_node</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
