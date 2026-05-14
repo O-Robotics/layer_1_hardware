@@ -55,12 +55,11 @@ This launch starts the standard AMR Sweeper GNSS stack:
 
 ## Package Launch Options
 - `ntrip_client.launch.py`: starts only the NTRIP client component for RTCM correction streaming
-- `ublox_mb+r_base.launch.py`: starts a moving-base configuration for a u-blox base receiver plus NavSat conversion
-- `ublox_mb+r_rover.launch.py`: starts a moving-base rover configuration plus NavSat conversion
-- `ublox_rover_hpposecef.launch.py`: starts only the u-blox driver publishing high-precision ECEF position data
-- `ublox_rover_hpposllh.launch.py`: starts only the u-blox driver publishing high-precision latitude/longitude/height data
 - `ublox_rover_hpposllh_navsatfix.launch.py`: starts the rover driver plus NavSat conversion without the package-level GNSS wrapper
-- `ublox_rover_hpposllh_satellite.launch.py`: starts a rover-oriented diagnostic configuration with extra satellite, signal, RAWX, MEASX, RTCM, and interference-monitor outputs
+
+The package keeps only the AMR-specific launch entrypoints used by this workspace.
+For moving-base, ECEF, or satellite-diagnostic variants, launch the upstream
+`ublox_dgnss` package directly.
 
 
 ## NTRIP Caster Configuration
