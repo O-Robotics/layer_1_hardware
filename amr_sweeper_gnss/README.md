@@ -7,13 +7,13 @@ ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py
 Dependencies to other AMR Sweeper packages:
 - None
 
-## Purpose
-This package provides the GNSS stack for the AMR Sweeper, including rover launches and optional NTRIP client support.
+## Overview
+`amr_sweeper_gnss` consolidates the GNSS-related functionality for the robot into one package. It includes launch files for rover and base modes as well as the NTRIP client path needed for correction data. The package-level `amr_sweeper_gnss.launch.py` is now the standard entrypoint for both standalone use and layer 1 bringup integration.
 
 ## Main Launch File
 `launch/amr_sweeper_gnss.launch.py`
 
-## Launch Arguments
+# Launch Arguments
 - `use_ublox_dgnss_node`: default `true`
 - `use_ublox_nav_sat_fix_hp`: default `true`
 - `use_ntrip_client`: default `false`
@@ -26,10 +26,8 @@ This launch starts the standard AMR Sweeper GNSS stack:
 - `UbloxNavSatHpFixNode` for converting high-precision u-blox outputs into the `navsat` topic
 - Optional `NTRIPClientNode` when `use_ntrip_client:=true` for RTCM correction streaming from an NTRIP caster
 
-## Overview
-`amr_sweeper_gnss` consolidates the GNSS-related functionality for the robot into one package. It includes launch files for rover and base modes as well as the NTRIP client path needed for correction data. The package-level `amr_sweeper_gnss.launch.py` is now the standard entrypoint for both standalone use and layer 1 bringup integration.
 
-## Notes
+# Notes
 - This package is normally launched through layer 1 bringup rather than by itself.
 - Layer 3 localization depends on the GNSS topics produced by this package.
 
