@@ -24,7 +24,7 @@ def generate_launch_description():
         ]),
     )
     namespace_arg = DeclareLaunchArgument(
-        'namespace', default_value=TextSubstitution(text='amr_sweeper')
+        'namespace', default_value=TextSubstitution(text='amr_sweeper/gnss')
     )
     log_level_arg = DeclareLaunchArgument(
         'log_level', default_value=TextSubstitution(text='INFO')

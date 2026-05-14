@@ -23,7 +23,8 @@ implementation comes from the dependency packages:
   Example install:
 
 ```bash
-git clone https://github.com/tilk/rtcm_msgs.git src/dependencies/rtcm_msgs
+git clone https://github.com/tilk/rtcm_msgs.git 
+git clone https://github.com/aussierobots/ublox_dgnss
 ```
 
 ## Main Launch File
@@ -34,7 +35,7 @@ git clone https://github.com/tilk/rtcm_msgs.git src/dependencies/rtcm_msgs
 - `use_ublox_nav_sat_fix_hp`: default `true`
 - `use_ntrip_client`: default `true`
 - `ntrip_params_file`: default `config/ntrip_client.yaml`
-- `namespace`: default `amr_sweeper`
+- `namespace`: default `amr_sweeper/gnss`
 - `gnss_frame_id`: default `gnss_link`
 - `device_family`: default `F9P`
 - `device_serial_string`: default `""`
@@ -49,6 +50,7 @@ This launch starts the standard AMR Sweeper GNSS stack:
 - This package is normally launched through layer 1 bringup rather than by itself.
 - Layer 3 localization depends on the GNSS topics produced by this package.
 - No GNSS driver source code or custom UBX messages are implemented in this package anymore.
+- By default the GNSS stack is namespaced under `amr_sweeper/gnss`, so topics such as `navsat` become `/amr_sweeper/gnss/navsat`.
 
 
 ## Package Launch Options
@@ -77,6 +79,6 @@ export NTRIP_USERNAME=your_user
 export NTRIP_PASSWORD=your_password
 
 ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py \
-  namespace:=amr_sweeper \
+  namespace:=amr_sweeper/gnss \
   ntrip_params_file:=/absolute/path/to/ntrip_client.yaml
 ```

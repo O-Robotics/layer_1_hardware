@@ -19,6 +19,7 @@ def _launch_file(package_name: str, launch_file_name: str):
 
 def generate_launch_description():
     robot_namespace = LaunchConfiguration("robot_namespace")
+    gnss_namespace = PathJoinSubstitution([robot_namespace, "gnss"])
     usb_cameras_namespace = PathJoinSubstitution([robot_namespace, "usb_cameras"])
     depth_camera_namespace = PathJoinSubstitution([robot_namespace, "depth_camera"])
     log_level = LaunchConfiguration("log_level")
@@ -199,7 +200,7 @@ def generate_launch_description():
             "use_ublox_dgnss_node": use_gnss_rover,
             "use_ublox_nav_sat_fix_hp": use_gnss_rover,
             "use_ntrip_client": use_ntrip_client,
-            "namespace": robot_namespace,
+            "namespace": gnss_namespace,
             "gnss_frame_id": gnss_frame_id,
             "ntrip_params_file": ntrip_params_file,
         }.items(),

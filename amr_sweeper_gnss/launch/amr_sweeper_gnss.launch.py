@@ -41,7 +41,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "namespace",
-            default_value=TextSubstitution(text="amr_sweeper"),
+            default_value=TextSubstitution(text="amr_sweeper/gnss"),
         ),
         DeclareLaunchArgument(
             "gnss_frame_id",
