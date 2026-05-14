@@ -23,8 +23,8 @@ def generate_launch_description():
             'ntrip_client.yaml',
         ]),
     )
-    namespace_arg = DeclareLaunchArgument(
-        'namespace', default_value=TextSubstitution(text='amr_sweeper/gnss')
+    gnss_namespace_arg = DeclareLaunchArgument(
+        'gnss_namespace', default_value=TextSubstitution(text='amr_sweeper/gnss')
     )
     log_level_arg = DeclareLaunchArgument(
         'log_level', default_value=TextSubstitution(text='INFO')
@@ -42,7 +42,7 @@ def generate_launch_description():
                 package='ntrip_client_node',
                 plugin='ublox_dgnss::NTRIPClientNode',
                 name='ntrip_client',
-                namespace=LaunchConfiguration('namespace'),
+                namespace=LaunchConfiguration('gnss_namespace'),
                 parameters=params,
             )
         ],
@@ -52,7 +52,7 @@ def generate_launch_description():
     return launch.LaunchDescription([
         use_ntrip_client_node_arg,
         params_file_arg,
-        namespace_arg,
+        gnss_namespace_arg,
         log_level_arg,
         container,
     ])

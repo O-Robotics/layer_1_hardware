@@ -21,8 +21,8 @@ def generate_launch_description():
         default_value=TextSubstitution(text='true'),
         description='Launch ublox_nav_sat_fix_hp component container',
     )
-    declare_namespace = DeclareLaunchArgument(
-        'namespace',
+    declare_gnss_namespace = DeclareLaunchArgument(
+        'gnss_namespace',
         default_value=TextSubstitution(text='amr_sweeper/gnss'),
         description='Namespace for GNSS containers',
     )
@@ -95,7 +95,7 @@ def generate_launch_description():
                 package='ublox_dgnss_node',
                 plugin='ublox_dgnss::UbloxDGNSSNode',
                 name='ublox_dgnss',
-                namespace=LaunchConfiguration('namespace'),
+                namespace=LaunchConfiguration('gnss_namespace'),
                 parameters=params,
             )
         ],
@@ -113,7 +113,7 @@ def generate_launch_description():
                 package='ublox_nav_sat_fix_hp_node',
                 plugin='ublox_nav_sat_fix_hp::UbloxNavSatHpFixNode',
                 name='ublox_nav_sat_fix_hp',
-                namespace=LaunchConfiguration('namespace'),
+                namespace=LaunchConfiguration('gnss_namespace'),
                 parameters=[{
                     'min_fix_type': 3,
                     'min_horizontal_stddev_m': 1.5,
@@ -131,7 +131,7 @@ def generate_launch_description():
     return launch.LaunchDescription([
         declare_use_ublox_dgnss_node,
         declare_use_ublox_nav_sat_fix_hp,
-        declare_namespace,
+        declare_gnss_namespace,
         declare_frame_id,
         declare_device_family,
         declare_device_serial_string,

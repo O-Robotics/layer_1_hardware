@@ -107,7 +107,7 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_description", "rsp.launch.py")),
         launch_arguments={
-            "namespace": robot_namespace,
+            "robot_namespace": robot_namespace,
             "use_sim_time": use_sim_time,
             "use_ros2_control": use_ros2_control,
             "enable_usb_cameras": use_usb_cameras,
@@ -200,7 +200,7 @@ def generate_launch_description():
             "use_ublox_dgnss_node": use_gnss_rover,
             "use_ublox_nav_sat_fix_hp": use_gnss_rover,
             "use_ntrip_client": use_ntrip_client,
-            "namespace": gnss_namespace,
+            "gnss_namespace": gnss_namespace,
             "gnss_frame_id": gnss_frame_id,
             "ntrip_params_file": ntrip_params_file,
         }.items(),
