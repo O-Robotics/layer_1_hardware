@@ -6,10 +6,8 @@ ntrip_client:
     mountpoint: SDS_RTK
     username: info@o-robotics.com
     password: none
-    connect_timeout_sec: 15
-    low_speed_limit_bytes_per_sec: 1
-    low_speed_time_sec: 15
-    reconnect_delay_sec: 15
+    log_level: INFO
+    maxage_conn: 30
 
 /amr_sweeper/gnss/ntrip_client:
   ros__parameters:
@@ -19,7 +17,5 @@ ntrip_client:
     mountpoint: SDS_RTK
     username: info@o-robotics.com
     password: none
-    connect_timeout_sec: 15
-    low_speed_limit_bytes_per_sec: 1
-    low_speed_time_sec: 15
-    reconnect_delay_sec: 15
+    log_level: INFO
+    maxage_conn: 30
