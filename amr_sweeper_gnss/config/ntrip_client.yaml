@@ -2,7 +2,7 @@
   ros__parameters:
     use_https: false
     host: rtk2go.com
-    port: "2101"
+    port: 2101
     mountpoint: SDS_RTK
     username: info@o-robotics.com
     password: none
