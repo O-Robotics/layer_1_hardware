@@ -58,4 +58,4 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
 - The micro-ROS agent uses `microros_can_interface`, `microros_request_id_min`, `microros_request_id_max`, `microros_reply_id_offset`, and `microros_same_id_reply` to map XRCE-DDS traffic onto classic CAN identifiers.
 - The layer 1 ros2_control bringup relies on `robot_state_publisher` for the `robot_description` topic instead of passing the description directly into `ros2_control_node`.
-- Controller spawners in the layer 1 ros2_control launch load controller settings from the shared ros2_control YAML file, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.
+- Controller spawners in the layer 1 ros2_control launch load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml`, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.

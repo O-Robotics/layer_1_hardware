@@ -132,8 +132,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "ros2_control_config_file",
             default_value=os.path.join(
-                get_package_share_directory("amr_sweeper_layer_1_hardware_bringup"),
-                "config",
+                get_package_share_directory("amr_sweeper_description"),
+                "urdf",
+                "control",
                 "ros2_control.yaml",
             ),
         ),
