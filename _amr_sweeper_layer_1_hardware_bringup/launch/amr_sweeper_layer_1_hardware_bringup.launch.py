@@ -4,7 +4,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -51,13 +51,6 @@ def generate_launch_description():
     odrive_node_id = LaunchConfiguration("odrive_node_id")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
-    ntrip_host = LaunchConfiguration("ntrip_host")
-    ntrip_port = LaunchConfiguration("ntrip_port")
-    ntrip_mountpoint = LaunchConfiguration("ntrip_mountpoint")
-    ntrip_username = LaunchConfiguration("ntrip_username")
-    ntrip_password = LaunchConfiguration("ntrip_password")
-    ntrip_use_https = LaunchConfiguration("ntrip_use_https")
-
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("robot_namespace", default_value="amr_sweeper"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
@@ -94,19 +87,6 @@ def generate_launch_description():
         "config",
         "ntrip_client.yaml",
     ])))
-    ld.add_action(DeclareLaunchArgument("ntrip_host", default_value="rtk2go.com"))
-    ld.add_action(DeclareLaunchArgument("ntrip_port", default_value="2101"))
-    ld.add_action(DeclareLaunchArgument("ntrip_mountpoint", default_value="REPLACE_WITH_RTK2GO_MOUNTPOINT"))
-    ld.add_action(DeclareLaunchArgument(
-        "ntrip_username",
-        default_value=EnvironmentVariable(name="NTRIP_USERNAME", default_value="REPLACE_WITH_VALID_EMAIL"),
-    ))
-    ld.add_action(DeclareLaunchArgument(
-        "ntrip_password",
-        default_value=EnvironmentVariable(name="NTRIP_PASSWORD", default_value="none"),
-    ))
-    ld.add_action(DeclareLaunchArgument("ntrip_use_https", default_value="false"))
-
     # Start micro-ROS first so downstream CAN-connected hardware nodes can depend on it.
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_microros", "microros_agent.launch.py")),
@@ -222,12 +202,6 @@ def generate_launch_description():
             "namespace": robot_namespace,
             "gnss_frame_id": gnss_frame_id,
             "ntrip_params_file": ntrip_params_file,
-            "ntrip_use_https": ntrip_use_https,
-            "ntrip_host": ntrip_host,
-            "ntrip_port": ntrip_port,
-            "ntrip_mountpoint": ntrip_mountpoint,
-            "ntrip_username": ntrip_username,
-            "ntrip_password": ntrip_password,
         }.items(),
         condition=IfCondition(use_gnss_rover),
     ))
