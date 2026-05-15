@@ -10,7 +10,9 @@
   <license>Proprietary</license>
 
   <build_depend>ros_environment</build_depend>
-  <build_depend>ffmpeg</build_depend>
+  <build_depend>libavcodec-dev</build_depend>
+  <build_depend>libavutil-dev</build_depend>
+  <build_depend>libswscale-dev</build_depend>
   
   <buildtool_depend>pkg-config</buildtool_depend>
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
