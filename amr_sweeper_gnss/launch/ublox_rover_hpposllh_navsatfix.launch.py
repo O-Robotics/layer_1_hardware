@@ -120,6 +120,8 @@ def generate_launch_description():
                     'horizontal_covariance_scale': 4.0,
                     'vertical_covariance_scale': 4.0,
                     'use_hacc_vacc_covariance_floor': True,
+                    'qos_overrides.fix.publisher.reliability': 'reliable',
+                    'qos_overrides.navsat.publisher.reliability': 'reliable',
                 }],
                 remappings=[('fix', 'navsat')],
             )
