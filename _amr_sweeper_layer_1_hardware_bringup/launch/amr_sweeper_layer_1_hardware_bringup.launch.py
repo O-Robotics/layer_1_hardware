@@ -41,17 +41,12 @@ def generate_launch_description():
     use_imu_node = LaunchConfiguration("use_imu_node")
     use_gnss_rover = LaunchConfiguration("use_gnss_rover")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
-    use_steadydrive_can_nodes = LaunchConfiguration("use_steadydrive_can_nodes")
-    use_odrive_node = LaunchConfiguration("use_odrive_node")
-
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     steadydrive_can_interface = LaunchConfiguration("steadydrive_can_interface")
     steadydrive_left_motor_can_id = LaunchConfiguration("steadydrive_left_motor_can_id")
     steadydrive_right_motor_can_id = LaunchConfiguration("steadydrive_right_motor_can_id")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
-    odrive_interface = LaunchConfiguration("odrive_interface")
-    odrive_node_id = LaunchConfiguration("odrive_node_id")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
@@ -69,17 +64,12 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_steadydrive_can_nodes", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_odrive_node", default_value="false"))
-
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("steadydrive_left_motor_can_id", default_value="0x141"))
     ld.add_action(DeclareLaunchArgument("steadydrive_right_motor_can_id", default_value="0x142"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
-    ld.add_action(DeclareLaunchArgument("odrive_interface", default_value="can0"))
-    ld.add_action(DeclareLaunchArgument("odrive_node_id", default_value="0"))
     ld.add_action(DeclareLaunchArgument("gnss_frame_id", default_value="gnss_link"))
     ld.add_action(DeclareLaunchArgument("ntrip_params_file", default_value=PathJoinSubstitution([
         FindPackageShare("amr_sweeper_gnss"),
@@ -308,22 +298,6 @@ def generate_launch_description():
         scoped=True,
         actions=[
             IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_steadydrive", "steadydrive.launch.py")),
-                launch_arguments={
-                    "namespace": namespace,
-                    "can_interface": steadydrive_can_interface,
-                    "left_motor_can_id": steadydrive_left_motor_can_id,
-                    "right_motor_can_id": steadydrive_right_motor_can_id,
-                }.items(),
-                condition=IfCondition(use_steadydrive_can_nodes),
-            ),
-        ],
-    ))
-
-    ld.add_action(GroupAction(
-        scoped=True,
-        actions=[
-            IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")),
                 launch_arguments={
                     "use_ublox_dgnss_node": use_gnss_rover,
@@ -336,20 +310,6 @@ def generate_launch_description():
                 condition=IfCondition(use_gnss_rover),
             ),
         ],
-    ))
-
-    ld.add_action(Node(
-        package="amr_sweeper_odrive",
-        executable="odrive_node",
-        namespace=namespace,
-        name="odrive_node",
-        output="screen",
-        arguments=["--ros-args", "--log-level", log_level],
-        parameters=[{
-            "interface": odrive_interface,
-            "node_id": odrive_node_id,
-        }],
-        condition=IfCondition(use_odrive_node),
     ))
 
     return ld

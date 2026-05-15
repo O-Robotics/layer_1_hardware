@@ -23,27 +23,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 ament_export_dependencies(rosidl_default_runtime)
 
 include_directories(include)
-include_directories(odrive_node/include)
 include_directories(odrive_base/include)
-
-add_executable(odrive_node
-  odrive_base/src/epoll_event_loop.cpp
-  odrive_base/src/socket_can.cpp
-  odrive_node/src/odrive_can_node.cpp
-  odrive_node/src/main.cpp
-  odrive_node/include/odrive_can_node.hpp
-)
-
-ament_target_dependencies(odrive_node
-  rclcpp
-)
-
-target_compile_features(odrive_node PRIVATE cxx_std_20)
-
-rosidl_get_typesupport_target(cpp_typesupport_target
-  ${PROJECT_NAME} rosidl_typesupport_cpp)
-
-target_link_libraries(odrive_node "${cpp_typesupport_target}")
 
 ament_auto_add_library(
   odrive_ros2_control_plugin SHARED
@@ -63,7 +43,6 @@ pluginlib_export_plugin_description_file(hardware_interface odrive_hardware_inte
 target_compile_features(odrive_ros2_control_plugin PRIVATE cxx_std_20)
 
 install(TARGETS
-  odrive_node
   odrive_ros2_control_plugin
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

@@ -37,18 +37,14 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `use_imu_node`: default `true`
 - `use_gnss_rover`: default `true`
 - `use_ntrip_client`: default `true`
-- `use_steadydrive_can_nodes`: default `true`
-- `use_odrive_node`: default `false`
 - `battery_can_interface`: default `can0`
 - `steadydrive_can_interface`: default `can0`
 - `imu_port`: default `/dev/imu_usb`
 - `imu_baud`: default `9600`
-- `odrive_interface`: default `can0`
-- `odrive_node_id`: default `0`
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
-The main bringup launch starts the core hardware stack under the default robot root `/amr_sweeper`. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera laser-scan conversion, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node. Package-owned sensor namespaces follow the package role below that root, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras/<camera_name>`, and `/amr_sweeper/depth_camera`.
+The main bringup launch starts the core hardware stack under the default robot root `/amr_sweeper`. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera laser-scan conversion, IMU, GNSS rover, and optional NTRIP client. Package-owned sensor namespaces follow the package role below that root, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras/<camera_name>`, and `/amr_sweeper/depth_camera`.
 
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.
