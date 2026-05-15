@@ -3,9 +3,10 @@
 import launch
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -46,8 +47,18 @@ def generate_launch_description():
         default_value=TextSubstitution(text='INFO'),
         description='Log level for GNSS component containers',
     )
+    declare_ubx_config_file = DeclareLaunchArgument(
+        'ubx_config_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('amr_sweeper_gnss'),
+            'config',
+            'f9p_ubx_config_amr.toml',
+        ]),
+        description='AMR-owned UBX config include list used instead of the vendored default TOML',
+    )
 
     params = [
+        {'UBX_CONFIG_FILE': LaunchConfiguration('ubx_config_file')},
         {'DEVICE_FAMILY': LaunchConfiguration('device_family')},
         {'DEVICE_SERIAL_STRING': LaunchConfiguration('device_serial_string')},
         {'FRAME_ID': LaunchConfiguration('gnss_frame_id')},
@@ -136,6 +147,7 @@ def generate_launch_description():
         declare_device_family,
         declare_device_serial_string,
         declare_log_level,
+        declare_ubx_config_file,
         ublox_dgnss_container,
         ublox_nav_sat_fix_hp_container,
     ])

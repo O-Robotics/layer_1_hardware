@@ -39,6 +39,7 @@ git clone https://github.com/tilk/rtcm_msgs.git
 - `gnss_frame_id`: default `gnss_link`
 - `device_family`: default `F9P`
 - `device_serial_string`: default `""`
+- `ubx_config_file`: default `config/f9p_ubx_config_amr.toml`
 - `log_level`: default `INFO`
 
 This launch starts the standard AMR Sweeper GNSS stack:
@@ -51,6 +52,9 @@ This launch starts the standard AMR Sweeper GNSS stack:
 - Layer 3 localization depends on the GNSS topics produced by this package.
 - No GNSS driver source code or custom UBX messages are implemented in this package anymore.
 - By default the GNSS stack is namespaced under `/amr_sweeper/gnss`, so topics such as `navsat` become `/amr_sweeper/gnss/navsat`.
+- The default AMR wrapper now points `UBX_CONFIG_FILE` at `config/f9p_ubx_config_amr.toml`
+  so receiver-specific exclusions stay in this package instead of modifying the
+  vendored `ublox_dgnss` dependency.
 
 
 ## Package Launch Options
@@ -70,6 +74,7 @@ Installed default config:
 
 Source config in the repo:
 - `config/ntrip_client.yaml`
+- `config/f9p_ubx_config_amr.toml`
 
 Example standalone launch:
 
