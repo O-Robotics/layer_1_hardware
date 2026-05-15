@@ -68,7 +68,7 @@ public:
       publish_hz_ = 1.0;
     }
 
-    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("imu/data_raw", 10);
+    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("data_raw", 10);
 
     if (!open_serial()) {
       RCLCPP_ERROR(get_logger(), "Failed to open IMU serial port '%s'", port_.c_str());

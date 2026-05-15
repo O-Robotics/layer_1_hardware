@@ -34,28 +34,6 @@
     enable_odom_tf: false
     use_stamped_vel: true
 
-/amr_sweeper/diff_cont:
-  ros__parameters:
-    type: diff_drive_controller/DiffDriveController
-    publish_rate: 10.0
-
-    left_wheel_names: ['LeftWheel_joint']
-    right_wheel_names: ['RightWheel_joint']
-
-    wheel_separation: 0.490
-    wheel_radius: 0.13
-
-    left_wheel_radius_multiplier: 1.0
-    right_wheel_radius_multiplier: 1.0
-    wheel_separation_multiplier: 1.15
-
-    position_feedback: false
-    tf_frame_prefix_enable: false
-    odom_frame_id: odom
-    base_frame_id: base_footprint
-    enable_odom_tf: false
-    use_stamped_vel: true
-
 /**/controller_steadydrive:
   ros__parameters:
     joints:

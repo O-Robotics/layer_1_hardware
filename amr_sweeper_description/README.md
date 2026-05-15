@@ -17,7 +17,7 @@ This package contains the robot description used by the AMR Sweeper runtime stac
 - `amr_sweeper_description.launch.py`
 
 ## Launch Arguments
-- `robot_namespace`: default `amr_sweeper`
+- `namespace`: default `amr_sweeper`
 - `use_sim_time`: default `false`
 - `use_ros2_control`: default `true`
 - `ros2_control_config_file`: default `urdf/control/ros2_control.yaml`
@@ -33,4 +33,5 @@ This package contains the robot description used by the AMR Sweeper runtime stac
 - The package is commonly started as part of `amr_sweeper_layer_1_hardware_bringup`.
 - It provides the robot model foundation used by ros2_control and localization.
 - In the default hardware bringup, `robot_state_publisher` from this package supplies the `robot_description` topic consumed by ros2_control.
+- The default robot root namespace is `/amr_sweeper`.
 - `amr_sweeper_description.launch.py` owns the default controller-config path used by the layer 1 ros2_control bringup.

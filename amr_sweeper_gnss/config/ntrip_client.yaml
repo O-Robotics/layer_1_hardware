@@ -8,14 +8,3 @@ ntrip_client:
     password: none
     log_level: INFO
     maxage_conn: 30
-
-/amr_sweeper/gnss/ntrip_client:
-  ros__parameters:
-    use_https: false
-    host: rtk2go.com
-    port: 2101
-    mountpoint: SDS_RTK
-    username: info@o-robotics.com
-    password: none
-    log_level: INFO
-    maxage_conn: 30

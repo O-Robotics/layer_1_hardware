@@ -57,9 +57,13 @@ using amr_sweeper_steadydrive::SteadydriveHardwareInterface;
 
 
 
-hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(const hardware_interface::HardwareInfo & info)
+hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
+  const hardware_interface::HardwareComponentInterfaceParams & params)
 {  
-  if (hardware_interface::SystemInterface::on_init(info) != hardware_interface::CallbackReturn::SUCCESS){
+  if (
+    hardware_interface::SystemInterface::on_init(params) !=
+    hardware_interface::CallbackReturn::SUCCESS)
+  {
     return hardware_interface::CallbackReturn::ERROR;
   }
 

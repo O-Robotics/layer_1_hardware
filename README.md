@@ -21,7 +21,7 @@ Dependencies to other AMR Sweeper packages:
 This repository is the real-robot hardware layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, battery monitoring, GNSS, IMU, USB cameras, depth-camera laser-scan conversion, and system-health publishing.
 
 ## Launch Arguments
-- `robot_namespace`: default `amr_sweeper`
+- `namespace`: default `amr_sweeper`
 - `log_level`: default `info`
 - `use_sim_time`: default `false`
 - `use_robot_description`: default `true`
@@ -57,6 +57,7 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - The default command launches the full layer 1 hardware bringup package.
 - This layer is intended for the physical AMR Sweeper robot, not simulation.
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
+- Under the default robot root `/amr_sweeper`, package-owned sensor namespaces follow the package role, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras`, and `/amr_sweeper/depth_camera`.
 - The micro-ROS agent uses `microros_can_interface`, `microros_request_id_min`, `microros_request_id_max`, `microros_reply_id_offset`, and `microros_same_id_reply` to map XRCE-DDS traffic onto classic CAN identifiers.
 - The layer 1 ros2_control bringup relies on `robot_state_publisher` for the `robot_description` topic instead of passing the description directly into `ros2_control_node`.
 - Controller spawners in the layer 1 ros2_control launch load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml`, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.

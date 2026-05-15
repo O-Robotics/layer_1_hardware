@@ -9,7 +9,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
-    robot_namespace = LaunchConfiguration('robot_namespace')
+    namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     use_ros2_control = LaunchConfiguration('use_ros2_control')
     enable_usb_cameras = LaunchConfiguration('enable_usb_cameras')
@@ -24,7 +24,7 @@ def generate_launch_description():
     robot_description = ParameterValue(Command([
         'xacro ',
         xacro_file,
-        ' robot_namespace:=', robot_namespace,
+        ' robot_namespace:=', namespace,
         ' use_ros2_control:=', use_ros2_control,
         ' enable_usb_cameras:=', enable_usb_cameras,
         ' enable_gnss:=', enable_gnss,
@@ -33,7 +33,7 @@ def generate_launch_description():
     ]), value_type=str)
 
     return LaunchDescription([
-        DeclareLaunchArgument('robot_namespace', default_value='amr_sweeper'),
+        DeclareLaunchArgument('namespace', default_value='amr_sweeper'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('use_ros2_control', default_value='true'),
         # The description package owns the default controller config path used by layer 1 bringup.
@@ -45,7 +45,7 @@ def generate_launch_description():
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
-            namespace=robot_namespace,
+            namespace=namespace,
             output='screen',
             parameters=[{
                 'robot_description': robot_description,

@@ -18,10 +18,11 @@ def _launch_file(package_name: str, launch_file_name: str):
 
 
 def generate_launch_description():
-    robot_namespace = LaunchConfiguration("robot_namespace")
-    gnss_namespace = PathJoinSubstitution([robot_namespace, "gnss"])
-    usb_cameras_namespace = PathJoinSubstitution([robot_namespace, "usb_cameras"])
-    depth_camera_namespace = PathJoinSubstitution([robot_namespace, "depth_camera"])
+    namespace = LaunchConfiguration("namespace")
+    gnss_namespace = PathJoinSubstitution([namespace, "gnss"])
+    usb_cameras_namespace = PathJoinSubstitution([namespace, "usb_cameras"])
+    depth_camera_namespace = PathJoinSubstitution([namespace, "depth_camera"])
+    imu_namespace = PathJoinSubstitution([namespace, "imu"])
     log_level = LaunchConfiguration("log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
@@ -54,7 +55,7 @@ def generate_launch_description():
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
     ld = LaunchDescription()
-    ld.add_action(DeclareLaunchArgument("robot_namespace", default_value="amr_sweeper"))
+    ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
     ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
 
@@ -99,7 +100,7 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_microros", "microros_agent.launch.py")),
         launch_arguments={
-            "namespace": robot_namespace,
+            "namespace": namespace,
             "use_microros": use_microros,
             "can_interface": microros_can_interface,
             "request_id_min": microros_request_id_min,
@@ -116,7 +117,7 @@ def generate_launch_description():
             _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
         ),
         launch_arguments={
-            "robot_namespace": robot_namespace,
+            "namespace": namespace,
             "use_sim_time": use_sim_time,
             "use_ros2_control": use_ros2_control,
             "ros2_control_config_file": ros2_control_config_file,
@@ -131,7 +132,7 @@ def generate_launch_description():
     ld.add_action(Node(
         package="amr_sweeper_battery",
         executable="amr_sweeper_battery_node",
-        namespace=robot_namespace,
+        namespace=namespace,
         name="amr_sweeper_battery_node",
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],
@@ -144,7 +145,7 @@ def generate_launch_description():
     ld.add_action(Node(
         package="amr_sweeper_system_info",
         executable="amr_sweeper_system_info_node",
-        namespace=robot_namespace,
+        namespace=namespace,
         name="amr_sweeper_system_info_node",
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],
@@ -173,7 +174,7 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "imu.launch.py")),
         launch_arguments={
-            "namespace": robot_namespace,
+            "namespace": imu_namespace,
             "use_sim_time": use_sim_time,
             "port": imu_port,
             "baud": imu_baud,
@@ -185,7 +186,7 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_layer_1_hardware_bringup", "amr_sweeper_ros2_control.launch.py")),
         launch_arguments={
-            "namespace": robot_namespace,
+            "namespace": namespace,
             "use_sim_time": use_sim_time,
             "ros2_control_config_file": ros2_control_config_file,
             "use_ros2_control": use_ros2_control,
@@ -199,7 +200,7 @@ def generate_launch_description():
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_steadydrive", "steadydrive.launch.py")),
         launch_arguments={
-            "namespace": robot_namespace,
+            "namespace": namespace,
             "can_interface": steadydrive_can_interface,
         }.items(),
         condition=IfCondition(use_steadydrive_can_nodes),
@@ -221,7 +222,7 @@ def generate_launch_description():
     ld.add_action(Node(
         package="amr_sweeper_odrive",
         executable="odrive_node",
-        namespace=robot_namespace,
+        namespace=namespace,
         name="odrive_node",
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],
