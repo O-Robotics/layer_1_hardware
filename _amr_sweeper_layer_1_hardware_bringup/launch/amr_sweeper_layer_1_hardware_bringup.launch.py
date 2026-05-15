@@ -95,7 +95,7 @@ def generate_launch_description():
         "control",
         "ros2_control.yaml",
     ])))
-    # Start micro-ROS first so downstream CAN-connected hardware nodes can depend on it.
+    # Start the optional custom micro-ROS package first when it is present and requested.
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_microros", "microros_agent.launch.py")),
         launch_arguments={

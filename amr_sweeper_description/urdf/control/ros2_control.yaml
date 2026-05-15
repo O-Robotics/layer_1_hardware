@@ -32,7 +32,7 @@
     odom_frame_id: odom
     base_frame_id: base_footprint
     enable_odom_tf: false
-    use_stamped_vel: false
+    use_stamped_vel: true
 
 /amr_sweeper/diff_cont:
   ros__parameters:
@@ -54,7 +54,7 @@
     odom_frame_id: odom
     base_frame_id: base_footprint
     enable_odom_tf: false
-    use_stamped_vel: false
+    use_stamped_vel: true
 
 /**/controller_steadydrive:
   ros__parameters:

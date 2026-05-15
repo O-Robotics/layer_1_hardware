@@ -10,7 +10,7 @@ Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_description`
 - `amr_sweeper_gnss`
 - `amr_sweeper_imu`
-- `amr_sweeper_microros`
+- `amr_sweeper_microros` (optional, only needed when `use_microros:=true`)
 - `amr_sweeper_odrive`
 - `amr_sweeper_steadydrive`
 - `amr_sweeper_system_info`
@@ -57,7 +57,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
-The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. When enabled, the custom classic-CAN micro-ROS agent is launched first so dependent hardware packages can rely on it before the rest of layer 1 comes up. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera laser-scan conversion, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node. The USB camera nodes are launched under `/amr_sweeper/usb_cameras/<camera_name>`, while the depth camera conversion node is launched under `/amr_sweeper/depth_camera`.
+The main bringup launch starts the core hardware stack under the `amr_sweeper` namespace. When enabled and available in the workspace, the custom classic-CAN micro-ROS agent is launched first so dependent hardware packages can rely on it before the rest of layer 1 comes up. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera laser-scan conversion, IMU, GNSS rover, optional NTRIP client, SteadyDrive nodes, and the standalone ODrive CAN node. The USB camera nodes are launched under `/amr_sweeper/usb_cameras/<camera_name>`, while the depth camera conversion node is launched under `/amr_sweeper/depth_camera`.
 
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.

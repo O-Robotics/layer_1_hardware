@@ -16,7 +16,6 @@
   <exec_depend>amr_sweeper_depth_camera</exec_depend>
   <exec_depend>amr_sweeper_gnss</exec_depend>
   <exec_depend>amr_sweeper_imu</exec_depend>
-  <exec_depend>amr_sweeper_microros</exec_depend>
   <exec_depend>amr_sweeper_odrive</exec_depend>
   <exec_depend>amr_sweeper_steadydrive</exec_depend>
   <exec_depend>amr_sweeper_usb_cameras</exec_depend>
