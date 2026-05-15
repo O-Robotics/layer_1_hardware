@@ -2,146 +2,286 @@
 # AMR Sweeper override for ZED-F9P on FWVER=HPG 1.32 / PROTVER=27.31.
 # This file intentionally lives outside the vendored ublox_dgnss dependency.
 #
-# Important note about "default" in the inline comments below:
+# Important note about "default" in the comments below:
 # - This TOML only controls whether a UBX config item is part of the managed include list.
 # - It does not assign the final runtime value by itself.
 # - "Upstream default: included" means the item was present in the vendored
 #   ublox_dgnss F9P include list.
 # - "Upstream default: included, removed here" means the item was present upstream
 #   but is intentionally excluded in this AMR-owned override.
+#
+# Parser note:
+# - The upstream SimpleTomlParser does not accept trailing comments on array items.
+# - For compatibility, each parameter is documented on the line(s) immediately above it.
 
 [metadata]
 device_family = "F9P"
 description = "AMR Sweeper ZED-F9P configuration with unsupported keys removed"
-version = "1.1"
+version = "1.2"
 parameter_count = 115
 
 [parameters]
 include = [
-    "CFG_INFMSG_NMEA_USB",            # Enable management of NMEA informational message verbosity on USB; upstream default: included.
-    "CFG_INFMSG_UBX_USB",             # Enable management of UBX informational message verbosity on USB; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1005_USB",# Enable management of RTCM 1005 output rate on USB; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1074_UART2", # Enable management of RTCM 1074 output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1077_USB",# Enable management of RTCM 1077 output rate on USB; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1084_UART2", # Enable management of RTCM 1084 output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1087_USB",# Enable management of RTCM 1087 output rate on USB; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1094_UART2", # Enable management of RTCM 1094 output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1097_USB",# Enable management of RTCM 1097 output rate on USB; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1124_UART2", # Enable management of RTCM 1124 output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1127_USB",# Enable management of RTCM 1127 output rate on USB; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1230_UART2", # Enable management of RTCM 1230 output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE1230_USB",# Enable management of RTCM 1230 output rate on USB; upstream default: included.
-    "CFG_MSGOUT_RTCM_3X_TYPE4072_0_UART2", # Enable management of RTCM 4072.0 output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_UBX_MON_COMMS_USB",   # Enable management of UBX-MON-COMMS output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_CLOCK_USB",   # Enable management of UBX-NAV-CLOCK output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_COV_UART1",   # Enable management of UBX-NAV-COV output rate on UART1; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_COV_UART2",   # Enable management of UBX-NAV-COV output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_COV_USB",     # Enable management of UBX-NAV-COV output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_DOP_USB",     # Enable management of UBX-NAV-DOP output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_EOE_USB",     # Enable management of UBX-NAV-EOE output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_HPPOSECEF_USB", # Enable management of UBX-NAV-HPPOSECEF output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1", # Enable management of UBX-NAV-HPPOSLLH output rate on UART1; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART2", # Enable management of UBX-NAV-HPPOSLLH output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB", # Enable management of UBX-NAV-HPPOSLLH output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_ODO_USB",     # Enable management of UBX-NAV-ODO output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_ORB_USB",     # Enable management of UBX-NAV-ORB output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_POSECEF_USB", # Enable management of UBX-NAV-POSECEF output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_POSLLH_USB",  # Enable management of UBX-NAV-POSLLH output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_PVT_USB",     # Enable management of UBX-NAV-PVT output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_RELPOSNED_USB", # Enable management of UBX-NAV-RELPOSNED output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_SAT_USB",     # Enable management of UBX-NAV-SAT output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_SIG_USB",     # Enable management of UBX-NAV-SIG output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_STATUS_UART1", # Enable management of UBX-NAV-STATUS output rate on UART1; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_STATUS_UART2", # Enable management of UBX-NAV-STATUS output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_STATUS_USB",  # Enable management of UBX-NAV-STATUS output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_SVIN_USB",    # Enable management of UBX-NAV-SVIN output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_TIMEUTC_USB", # Enable management of UBX-NAV-TIMEUTC output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_VELECEF_USB", # Enable management of UBX-NAV-VELECEF output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_NAV_VELNED_USB",  # Enable management of UBX-NAV-VELNED output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_COR_UART1",   # Enable management of UBX-RXM-COR output rate on UART1; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_COR_UART2",   # Enable management of UBX-RXM-COR output rate on UART2; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_COR_USB",     # Enable management of UBX-RXM-COR output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_MEASX_USB",   # Enable management of UBX-RXM-MEASX output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_RAWX_USB",    # Enable management of UBX-RXM-RAWX output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_SFRBX_USB",   # Enable management of UBX-RXM-SFRBX output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_RTCM_USB",    # Enable management of UBX-RXM-RTCM output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_RXM_SPARTN_USB",  # Enable management of UBX-RXM-SPARTN output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_SEC_SIGLOG_USB",  # Enable management of UBX-SEC-SIGLOG output rate on USB; upstream default: included.
-    "CFG_MSGOUT_UBX_SEC_SIG_USB",     # Enable management of UBX-SEC-SIG output rate on USB; upstream default: included.
-    "CFG_NAVHPG_DGNSSMODE",           # Enable management of DGNSS/RTK operating mode selection; upstream default: included.
-    "CFG_NAVSPG_DYNMODEL",            # Enable management of navigation dynamic model selection; upstream default: included.
-    "CFG_NAVSPG_FIXMODE",             # Enable management of 2D/3D/auto fix mode selection; upstream default: included.
-    "CFG_NAVSPG_INIFIX3D",            # Enable management of initial 3D fix requirement; upstream default: included.
-    "CFG_NAVSPG_UTCSTANDARD",         # Enable management of UTC standard selection; upstream default: included.
-    "CFG_ODO_COGLPGAIN",              # Enable management of odometer course-over-ground low-pass gain; upstream default: included.
-    "CFG_ODO_COGMAXPOSACC",           # Enable management of max position accuracy for odometer COG use; upstream default: included.
-    "CFG_ODO_COGMAXSPEED",            # Enable management of max speed for odometer COG logic; upstream default: included.
-    # "CFG_ODO_OUTLPCOG",             # Odometer low-pass filter output on course over ground; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    # "CFG_ODO_OUTLPVEL",             # Odometer low-pass filter output on velocity; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    # "CFG_ODO_PROFILE",              # Odometer dynamic profile selection; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    # "CFG_ODO_USE_COG",              # Enable odometer-assisted course over ground; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    # "CFG_ODO_USE_ODO",              # Enable odometer input usage; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    # "CFG_ODO_VELLPGAIN",            # Odometer velocity low-pass gain; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    "CFG_RATE_MEAS",                  # Enable management of measurement period; upstream default: included.
-    "CFG_RATE_NAV",                   # Enable management of navigation solution ratio; upstream default: included.
-    # "CFG_RATE_TIMEREF",             # Navigation solution time reference selection; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    # "CFG_SEC_JAMDET_SENSITIVITY_HI", # High-sensitivity jamming detector mode; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    # "CFG_SEC_SPOOFDET_SIM_SIG_DIS", # Simulated-signal spoof detection suppression; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    "CFG_SIGNAL_BDS_B1_ENA",          # Enable management of BeiDou B1 signal tracking; upstream default: included.
-    "CFG_SIGNAL_BDS_B2_ENA",          # Enable management of BeiDou B2 signal tracking; upstream default: included.
-    "CFG_SIGNAL_BDS_ENA",             # Enable management of overall BeiDou constellation tracking; upstream default: included.
-    "CFG_SIGNAL_GAL_E1_ENA",          # Enable management of Galileo E1 signal tracking; upstream default: included.
-    "CFG_SIGNAL_GAL_E5B_ENA",         # Enable management of Galileo E5b signal tracking; upstream default: included.
-    "CFG_SIGNAL_GAL_ENA",             # Enable management of overall Galileo constellation tracking; upstream default: included.
-    "CFG_SIGNAL_GLO_ENA",             # Enable management of overall GLONASS constellation tracking; upstream default: included.
-    "CFG_SIGNAL_GLO_L1_ENA",          # Enable management of GLONASS L1 signal tracking; upstream default: included.
-    "CFG_SIGNAL_GLO_L2_ENA",          # Enable management of GLONASS L2 signal tracking; upstream default: included.
-    "CFG_SIGNAL_GPS_ENA",             # Enable management of overall GPS constellation tracking; upstream default: included.
-    "CFG_SIGNAL_GPS_L1CA_ENA",        # Enable management of GPS L1 C/A signal tracking; upstream default: included.
-    "CFG_SIGNAL_GPS_L2C_ENA",         # Enable management of GPS L2C signal tracking; upstream default: included.
-    "CFG_SIGNAL_QZSS_ENA",            # Enable management of overall QZSS constellation tracking; upstream default: included.
-    "CFG_SIGNAL_QZSS_L1CA_ENA",       # Enable management of QZSS L1 C/A signal tracking; upstream default: included.
-    "CFG_SIGNAL_QZSS_L1S_ENA",        # Enable management of QZSS L1S signal tracking; upstream default: included.
-    "CFG_SIGNAL_QZSS_L2C_ENA",        # Enable management of QZSS L2C signal tracking; upstream default: included.
-    "CFG_SIGNAL_SBAS_ENA",            # Enable management of SBAS constellation tracking; upstream default: included.
-    "CFG_SIGNAL_SBAS_L1CA_ENA",       # Enable management of SBAS L1 C/A signal tracking; upstream default: included.
-    # "CFG_SPARTN_USE_SOURCE",        # SPARTN correction source selection; upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
-    "CFG_TMODE_ECEF_X",               # Enable management of survey/fixed-mode ECEF X coordinate; upstream default: included.
-    "CFG_TMODE_ECEF_X_HP",            # Enable management of high-precision ECEF X coordinate component; upstream default: included.
-    "CFG_TMODE_ECEF_Y",               # Enable management of survey/fixed-mode ECEF Y coordinate; upstream default: included.
-    "CFG_TMODE_ECEF_Y_HP",            # Enable management of high-precision ECEF Y coordinate component; upstream default: included.
-    "CFG_TMODE_ECEF_Z",               # Enable management of survey/fixed-mode ECEF Z coordinate; upstream default: included.
-    "CFG_TMODE_ECEF_Z_HP",            # Enable management of high-precision ECEF Z coordinate component; upstream default: included.
-    "CFG_TMODE_FIXED_POS_ACC",        # Enable management of fixed-position accuracy estimate; upstream default: included.
-    "CFG_TMODE_HEIGHT",               # Enable management of survey/fixed-mode geodetic height; upstream default: included.
-    "CFG_TMODE_HEIGHT_HP",            # Enable management of high-precision height component; upstream default: included.
-    "CFG_TMODE_LAT",                  # Enable management of survey/fixed-mode latitude; upstream default: included.
-    "CFG_TMODE_LAT_HP",               # Enable management of high-precision latitude component; upstream default: included.
-    "CFG_TMODE_LON",                  # Enable management of survey/fixed-mode longitude; upstream default: included.
-    "CFG_TMODE_LON_HP",               # Enable management of high-precision longitude component; upstream default: included.
-    "CFG_TMODE_MODE",                 # Enable management of time mode selection; upstream default: included.
-    "CFG_TMODE_POS_TYPE",             # Enable management of fixed-position coordinate type; upstream default: included.
-    "CFG_TMODE_SVIN_ACC_LIMIT",       # Enable management of survey-in accuracy limit; upstream default: included.
-    "CFG_TMODE_SVIN_MIN_DUR",         # Enable management of minimum survey-in duration; upstream default: included.
-    "CFG_UART1INPROT_NMEA",           # Enable management of NMEA input protocol on UART1; upstream default: included.
-    "CFG_UART1INPROT_RTCM3X",         # Enable management of RTCM3 input protocol on UART1; upstream default: included.
-    "CFG_UART1INPROT_SPARTN",         # Enable management of SPARTN input protocol on UART1; upstream default: included.
-    "CFG_UART1INPROT_UBX",            # Enable management of UBX input protocol on UART1; upstream default: included.
-    "CFG_UART1OUTPROT_NMEA",          # Enable management of NMEA output protocol on UART1; upstream default: included.
-    "CFG_UART1OUTPROT_RTCM3X",        # Enable management of RTCM3 output protocol on UART1; upstream default: included.
-    "CFG_UART1OUTPROT_UBX",           # Enable management of UBX output protocol on UART1; upstream default: included.
-    "CFG_UART2INPROT_NMEA",           # Enable management of NMEA input protocol on UART2; upstream default: included.
-    "CFG_UART2INPROT_RTCM3X",         # Enable management of RTCM3 input protocol on UART2; upstream default: included.
-    "CFG_UART2INPROT_SPARTN",         # Enable management of SPARTN input protocol on UART2; upstream default: included.
-    "CFG_UART2INPROT_UBX",            # Enable management of UBX input protocol on UART2; upstream default: included.
-    "CFG_UART2OUTPROT_NMEA",          # Enable management of NMEA output protocol on UART2; upstream default: included.
-    "CFG_UART2OUTPROT_RTCM3X",        # Enable management of RTCM3 output protocol on UART2; upstream default: included.
-    "CFG_UART2OUTPROT_UBX",           # Enable management of UBX output protocol on UART2; upstream default: included.
-    "CFG_UART2_BAUDRATE",             # Enable management of UART2 baud rate; upstream default: included.
-    "CFG_USBINPROT_NMEA",             # Enable management of NMEA input protocol on USB; upstream default: included.
-    "CFG_USBINPROT_RTCM3X",           # Enable management of RTCM3 input protocol on USB; upstream default: included.
-    "CFG_USBINPROT_UBX",              # Enable management of UBX input protocol on USB; upstream default: included.
-    "CFG_USBOUTPROT_NMEA",            # Enable management of NMEA output protocol on USB; upstream default: included.
-    "CFG_USBOUTPROT_RTCM3X",          # Enable management of RTCM3 output protocol on USB; upstream default: included.
-    "CFG_USBOUTPROT_UBX",             # Enable management of UBX output protocol on USB; upstream default: included.
+    # Enable management of NMEA informational message verbosity on USB.
+    "CFG_INFMSG_NMEA_USB",
+    # Enable management of UBX informational message verbosity on USB.
+    "CFG_INFMSG_UBX_USB",
+    # Enable management of RTCM 1005 output rate on USB.
+    "CFG_MSGOUT_RTCM_3X_TYPE1005_USB",
+    # Enable management of RTCM 1074 output rate on UART2.
+    "CFG_MSGOUT_RTCM_3X_TYPE1074_UART2",
+    # Enable management of RTCM 1077 output rate on USB.
+    "CFG_MSGOUT_RTCM_3X_TYPE1077_USB",
+    # Enable management of RTCM 1084 output rate on UART2.
+    "CFG_MSGOUT_RTCM_3X_TYPE1084_UART2",
+    # Enable management of RTCM 1087 output rate on USB.
+    "CFG_MSGOUT_RTCM_3X_TYPE1087_USB",
+    # Enable management of RTCM 1094 output rate on UART2.
+    "CFG_MSGOUT_RTCM_3X_TYPE1094_UART2",
+    # Enable management of RTCM 1097 output rate on USB.
+    "CFG_MSGOUT_RTCM_3X_TYPE1097_USB",
+    # Enable management of RTCM 1124 output rate on UART2.
+    "CFG_MSGOUT_RTCM_3X_TYPE1124_UART2",
+    # Enable management of RTCM 1127 output rate on USB.
+    "CFG_MSGOUT_RTCM_3X_TYPE1127_USB",
+    # Enable management of RTCM 1230 output rate on UART2.
+    "CFG_MSGOUT_RTCM_3X_TYPE1230_UART2",
+    # Enable management of RTCM 1230 output rate on USB.
+    "CFG_MSGOUT_RTCM_3X_TYPE1230_USB",
+    # Enable management of RTCM 4072.0 output rate on UART2.
+    "CFG_MSGOUT_RTCM_3X_TYPE4072_0_UART2",
+    # Enable management of UBX-MON-COMMS output rate on USB.
+    "CFG_MSGOUT_UBX_MON_COMMS_USB",
+    # Enable management of UBX-NAV-CLOCK output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_CLOCK_USB",
+    # Enable management of UBX-NAV-COV output rate on UART1.
+    "CFG_MSGOUT_UBX_NAV_COV_UART1",
+    # Enable management of UBX-NAV-COV output rate on UART2.
+    "CFG_MSGOUT_UBX_NAV_COV_UART2",
+    # Enable management of UBX-NAV-COV output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_COV_USB",
+    # Enable management of UBX-NAV-DOP output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_DOP_USB",
+    # Enable management of UBX-NAV-EOE output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_EOE_USB",
+    # Enable management of UBX-NAV-HPPOSECEF output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_HPPOSECEF_USB",
+    # Enable management of UBX-NAV-HPPOSLLH output rate on UART1.
+    "CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1",
+    # Enable management of UBX-NAV-HPPOSLLH output rate on UART2.
+    "CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART2",
+    # Enable management of UBX-NAV-HPPOSLLH output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB",
+    # Enable management of UBX-NAV-ODO output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_ODO_USB",
+    # Enable management of UBX-NAV-ORB output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_ORB_USB",
+    # Enable management of UBX-NAV-POSECEF output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_POSECEF_USB",
+    # Enable management of UBX-NAV-POSLLH output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_POSLLH_USB",
+    # Enable management of UBX-NAV-PVT output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_PVT_USB",
+    # Enable management of UBX-NAV-RELPOSNED output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_RELPOSNED_USB",
+    # Enable management of UBX-NAV-SAT output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_SAT_USB",
+    # Enable management of UBX-NAV-SIG output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_SIG_USB",
+    # Enable management of UBX-NAV-STATUS output rate on UART1.
+    "CFG_MSGOUT_UBX_NAV_STATUS_UART1",
+    # Enable management of UBX-NAV-STATUS output rate on UART2.
+    "CFG_MSGOUT_UBX_NAV_STATUS_UART2",
+    # Enable management of UBX-NAV-STATUS output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_STATUS_USB",
+    # Enable management of UBX-NAV-SVIN output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_SVIN_USB",
+    # Enable management of UBX-NAV-TIMEUTC output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_TIMEUTC_USB",
+    # Enable management of UBX-NAV-VELECEF output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_VELECEF_USB",
+    # Enable management of UBX-NAV-VELNED output rate on USB.
+    "CFG_MSGOUT_UBX_NAV_VELNED_USB",
+    # Enable management of UBX-RXM-COR output rate on UART1.
+    "CFG_MSGOUT_UBX_RXM_COR_UART1",
+    # Enable management of UBX-RXM-COR output rate on UART2.
+    "CFG_MSGOUT_UBX_RXM_COR_UART2",
+    # Enable management of UBX-RXM-COR output rate on USB.
+    "CFG_MSGOUT_UBX_RXM_COR_USB",
+    # Enable management of UBX-RXM-MEASX output rate on USB.
+    "CFG_MSGOUT_UBX_RXM_MEASX_USB",
+    # Enable management of UBX-RXM-RAWX output rate on USB.
+    "CFG_MSGOUT_UBX_RXM_RAWX_USB",
+    # Enable management of UBX-RXM-SFRBX output rate on USB.
+    "CFG_MSGOUT_UBX_RXM_SFRBX_USB",
+    # Enable management of UBX-RXM-RTCM output rate on USB.
+    "CFG_MSGOUT_UBX_RXM_RTCM_USB",
+    # Enable management of UBX-RXM-SPARTN output rate on USB.
+    "CFG_MSGOUT_UBX_RXM_SPARTN_USB",
+    # Enable management of UBX-SEC-SIGLOG output rate on USB.
+    "CFG_MSGOUT_UBX_SEC_SIGLOG_USB",
+    # Enable management of UBX-SEC-SIG output rate on USB.
+    "CFG_MSGOUT_UBX_SEC_SIG_USB",
+    # Enable management of DGNSS/RTK operating mode selection.
+    "CFG_NAVHPG_DGNSSMODE",
+    # Enable management of navigation dynamic model selection.
+    "CFG_NAVSPG_DYNMODEL",
+    # Enable management of 2D/3D/auto fix mode selection.
+    "CFG_NAVSPG_FIXMODE",
+    # Enable management of initial 3D fix requirement.
+    "CFG_NAVSPG_INIFIX3D",
+    # Enable management of UTC standard selection.
+    "CFG_NAVSPG_UTCSTANDARD",
+    # Enable management of odometer course-over-ground low-pass gain.
+    "CFG_ODO_COGLPGAIN",
+    # Enable management of max position accuracy for odometer COG use.
+    "CFG_ODO_COGMAXPOSACC",
+    # Enable management of max speed for odometer COG logic.
+    "CFG_ODO_COGMAXSPEED",
+    # Odometer low-pass filter output on course over ground.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_ODO_OUTLPCOG",
+    # Odometer low-pass filter output on velocity.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_ODO_OUTLPVEL",
+    # Odometer dynamic profile selection.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_ODO_PROFILE",
+    # Enable odometer-assisted course over ground.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_ODO_USE_COG",
+    # Enable odometer input usage.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_ODO_USE_ODO",
+    # Odometer velocity low-pass gain.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_ODO_VELLPGAIN",
+    # Enable management of measurement period.
+    "CFG_RATE_MEAS",
+    # Enable management of navigation solution ratio.
+    "CFG_RATE_NAV",
+    # Navigation solution time reference selection.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_RATE_TIMEREF",
+    # High-sensitivity jamming detector mode.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_SEC_JAMDET_SENSITIVITY_HI",
+    # Simulated-signal spoof detection suppression.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_SEC_SPOOFDET_SIM_SIG_DIS",
+    # Enable management of BeiDou B1 signal tracking.
+    "CFG_SIGNAL_BDS_B1_ENA",
+    # Enable management of BeiDou B2 signal tracking.
+    "CFG_SIGNAL_BDS_B2_ENA",
+    # Enable management of overall BeiDou constellation tracking.
+    "CFG_SIGNAL_BDS_ENA",
+    # Enable management of Galileo E1 signal tracking.
+    "CFG_SIGNAL_GAL_E1_ENA",
+    # Enable management of Galileo E5b signal tracking.
+    "CFG_SIGNAL_GAL_E5B_ENA",
+    # Enable management of overall Galileo constellation tracking.
+    "CFG_SIGNAL_GAL_ENA",
+    # Enable management of overall GLONASS constellation tracking.
+    "CFG_SIGNAL_GLO_ENA",
+    # Enable management of GLONASS L1 signal tracking.
+    "CFG_SIGNAL_GLO_L1_ENA",
+    # Enable management of GLONASS L2 signal tracking.
+    "CFG_SIGNAL_GLO_L2_ENA",
+    # Enable management of overall GPS constellation tracking.
+    "CFG_SIGNAL_GPS_ENA",
+    # Enable management of GPS L1 C/A signal tracking.
+    "CFG_SIGNAL_GPS_L1CA_ENA",
+    # Enable management of GPS L2C signal tracking.
+    "CFG_SIGNAL_GPS_L2C_ENA",
+    # Enable management of overall QZSS constellation tracking.
+    "CFG_SIGNAL_QZSS_ENA",
+    # Enable management of QZSS L1 C/A signal tracking.
+    "CFG_SIGNAL_QZSS_L1CA_ENA",
+    # Enable management of QZSS L1S signal tracking.
+    "CFG_SIGNAL_QZSS_L1S_ENA",
+    # Enable management of QZSS L2C signal tracking.
+    "CFG_SIGNAL_QZSS_L2C_ENA",
+    # Enable management of SBAS constellation tracking.
+    "CFG_SIGNAL_SBAS_ENA",
+    # Enable management of SBAS L1 C/A signal tracking.
+    "CFG_SIGNAL_SBAS_L1CA_ENA",
+    # SPARTN correction source selection.
+    # Upstream default: included, removed here because HPG 1.32 never returns it in CFG-VALGET.
+    # "CFG_SPARTN_USE_SOURCE",
+    # Enable management of survey/fixed-mode ECEF X coordinate.
+    "CFG_TMODE_ECEF_X",
+    # Enable management of high-precision ECEF X coordinate component.
+    "CFG_TMODE_ECEF_X_HP",
+    # Enable management of survey/fixed-mode ECEF Y coordinate.
+    "CFG_TMODE_ECEF_Y",
+    # Enable management of high-precision ECEF Y coordinate component.
+    "CFG_TMODE_ECEF_Y_HP",
+    # Enable management of survey/fixed-mode ECEF Z coordinate.
+    "CFG_TMODE_ECEF_Z",
+    # Enable management of high-precision ECEF Z coordinate component.
+    "CFG_TMODE_ECEF_Z_HP",
+    # Enable management of fixed-position accuracy estimate.
+    "CFG_TMODE_FIXED_POS_ACC",
+    # Enable management of survey/fixed-mode geodetic height.
+    "CFG_TMODE_HEIGHT",
+    # Enable management of high-precision height component.
+    "CFG_TMODE_HEIGHT_HP",
+    # Enable management of survey/fixed-mode latitude.
+    "CFG_TMODE_LAT",
+    # Enable management of high-precision latitude component.
+    "CFG_TMODE_LAT_HP",
+    # Enable management of survey/fixed-mode longitude.
+    "CFG_TMODE_LON",
+    # Enable management of high-precision longitude component.
+    "CFG_TMODE_LON_HP",
+    # Enable management of time mode selection.
+    "CFG_TMODE_MODE",
+    # Enable management of fixed-position coordinate type.
+    "CFG_TMODE_POS_TYPE",
+    # Enable management of survey-in accuracy limit.
+    "CFG_TMODE_SVIN_ACC_LIMIT",
+    # Enable management of minimum survey-in duration.
+    "CFG_TMODE_SVIN_MIN_DUR",
+    # Enable management of NMEA input protocol on UART1.
+    "CFG_UART1INPROT_NMEA",
+    # Enable management of RTCM3 input protocol on UART1.
+    "CFG_UART1INPROT_RTCM3X",
+    # Enable management of SPARTN input protocol on UART1.
+    "CFG_UART1INPROT_SPARTN",
+    # Enable management of UBX input protocol on UART1.
+    "CFG_UART1INPROT_UBX",
+    # Enable management of NMEA output protocol on UART1.
+    "CFG_UART1OUTPROT_NMEA",
+    # Enable management of RTCM3 output protocol on UART1.
+    "CFG_UART1OUTPROT_RTCM3X",
+    # Enable management of UBX output protocol on UART1.
+    "CFG_UART1OUTPROT_UBX",
+    # Enable management of NMEA input protocol on UART2.
+    "CFG_UART2INPROT_NMEA",
+    # Enable management of RTCM3 input protocol on UART2.
+    "CFG_UART2INPROT_RTCM3X",
+    # Enable management of SPARTN input protocol on UART2.
+    "CFG_UART2INPROT_SPARTN",
+    # Enable management of UBX input protocol on UART2.
+    "CFG_UART2INPROT_UBX",
+    # Enable management of NMEA output protocol on UART2.
+    "CFG_UART2OUTPROT_NMEA",
+    # Enable management of RTCM3 output protocol on UART2.
+    "CFG_UART2OUTPROT_RTCM3X",
+    # Enable management of UBX output protocol on UART2.
+    "CFG_UART2OUTPROT_UBX",
+    # Enable management of UART2 baud rate.
+    "CFG_UART2_BAUDRATE",
+    # Enable management of NMEA input protocol on USB.
+    "CFG_USBINPROT_NMEA",
+    # Enable management of RTCM3 input protocol on USB.
+    "CFG_USBINPROT_RTCM3X",
+    # Enable management of UBX input protocol on USB.
+    "CFG_USBINPROT_UBX",
+    # Enable management of NMEA output protocol on USB.
+    "CFG_USBOUTPROT_NMEA",
+    # Enable management of RTCM3 output protocol on USB.
+    "CFG_USBOUTPROT_RTCM3X",
+    # Enable management of UBX output protocol on USB.
+    "CFG_USBOUTPROT_UBX",
 ]
