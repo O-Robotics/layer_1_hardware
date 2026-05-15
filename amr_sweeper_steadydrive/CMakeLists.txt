@@ -44,11 +44,6 @@ install(
   DIRECTORY include/
   DESTINATION include
 )
-install(
-  DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
 ## EXPORTS
 ament_export_include_directories(
   include
