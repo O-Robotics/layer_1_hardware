@@ -1,6 +1,12 @@
 """Launch all AMR Sweeper layer 1 hardware packages from one bringup entrypoint."""
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler, TimerAction
+from launch.actions import (
+    DeclareLaunchArgument,
+    GroupAction,
+    IncludeLaunchDescription,
+    RegisterEventHandler,
+    TimerAction,
+)
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -82,21 +88,26 @@ def generate_launch_description():
         "control",
         "ros2_control.yaml",
     ])))
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
-        ),
-        launch_arguments={
-            "namespace": namespace,
-            "use_sim_time": use_sim_time,
-            "use_ros2_control": use_ros2_control,
-            "ros2_control_config_file": ros2_control_config_file,
-            "enable_usb_cameras": use_usb_cameras,
-            "enable_gnss": use_gnss_rover,
-            "enable_imu": use_imu_node,
-            "enable_depth_camera": use_depth_camera,
-        }.items(),
-        condition=IfCondition(use_robot_description),
+    ld.add_action(GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
+                ),
+                launch_arguments={
+                    "namespace": namespace,
+                    "use_sim_time": use_sim_time,
+                    "use_ros2_control": use_ros2_control,
+                    "ros2_control_config_file": ros2_control_config_file,
+                    "enable_usb_cameras": use_usb_cameras,
+                    "enable_gnss": use_gnss_rover,
+                    "enable_imu": use_imu_node,
+                    "enable_depth_camera": use_depth_camera,
+                }.items(),
+                condition=IfCondition(use_robot_description),
+            ),
+        ],
     ))
 
     ld.add_action(Node(
@@ -122,35 +133,50 @@ def generate_launch_description():
         condition=IfCondition(use_system_info_node),
     ))
 
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_usb_cameras", "amr_sweeper_usb_cameras.launch.py")),
-        launch_arguments={
-            "namespace": usb_cameras_namespace,
-            "log_level": log_level,
-        }.items(),
-        condition=IfCondition(use_usb_cameras),
+    ld.add_action(GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_usb_cameras", "amr_sweeper_usb_cameras.launch.py")),
+                launch_arguments={
+                    "namespace": usb_cameras_namespace,
+                    "log_level": log_level,
+                }.items(),
+                condition=IfCondition(use_usb_cameras),
+            ),
+        ],
     ))
 
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_depth_camera", "amr_sweeper_depth_camera.launch.py")),
-        launch_arguments={
-            "namespace": depth_camera_namespace,
-            "log_level": log_level,
-            "use_sim_time": use_sim_time,
-        }.items(),
-        condition=IfCondition(use_depth_camera),
+    ld.add_action(GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_depth_camera", "amr_sweeper_depth_camera.launch.py")),
+                launch_arguments={
+                    "namespace": depth_camera_namespace,
+                    "log_level": log_level,
+                    "use_sim_time": use_sim_time,
+                }.items(),
+                condition=IfCondition(use_depth_camera),
+            ),
+        ],
     ))
 
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "imu.launch.py")),
-        launch_arguments={
-            "namespace": imu_namespace,
-            "use_sim_time": use_sim_time,
-            "port": imu_port,
-            "baud": imu_baud,
-            "use_imu_node": use_imu_node,
-        }.items(),
-        condition=IfCondition(use_imu_node),
+    ld.add_action(GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "imu.launch.py")),
+                launch_arguments={
+                    "namespace": imu_namespace,
+                    "use_sim_time": use_sim_time,
+                    "port": imu_port,
+                    "baud": imu_baud,
+                    "use_imu_node": use_imu_node,
+                }.items(),
+                condition=IfCondition(use_imu_node),
+            ),
+        ],
     ))
 
     controller_manager = Node(
@@ -268,26 +294,36 @@ def generate_launch_description():
     ld.add_action(delayed_diff_drive_spawner)
     ld.add_action(delayed_steadydrive_spawner)
 
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_steadydrive", "steadydrive.launch.py")),
-        launch_arguments={
-            "namespace": namespace,
-            "can_interface": steadydrive_can_interface,
-        }.items(),
-        condition=IfCondition(use_steadydrive_can_nodes),
+    ld.add_action(GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_steadydrive", "steadydrive.launch.py")),
+                launch_arguments={
+                    "namespace": namespace,
+                    "can_interface": steadydrive_can_interface,
+                }.items(),
+                condition=IfCondition(use_steadydrive_can_nodes),
+            ),
+        ],
     ))
 
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")),
-        launch_arguments={
-            "use_ublox_dgnss_node": use_gnss_rover,
-            "use_ublox_nav_sat_fix_hp": use_gnss_rover,
-            "use_ntrip_client": use_ntrip_client,
-            "gnss_namespace": gnss_namespace,
-            "gnss_frame_id": gnss_frame_id,
-            "ntrip_params_file": ntrip_params_file,
-        }.items(),
-        condition=IfCondition(use_gnss_rover),
+    ld.add_action(GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")),
+                launch_arguments={
+                    "use_ublox_dgnss_node": use_gnss_rover,
+                    "use_ublox_nav_sat_fix_hp": use_gnss_rover,
+                    "use_ntrip_client": use_ntrip_client,
+                    "gnss_namespace": gnss_namespace,
+                    "gnss_frame_id": gnss_frame_id,
+                    "ntrip_params_file": ntrip_params_file,
+                }.items(),
+                condition=IfCondition(use_gnss_rover),
+            ),
+        ],
     ))
 
     ld.add_action(Node(
