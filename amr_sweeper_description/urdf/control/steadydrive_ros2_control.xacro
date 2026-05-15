@@ -3,10 +3,9 @@
   <ros2_control name="steadydrive_ros2_control" type="system">
     <hardware>
       <plugin>steadydrive_hw_interface/SteadydriveHardwareInterface</plugin>
-      <param name="topic_speed_output_left">/$(arg robot_namespace)/steadydrive_left/speed_control</param>
-      <param name="topic_speed_output_right">/$(arg robot_namespace)/steadydrive_right/speed_control</param>
-      <param name="topic_motor_state_left">/$(arg robot_namespace)/steadydrive_left/joint_state</param>
-      <param name="topic_motor_state_right">/$(arg robot_namespace)/steadydrive_right/joint_state</param>
+      <param name="can_interface">$(arg steadydrive_can_interface)</param>
+      <param name="left_motor_can_id">$(arg steadydrive_left_motor_can_id)</param>
+      <param name="right_motor_can_id">$(arg steadydrive_right_motor_can_id)</param>
     </hardware>
 
     <joint name="LeftBrush_joint">

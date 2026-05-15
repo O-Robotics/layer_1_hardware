@@ -46,6 +46,8 @@ def generate_launch_description():
 
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     steadydrive_can_interface = LaunchConfiguration("steadydrive_can_interface")
+    steadydrive_left_motor_can_id = LaunchConfiguration("steadydrive_left_motor_can_id")
+    steadydrive_right_motor_can_id = LaunchConfiguration("steadydrive_right_motor_can_id")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
     odrive_interface = LaunchConfiguration("odrive_interface")
@@ -72,6 +74,8 @@ def generate_launch_description():
 
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
+    ld.add_action(DeclareLaunchArgument("steadydrive_left_motor_can_id", default_value="0x141"))
+    ld.add_action(DeclareLaunchArgument("steadydrive_right_motor_can_id", default_value="0x142"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
     ld.add_action(DeclareLaunchArgument("odrive_interface", default_value="can0"))
@@ -104,6 +108,9 @@ def generate_launch_description():
                     "enable_gnss": use_gnss_rover,
                     "enable_imu": use_imu_node,
                     "enable_depth_camera": use_depth_camera,
+                    "steadydrive_can_interface": steadydrive_can_interface,
+                    "steadydrive_left_motor_can_id": steadydrive_left_motor_can_id,
+                    "steadydrive_right_motor_can_id": steadydrive_right_motor_can_id,
                 }.items(),
                 condition=IfCondition(use_robot_description),
             ),
@@ -191,6 +198,7 @@ def generate_launch_description():
         remappings=[
             ("~/robot_description", "robot_description"),
             ("/robot_description", "robot_description"),
+            ("/tf", "diff_cont_disabled_tf"),
         ],
         condition=IfCondition(use_ros2_control),
     )
@@ -302,6 +310,8 @@ def generate_launch_description():
                 launch_arguments={
                     "namespace": namespace,
                     "can_interface": steadydrive_can_interface,
+                    "left_motor_can_id": steadydrive_left_motor_can_id,
+                    "right_motor_can_id": steadydrive_right_motor_can_id,
                 }.items(),
                 condition=IfCondition(use_steadydrive_can_nodes),
             ),

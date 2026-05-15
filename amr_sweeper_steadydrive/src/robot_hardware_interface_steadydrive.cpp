@@ -2,64 +2,89 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
+#include <cstring>
 #include <cmath>
+#include <stdexcept>
 
-// Replace defines with constexpr for motor indices
+#include <linux/can/raw.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 namespace {
-    constexpr int LEFT_MOTOR_INDEX = 0;
-    constexpr int RIGHT_MOTOR_INDEX = 1;
-    constexpr double RAD_TO_DEG = 180.0 / M_PI;
+constexpr int LEFT_MOTOR_INDEX = 0;
+constexpr int RIGHT_MOTOR_INDEX = 1;
+constexpr double RAD_TO_DEG = 180.0 / M_PI;
+constexpr double DEG_TO_RAD = M_PI / 180.0;
+constexpr double TWO_PI = 2.0 * M_PI;
+constexpr double ENCODER_COUNTS_PER_REV = 16384.0;
+constexpr double RAD_PER_COUNT = TWO_PI / ENCODER_COUNTS_PER_REV;
+constexpr int32_t MAX_SPEED_COMMAND = 7200000;
+constexpr int32_t MIN_SPEED_COMMAND = -7200000;
 
-    double parse_positive_motor_direction_sign(const std::string & direction, const std::string & joint_name)
-    {
-      std::string normalized = direction;
-      std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
-        return static_cast<char>(std::toupper(c));
-      });
-
-      if (normalized == "CCW") {
-        return 1.0;
-      }
-      if (normalized == "CW") {
-        return -1.0;
-      }
-
-      RCLCPP_WARN(
-        rclcpp::get_logger("SteadydriveHardwareInterface"),
-        "Unknown positive_motor_direction '%s' for joint '%s'. Falling back to CCW.",
-        direction.c_str(),
-        joint_name.c_str());
-      return 1.0;
-    }
-
-    double parse_gear_ratio(const hardware_interface::ComponentInfo & joint)
-    {
-      const auto it = joint.parameters.find("gear_ratio");
-      if (it == joint.parameters.end()) {
-        return 1.0;
-      }
-
-      try {
-        const double ratio = std::stod(it->second);
-        if (ratio <= 0.0) {
-          throw std::out_of_range("gear_ratio must be positive");
-        }
-        return ratio;
-      } catch (const std::exception & error) {
-        throw std::runtime_error(
-                "Joint '" + joint.name + "' has invalid gear_ratio '" + it->second + "': " +
-                error.what());
-      }
-    }
+uint32_t parse_can_id(const std::string & value, const std::string & parameter_name)
+{
+  try {
+    return static_cast<uint32_t>(std::stoul(value, nullptr, 0));
+  } catch (const std::exception & error) {
+    throw std::runtime_error("Invalid " + parameter_name + " '" + value + "': " + error.what());
+  }
 }
 
+int16_t decode_signed_16bit(uint8_t low_byte, uint8_t high_byte)
+{
+  return static_cast<int16_t>(
+    static_cast<uint16_t>(low_byte) | (static_cast<uint16_t>(high_byte) << 8));
+}
+
+double parse_positive_motor_direction_sign(const std::string & direction, const std::string & joint_name)
+{
+  std::string normalized = direction;
+  std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+    return static_cast<char>(std::toupper(c));
+  });
+
+  if (normalized == "CCW") {
+    return 1.0;
+  }
+  if (normalized == "CW") {
+    return -1.0;
+  }
+
+  RCLCPP_WARN(
+    rclcpp::get_logger("SteadydriveHardwareInterface"),
+    "Unknown positive_motor_direction '%s' for joint '%s'. Falling back to CCW.",
+    direction.c_str(),
+    joint_name.c_str());
+  return 1.0;
+}
+
+double parse_gear_ratio(const hardware_interface::ComponentInfo & joint)
+{
+  const auto it = joint.parameters.find("gear_ratio");
+  if (it == joint.parameters.end()) {
+    return 1.0;
+  }
+
+  try {
+    const double ratio = std::stod(it->second);
+    if (ratio <= 0.0) {
+      throw std::out_of_range("gear_ratio must be positive");
+    }
+    return ratio;
+  } catch (const std::exception & error) {
+    throw std::runtime_error(
+      "Joint '" + joint.name + "' has invalid gear_ratio '" + it->second + "': " + error.what());
+  }
+}
+}  // namespace
+
 using amr_sweeper_steadydrive::SteadydriveHardwareInterface;
-
-
-
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
   const hardware_interface::HardwareComponentInterfaceParams & params)
-{  
+{
   if (
     hardware_interface::SystemInterface::on_init(params) !=
     hardware_interface::CallbackReturn::SUCCESS)
@@ -80,15 +105,18 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
   position_states_.resize(num_joints_);
   positive_motor_direction_signs_.resize(num_joints_, 1.0);
   gear_ratios_.resize(num_joints_, 1.0);
+  motor_can_ids_.resize(num_joints_);
+  can_sockets_.assign(num_joints_, -1);
+  last_encoder_position_raw_.resize(num_joints_);
+  accumulated_motor_position_rad_.resize(num_joints_, 0.0);
 
-  if(num_joints_ != 2)
+  if (num_joints_ != 2)
   {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "Incorrect number of joints");
     return hardware_interface::CallbackReturn::ERROR;
   }
 
-  try
-  {
+  try {
     if (validateJoints() != hardware_interface::CallbackReturn::SUCCESS) {
       return hardware_interface::CallbackReturn::ERROR;
     }
@@ -102,40 +130,155 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
       gear_ratios_[i] = parse_gear_ratio(joint);
     }
 
-    std::string topic_speed_output_left = info_.hardware_parameters.at("topic_speed_output_left");
-    std::string topic_speed_output_right = info_.hardware_parameters.at("topic_speed_output_right");
-    std::string topic_motor_state_left = info_.hardware_parameters.at("topic_motor_state_left");
-    std::string topic_motor_state_right = info_.hardware_parameters.at("topic_motor_state_right");
+    const auto can_interface_it = info_.hardware_parameters.find("can_interface");
+    can_interface_ =
+      can_interface_it != info_.hardware_parameters.end() ? can_interface_it->second : "can0";
 
-    RCLCPP_INFO(rclcpp::get_logger(hw_name_),
-                "Loaded parameters: topic_speed_output_left=%s, topic_speed_output_right=%s, topic_motor_state_left=%s, topic_motor_state_right=%s",
-                topic_speed_output_left.c_str(),
-                topic_speed_output_right.c_str(),
-                topic_motor_state_left.c_str(),
-                topic_motor_state_right.c_str());
+    const auto left_can_id_it = info_.hardware_parameters.find("left_motor_can_id");
+    const auto right_can_id_it = info_.hardware_parameters.find("right_motor_can_id");
+    motor_can_ids_[LEFT_MOTOR_INDEX] = parse_can_id(
+      left_can_id_it != info_.hardware_parameters.end() ? left_can_id_it->second : "0x141",
+      "left_motor_can_id");
+    motor_can_ids_[RIGHT_MOTOR_INDEX] = parse_can_id(
+      right_can_id_it != info_.hardware_parameters.end() ? right_can_id_it->second : "0x142",
+      "right_motor_can_id");
 
-  node_ = std::make_shared<rclcpp::Node>(hw_name_);  
-  publisher_left_ = node_->create_publisher<std_msgs::msg::Float32>(topic_speed_output_left, 10);
-  publisher_right_ = node_->create_publisher<std_msgs::msg::Float32>(topic_speed_output_right, 10);
-  subscriber_motor_state_left = node_->create_subscription<sensor_msgs::msg::JointState>(
-      topic_motor_state_left, 10, std::bind(&SteadydriveHardwareInterface::callback_motor_state_left, this, std::placeholders::_1));
-  subscriber_motor_state_right = node_->create_subscription<sensor_msgs::msg::JointState>(
-      topic_motor_state_right, 10, std::bind(&SteadydriveHardwareInterface::callback_motor_state_right, this, std::placeholders::_1));
-
-  }
-  catch (const std::out_of_range &e)
-  {
+    RCLCPP_INFO(
+      rclcpp::get_logger(hw_name_),
+      "Loaded CAN parameters: can_interface=%s, left_motor_can_id=0x%03X, right_motor_can_id=0x%03X",
+      can_interface_.c_str(),
+      motor_can_ids_[LEFT_MOTOR_INDEX],
+      motor_can_ids_[RIGHT_MOTOR_INDEX]);
+  } catch (const std::out_of_range & e) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "Parameter missing: %s", e.what());
     return hardware_interface::CallbackReturn::ERROR;
-  }
-  catch (const std::exception &e)
-  {
+  } catch (const std::exception & e) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "Error parsing parameter: %s", e.what());
     return hardware_interface::CallbackReturn::ERROR;
   }
 
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_configure(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  if (!initializeCanSockets()) {
+    return hardware_interface::CallbackReturn::ERROR;
+  }
 
   return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_cleanup(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  closeCanSockets();
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+bool SteadydriveHardwareInterface::initializeCanSockets()
+{
+  closeCanSockets();
+
+  for (size_t motor_index = 0; motor_index < can_sockets_.size(); ++motor_index) {
+    if (!initializeMotorSocket(motor_index)) {
+      closeCanSockets();
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool SteadydriveHardwareInterface::initializeMotorSocket(size_t motor_index)
+{
+  const int socket_fd = ::socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
+  if (socket_fd < 0) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger(hw_name_), "SocketCAN socket creation failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    return false;
+  }
+
+  struct ifreq ifr {};
+  std::strncpy(ifr.ifr_name, can_interface_.c_str(), IFNAMSIZ - 1);
+  if (ioctl(socket_fd, SIOCGIFINDEX, &ifr) < 0) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger(hw_name_), "SocketCAN ioctl(SIOCGIFINDEX) failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(socket_fd);
+    return false;
+  }
+
+  can_filter filter {};
+  filter.can_id = motor_can_ids_[motor_index];
+  filter.can_mask = CAN_SFF_MASK;
+  if (setsockopt(socket_fd, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter)) < 0) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger(hw_name_), "SocketCAN filter setup failed for 0x%03X on '%s': %s",
+      motor_can_ids_[motor_index], can_interface_.c_str(), std::strerror(errno));
+    ::close(socket_fd);
+    return false;
+  }
+
+  const int recv_own_msgs = 0;
+  if (setsockopt(socket_fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own_msgs, sizeof(recv_own_msgs)) < 0) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger(hw_name_), "SocketCAN own-message suppression failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(socket_fd);
+    return false;
+  }
+
+  struct sockaddr_can addr {};
+  addr.can_family = AF_CAN;
+  addr.can_ifindex = ifr.ifr_ifindex;
+  if (bind(socket_fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger(hw_name_), "SocketCAN bind failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(socket_fd);
+    return false;
+  }
+
+  can_sockets_[motor_index] = socket_fd;
+  return true;
+}
+
+void SteadydriveHardwareInterface::closeCanSockets()
+{
+  for (auto & socket_fd : can_sockets_) {
+    if (socket_fd >= 0) {
+      ::close(socket_fd);
+      socket_fd = -1;
+    }
+  }
+}
+
+bool SteadydriveHardwareInterface::sendMotorCommand(
+  size_t motor_index, uint8_t command_byte,
+  uint8_t byte1, uint8_t byte2, uint8_t byte3,
+  uint8_t byte4, uint8_t byte5, uint8_t byte6,
+  uint8_t byte7)
+{
+  if (motor_index >= can_sockets_.size() || can_sockets_[motor_index] < 0) {
+    return false;
+  }
+
+  struct can_frame frame {};
+  frame.can_id = motor_can_ids_[motor_index];
+  frame.can_dlc = 8;
+  frame.data[0] = command_byte;
+  frame.data[1] = byte1;
+  frame.data[2] = byte2;
+  frame.data[3] = byte3;
+  frame.data[4] = byte4;
+  frame.data[5] = byte5;
+  frame.data[6] = byte6;
+  frame.data[7] = byte7;
+
+  return ::write(can_sockets_[motor_index], &frame, sizeof(frame)) == static_cast<ssize_t>(sizeof(frame));
 }
 
 
@@ -144,24 +287,93 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
  */
 void SteadydriveHardwareInterface::writeCommandsToHardware()
 {
-  std_msgs::msg::Float32 msg_left;
-  std_msgs::msg::Float32 msg_right;
-  msg_left.data = static_cast<float>(
-    velocity_commands_[LEFT_MOTOR_INDEX] * gear_ratios_[LEFT_MOTOR_INDEX] * RAD_TO_DEG *
-    positive_motor_direction_signs_[LEFT_MOTOR_INDEX]);
-  msg_right.data = static_cast<float>(
-    velocity_commands_[RIGHT_MOTOR_INDEX] * gear_ratios_[RIGHT_MOTOR_INDEX] * RAD_TO_DEG *
-    positive_motor_direction_signs_[RIGHT_MOTOR_INDEX]);
-  publisher_left_->publish(msg_left);
-  publisher_right_->publish(msg_right);
+  for (size_t motor_index = 0; motor_index < velocity_commands_.size(); ++motor_index) {
+    const double motor_velocity_deg_s =
+      velocity_commands_[motor_index] * gear_ratios_[motor_index] * RAD_TO_DEG *
+      positive_motor_direction_signs_[motor_index];
+    int32_t speed_control_value =
+      static_cast<int32_t>(std::lround(motor_velocity_deg_s * 100.0));
+    speed_control_value = std::clamp(speed_control_value, MIN_SPEED_COMMAND, MAX_SPEED_COMMAND);
 
-  RCLCPP_DEBUG(
-    rclcpp::get_logger(hw_name_),
-    "Publishing motor command velocities in deg/s (L: %f, R: %f)",
-    msg_left.data, msg_right.data);
+    const uint8_t byte4 = static_cast<uint8_t>(speed_control_value & 0xFF);
+    const uint8_t byte5 = static_cast<uint8_t>((speed_control_value >> 8) & 0xFF);
+    const uint8_t byte6 = static_cast<uint8_t>((speed_control_value >> 16) & 0xFF);
+    const uint8_t byte7 = static_cast<uint8_t>((speed_control_value >> 24) & 0xFF);
 
-
+    (void)sendMotorCommand(motor_index, 0xA2, 0x00, 0x00, 0x00, byte4, byte5, byte6, byte7);
+  }
 }
+
+void SteadydriveHardwareInterface::readAvailableMotorFrames(size_t motor_index)
+{
+  if (motor_index >= can_sockets_.size() || can_sockets_[motor_index] < 0) {
+    return;
+  }
+
+  while (true) {
+    struct can_frame response {};
+    const ssize_t bytes_read = ::read(can_sockets_[motor_index], &response, sizeof(response));
+    if (bytes_read < 0) {
+      if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        RCLCPP_WARN(
+          rclcpp::get_logger(hw_name_), "SocketCAN read failed on '%s' for motor 0x%03X: %s",
+          can_interface_.c_str(), motor_can_ids_[motor_index], std::strerror(errno));
+      }
+      return;
+    }
+
+    if (bytes_read != static_cast<ssize_t>(sizeof(response))) {
+      continue;
+    }
+
+    processMotorFrame(motor_index, response);
+  }
+}
+
+void SteadydriveHardwareInterface::processMotorFrame(size_t motor_index, const struct can_frame & frame)
+{
+  if (frame.can_id != motor_can_ids_[motor_index] || frame.can_dlc < 8 || frame.data[0] != 0x9C) {
+    return;
+  }
+
+  const int16_t speed_deg_per_sec = decode_signed_16bit(frame.data[4], frame.data[5]);
+  const uint16_t encoder_position_raw =
+    (static_cast<uint16_t>(frame.data[6]) |
+    (static_cast<uint16_t>(frame.data[7]) << 8)) & 0x3fff;
+
+  velocity_states_[motor_index] =
+    static_cast<double>(speed_deg_per_sec) * DEG_TO_RAD *
+    positive_motor_direction_signs_[motor_index] / gear_ratios_[motor_index];
+  position_states_[motor_index] =
+    unwrapEncoderPositionRad(motor_index, encoder_position_raw) *
+    positive_motor_direction_signs_[motor_index] / gear_ratios_[motor_index];
+}
+
+double SteadydriveHardwareInterface::unwrapEncoderPositionRad(
+  size_t motor_index, uint16_t encoder_position_raw)
+{
+  if (!last_encoder_position_raw_[motor_index]) {
+    last_encoder_position_raw_[motor_index] = encoder_position_raw;
+    accumulated_motor_position_rad_[motor_index] =
+      static_cast<double>(encoder_position_raw) * RAD_PER_COUNT;
+    return accumulated_motor_position_rad_[motor_index];
+  }
+
+  int delta_counts =
+    static_cast<int>(encoder_position_raw) - static_cast<int>(*last_encoder_position_raw_[motor_index]);
+  const int half_turn_counts = static_cast<int>(ENCODER_COUNTS_PER_REV / 2.0);
+
+  if (delta_counts > half_turn_counts) {
+    delta_counts -= static_cast<int>(ENCODER_COUNTS_PER_REV);
+  } else if (delta_counts < -half_turn_counts) {
+    delta_counts += static_cast<int>(ENCODER_COUNTS_PER_REV);
+  }
+
+  accumulated_motor_position_rad_[motor_index] += static_cast<double>(delta_counts) * RAD_PER_COUNT;
+  last_encoder_position_raw_[motor_index] = encoder_position_raw;
+  return accumulated_motor_position_rad_[motor_index];
+}
+
 /**
  * @brief Pull latest speed and travel measurements from MCU, 
  * and store in joint structure for ros_control
@@ -169,7 +381,10 @@ void SteadydriveHardwareInterface::writeCommandsToHardware()
  */
 void SteadydriveHardwareInterface::updateJointsFromHardware()
 {
-  rclcpp::spin_some(node_);
+  for (size_t motor_index = 0; motor_index < can_sockets_.size(); ++motor_index) {
+    readAvailableMotorFrames(motor_index);
+    (void)sendMotorCommand(motor_index, 0x9C);
+  }
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), 
     "Reading joint states (L: %f, R: %f)",
     position_states_[LEFT_MOTOR_INDEX], position_states_[RIGHT_MOTOR_INDEX]);
@@ -273,6 +488,9 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
     prev_velocity_commands_[i] = 0.0;
     position_states_[i] = 0.0;
     velocity_states_[i] = 0.0;
+    last_encoder_position_raw_[i].reset();
+    accumulated_motor_position_rad_[i] = 0.0;
+    (void)sendMotorCommand(i, 0x88);
   }
 
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System Successfully started!");
@@ -282,6 +500,10 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Stopping ...please wait...");
+  for (auto i = 0u; i < num_joints_; i++) {
+    (void)sendMotorCommand(i, 0xA2);
+    (void)sendMotorCommand(i, 0x81);
+  }
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System successfully stopped!");
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -300,40 +522,6 @@ hardware_interface::return_type SteadydriveHardwareInterface::write(const rclcpp
   writeCommandsToHardware();
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Joints successfully written!");
   return hardware_interface::return_type::OK;
-}
-
-void SteadydriveHardwareInterface::callback_motor_state_left(const sensor_msgs::msg::JointState::SharedPtr msg)
-{
-    if (msg->velocity.size() > 0 && msg->position.size() > 0)
-    {
-        velocity_states_[LEFT_MOTOR_INDEX] =
-          msg->velocity[0] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX] /
-          gear_ratios_[LEFT_MOTOR_INDEX];
-        position_states_[LEFT_MOTOR_INDEX] =
-          msg->position[0] * positive_motor_direction_signs_[LEFT_MOTOR_INDEX] /
-          gear_ratios_[LEFT_MOTOR_INDEX];
-    }
-    else
-    {
-        RCLCPP_WARN(rclcpp::get_logger(hw_name_), "Received incomplete motor state for left motor");
-    }
-}
-
-void SteadydriveHardwareInterface::callback_motor_state_right(const sensor_msgs::msg::JointState::SharedPtr msg)
-{
-    if (msg->velocity.size() > 0 && msg->position.size() > 0)
-    {
-        velocity_states_[RIGHT_MOTOR_INDEX] =
-          msg->velocity[0] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX] /
-          gear_ratios_[RIGHT_MOTOR_INDEX];
-        position_states_[RIGHT_MOTOR_INDEX] =
-          msg->position[0] * positive_motor_direction_signs_[RIGHT_MOTOR_INDEX] /
-          gear_ratios_[RIGHT_MOTOR_INDEX];
-    }
-    else
-    {
-        RCLCPP_WARN(rclcpp::get_logger(hw_name_), "Received incomplete motor state for right motor");
-    }
 }
 
 #include <pluginlib/class_list_macros.hpp>
