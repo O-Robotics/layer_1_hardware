@@ -32,3 +32,5 @@ This package runs the USB camera nodes used by the AMR Sweeper camera set.
 - Main node: `amr_sweeper_usb_cameras_node`.
 - Used to expose the camera topics required by higher-level perception or operator tools.
 - Each enabled camera node gets its own namespace below the configured camera root, for example `/amr_sweeper/usb_cameras/front_left_camera`.
+- The robot description publishes one physical frame per USB camera as `<camera_name>_link` and the corresponding ROS optical frame as `<camera_name>_optical_frame`.
+- The default USB camera parameter files stamp images with the physical camera frame ids `<camera_name>_link`.

@@ -3,120 +3,80 @@
 
   <joint name="front_right_camera_body_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="front_right_camera_body_link"/>
+    <child link="front_right_camera_link"/>
     <origin xyz="0.418213 -0.233430 0.119785" rpy="0 -0.425978 -1.307891"/>
   </joint>
 
-  <link name="front_right_camera_body_link"/>
-
-  <joint name="front_right_camera_joint" type="fixed">
-    <parent link="front_right_camera_body_link"/>
-    <child link="front_right_camera"/>
-    <origin xyz="0.0161 0 0" rpy="0 0 0"/>
-  </joint>
-
-  <link name="front_right_camera"/>
+  <link name="front_right_camera_link"/>
 
   <joint name="front_right_camera_optical_joint" type="fixed">
-    <parent link="front_right_camera"/>
+    <parent link="front_right_camera_link"/>
     <child link="front_right_camera_optical_frame"/>
-    <origin xyz="0 0 0" rpy="0 0 ${pi/2}"/>
+    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="front_right_camera_optical_frame"/>
 
   <joint name="front_left_camera_body_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="front_left_camera_body_link"/>
+    <child link="front_left_camera_link"/>
     <origin xyz="0.418213 0.233430 0.119785" rpy="0 -0.425978 1.307891"/>
   </joint>
 
-  <link name="front_left_camera_body_link"/>
-
-  <joint name="front_left_camera_joint" type="fixed">
-    <parent link="front_left_camera_body_link"/>
-    <child link="front_left_camera"/>
-    <origin xyz="0.0161 0 0" rpy="0 0 0"/>
-  </joint>
-
-  <link name="front_left_camera"/>
+  <link name="front_left_camera_link"/>
 
   <joint name="front_left_camera_optical_joint" type="fixed">
-    <parent link="front_left_camera"/>
+    <parent link="front_left_camera_link"/>
     <child link="front_left_camera_optical_frame"/>
-    <origin xyz="0 0 0" rpy="0 0 ${pi/2}"/>
+    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="front_left_camera_optical_frame"/>
 
   <joint name="tools_camera_body_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="tools_camera_body_link"/>
+    <child link="tools_camera_link"/>
     <origin xyz="0.442669 0 0.068687" rpy="${-pi} 0.958458 0"/>
   </joint>
 
-  <link name="tools_camera_body_link"/>
-
-  <joint name="tools_camera_joint" type="fixed">
-    <parent link="tools_camera_body_link"/>
-    <child link="tools_camera"/>
-    <origin xyz="0.015315 0 0" rpy="0 0 0"/>
-  </joint>
-
-  <link name="tools_camera"/>
+  <link name="tools_camera_link"/>
 
   <joint name="tools_camera_optical_joint" type="fixed">
-    <parent link="tools_camera"/>
+    <parent link="tools_camera_link"/>
     <child link="tools_camera_optical_frame"/>
-    <origin xyz="0 0 0" rpy="0 0 ${pi/2}"/>
+    <origin xyz="0.015315 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="tools_camera_optical_frame"/>
 
   <joint name="rear_left_camera_body_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="rear_left_camera_body_link"/>
+    <child link="rear_left_camera_link"/>
     <origin xyz="-0.146254 0.113496 0.150382" rpy="0 -0.902958 2.502188"/>
   </joint>
 
-  <link name="rear_left_camera_body_link"/>
-
-  <joint name="rear_left_camera_joint" type="fixed">
-    <parent link="rear_left_camera_body_link"/>
-    <child link="rear_left_camera"/>
-    <origin xyz="0.0161 0 0" rpy="0 0 0"/>
-  </joint>
-
-  <link name="rear_left_camera"/>
+  <link name="rear_left_camera_link"/>
 
   <joint name="rear_left_camera_optical_joint" type="fixed">
-    <parent link="rear_left_camera"/>
+    <parent link="rear_left_camera_link"/>
     <child link="rear_left_camera_optical_frame"/>
-    <origin xyz="0 0 0" rpy="0 0 ${pi/2}"/>
+    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="rear_left_camera_optical_frame"/>
 
   <joint name="rear_right_camera_body_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="rear_right_camera_body_link"/>
+    <child link="rear_right_camera_link"/>
     <origin xyz="-0.146254 -0.113496 0.150382" rpy="0 -0.902958 -2.502188"/>
   </joint>
 
-  <link name="rear_right_camera_body_link"/>
-
-  <joint name="rear_right_camera_joint" type="fixed">
-    <parent link="rear_right_camera_body_link"/>
-    <child link="rear_right_camera"/>
-    <origin xyz="0.0161 0 0" rpy="0 0 0"/>
-  </joint>
-
-  <link name="rear_right_camera"/>
+  <link name="rear_right_camera_link"/>
 
   <joint name="rear_right_camera_optical_joint" type="fixed">
-    <parent link="rear_right_camera"/>
+    <parent link="rear_right_camera_link"/>
     <child link="rear_right_camera_optical_frame"/>
-    <origin xyz="0 0 0" rpy="0 0 ${pi/2}"/>
+    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="rear_right_camera_optical_frame"/>

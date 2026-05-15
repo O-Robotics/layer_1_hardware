@@ -3,7 +3,7 @@
   ros__parameters:
     video_device: "/dev/video0"
     framerate: 2.5
-    frame_id: "rear_right_camera"
+    frame_id: "rear_right_camera_link"
     image_width: 320
     image_height: 240
     camera_name: "rear_right_camera"
