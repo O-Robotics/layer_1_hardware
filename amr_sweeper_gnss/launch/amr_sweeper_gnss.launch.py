@@ -25,7 +25,6 @@ def generate_launch_description():
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
     device_family = LaunchConfiguration("device_family")
     device_serial_string = LaunchConfiguration("device_serial_string")
-    ubx_config_file = LaunchConfiguration("ubx_config_file")
     log_level = LaunchConfiguration("log_level")
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -57,14 +56,6 @@ def generate_launch_description():
             default_value=TextSubstitution(text=""),
         ),
         DeclareLaunchArgument(
-            "ubx_config_file",
-            default_value=PathJoinSubstitution([
-                FindPackageShare("amr_sweeper_gnss"),
-                "config",
-                "f9p_ubx_config_amr.toml",
-            ]),
-        ),
-        DeclareLaunchArgument(
             "log_level",
             default_value=TextSubstitution(text="INFO"),
         ),
@@ -85,7 +76,6 @@ def generate_launch_description():
                 "gnss_frame_id": gnss_frame_id,
                 "device_family": device_family,
                 "device_serial_string": device_serial_string,
-                "ubx_config_file": ubx_config_file,
                 "log_level": log_level,
             }.items(),
         ),
