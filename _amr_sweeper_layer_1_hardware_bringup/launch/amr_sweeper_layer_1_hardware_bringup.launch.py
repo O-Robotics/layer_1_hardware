@@ -1,8 +1,8 @@
 """Launch all AMR Sweeper layer 1 hardware packages from one bringup entrypoint."""
-
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler, TimerAction
+from launch.conditions import IfCondition, UnlessCondition
+from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -32,7 +32,6 @@ def generate_launch_description():
     use_system_info_node = LaunchConfiguration("use_system_info_node")
     use_usb_cameras = LaunchConfiguration("use_usb_cameras")
     use_depth_camera = LaunchConfiguration("use_depth_camera")
-    use_microros = LaunchConfiguration("use_microros")
     use_imu_node = LaunchConfiguration("use_imu_node")
     use_gnss_rover = LaunchConfiguration("use_gnss_rover")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
@@ -40,12 +39,6 @@ def generate_launch_description():
     use_odrive_node = LaunchConfiguration("use_odrive_node")
 
     battery_can_interface = LaunchConfiguration("battery_can_interface")
-    microros_can_interface = LaunchConfiguration("microros_can_interface")
-    microros_request_id_min = LaunchConfiguration("microros_request_id_min")
-    microros_request_id_max = LaunchConfiguration("microros_request_id_max")
-    microros_reply_id_offset = LaunchConfiguration("microros_reply_id_offset")
-    microros_same_id_reply = LaunchConfiguration("microros_same_id_reply")
-    microros_verbosity = LaunchConfiguration("microros_verbosity")
     steadydrive_can_interface = LaunchConfiguration("steadydrive_can_interface")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
@@ -65,7 +58,6 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_system_info_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_usb_cameras", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_depth_camera", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_microros", default_value="false"))
     ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
@@ -73,12 +65,6 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_odrive_node", default_value="false"))
 
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
-    ld.add_action(DeclareLaunchArgument("microros_can_interface", default_value="can0"))
-    ld.add_action(DeclareLaunchArgument("microros_request_id_min", default_value="0x500"))
-    ld.add_action(DeclareLaunchArgument("microros_request_id_max", default_value="0x57F"))
-    ld.add_action(DeclareLaunchArgument("microros_reply_id_offset", default_value="0x80"))
-    ld.add_action(DeclareLaunchArgument("microros_same_id_reply", default_value="false"))
-    ld.add_action(DeclareLaunchArgument("microros_verbosity", default_value="4"))
     ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
@@ -96,22 +82,6 @@ def generate_launch_description():
         "control",
         "ros2_control.yaml",
     ])))
-    # Start the optional custom micro-ROS package first when it is present and requested.
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_microros", "microros_agent.launch.py")),
-        launch_arguments={
-            "namespace": namespace,
-            "use_microros": use_microros,
-            "can_interface": microros_can_interface,
-            "request_id_min": microros_request_id_min,
-            "request_id_max": microros_request_id_max,
-            "reply_id_offset": microros_reply_id_offset,
-            "same_id_reply": microros_same_id_reply,
-            "verbosity": microros_verbosity,
-        }.items(),
-        condition=IfCondition(use_microros),
-    ))
-
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
@@ -183,19 +153,120 @@ def generate_launch_description():
         condition=IfCondition(use_imu_node),
     ))
 
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(_launch_file("amr_sweeper_layer_1_hardware_bringup", "amr_sweeper_ros2_control.launch.py")),
-        launch_arguments={
-            "namespace": namespace,
-            "use_sim_time": use_sim_time,
-            "ros2_control_config_file": ros2_control_config_file,
-            "use_ros2_control": use_ros2_control,
-            "enable_usb_cameras": use_usb_cameras,
-            "enable_gnss": use_gnss_rover,
-            "enable_imu": use_imu_node,
-        }.items(),
+    controller_manager = Node(
+        package="controller_manager",
+        executable="ros2_control_node",
+        namespace=namespace,
+        output="screen",
+        parameters=[
+            {"use_sim_time": use_sim_time},
+            ros2_control_config_file,
+        ],
+        remappings=[
+            ("~/robot_description", "robot_description"),
+            ("/robot_description", "robot_description"),
+        ],
         condition=IfCondition(use_ros2_control),
-    ))
+    )
+
+    delayed_controller_manager = TimerAction(
+        period=3.0,
+        actions=[controller_manager],
+        condition=UnlessCondition(use_sim_time),
+    )
+
+    joint_broad_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[
+            "joint_broad",
+            "--controller-manager",
+            ["/", namespace, "/controller_manager"],
+            "--controller-manager-timeout",
+            "60",
+        ],
+        namespace=namespace,
+        condition=UnlessCondition(use_sim_time),
+        output="screen",
+    )
+
+    diff_drive_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[
+            "diff_cont",
+            "--controller-manager",
+            ["/", namespace, "/controller_manager"],
+            "--controller-manager-timeout",
+            "60",
+            "--param-file",
+            ros2_control_config_file,
+        ],
+        namespace=namespace,
+        condition=UnlessCondition(use_sim_time),
+        output="screen",
+    )
+
+    steadydrive_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[
+            "controller_steadydrive",
+            "--controller-manager",
+            ["/", namespace, "/controller_manager"],
+            "--controller-manager-timeout",
+            "60",
+            "--param-file",
+            ros2_control_config_file,
+        ],
+        namespace=namespace,
+        condition=UnlessCondition(use_sim_time),
+        output="screen",
+    )
+
+    delayed_joint_broad_spawner = RegisterEventHandler(
+        OnProcessStart(
+            target_action=controller_manager,
+            on_start=[
+                TimerAction(
+                    period=2.0,
+                    actions=[joint_broad_spawner],
+                ),
+            ],
+        ),
+        condition=IfCondition(use_ros2_control),
+    )
+
+    delayed_diff_drive_spawner = RegisterEventHandler(
+        OnProcessStart(
+            target_action=controller_manager,
+            on_start=[
+                TimerAction(
+                    period=4.0,
+                    actions=[diff_drive_spawner],
+                ),
+            ],
+        ),
+        condition=IfCondition(use_ros2_control),
+    )
+
+    delayed_steadydrive_spawner = RegisterEventHandler(
+        OnProcessStart(
+            target_action=controller_manager,
+            on_start=[
+                TimerAction(
+                    period=6.0,
+                    actions=[steadydrive_spawner],
+                ),
+            ],
+        ),
+        condition=IfCondition(use_ros2_control),
+    )
+
+    ld.add_action(delayed_controller_manager)
+    ld.add_action(delayed_joint_broad_spawner)
+    ld.add_action(delayed_diff_drive_spawner)
+    ld.add_action(delayed_steadydrive_spawner)
 
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(_launch_file("amr_sweeper_steadydrive", "steadydrive.launch.py")),
