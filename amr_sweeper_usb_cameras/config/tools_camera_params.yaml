@@ -3,7 +3,7 @@
   ros__parameters:
     video_device: "/dev/video4"
     framerate: 5.0
-    frame_id: "tools_camera_link"
+    frame_id: "tools_camera_optical_frame"
     image_width: 320
     image_height: 240
     camera_name: "tools_camera"

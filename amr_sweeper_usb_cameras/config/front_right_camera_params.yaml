@@ -3,7 +3,7 @@
   ros__parameters:
     video_device: "/dev/video8"
     framerate: 2.5
-    frame_id: "front_right_camera_link"
+    frame_id: "front_right_camera_optical_frame"
     image_width: 320
     image_height: 240
     camera_name: "front_right_camera"

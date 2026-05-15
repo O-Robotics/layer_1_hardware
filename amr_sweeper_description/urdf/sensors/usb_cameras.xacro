@@ -12,7 +12,7 @@
   <joint name="front_right_camera_optical_joint" type="fixed">
     <parent link="front_right_camera_link"/>
     <child link="front_right_camera_optical_frame"/>
-    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="front_right_camera_optical_frame"/>
@@ -28,7 +28,7 @@
   <joint name="front_left_camera_optical_joint" type="fixed">
     <parent link="front_left_camera_link"/>
     <child link="front_left_camera_optical_frame"/>
-    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="front_left_camera_optical_frame"/>
@@ -44,7 +44,7 @@
   <joint name="tools_camera_optical_joint" type="fixed">
     <parent link="tools_camera_link"/>
     <child link="tools_camera_optical_frame"/>
-    <origin xyz="0.015315 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="tools_camera_optical_frame"/>
@@ -60,7 +60,7 @@
   <joint name="rear_left_camera_optical_joint" type="fixed">
     <parent link="rear_left_camera_link"/>
     <child link="rear_left_camera_optical_frame"/>
-    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="rear_left_camera_optical_frame"/>
@@ -76,7 +76,7 @@
   <joint name="rear_right_camera_optical_joint" type="fixed">
     <parent link="rear_right_camera_link"/>
     <child link="rear_right_camera_optical_frame"/>
-    <origin xyz="0.0161 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <link name="rear_right_camera_optical_frame"/>
