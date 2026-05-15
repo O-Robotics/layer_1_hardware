@@ -198,7 +198,6 @@ def generate_launch_description():
         remappings=[
             ("~/robot_description", "robot_description"),
             ("/robot_description", "robot_description"),
-            ("/tf", "diff_cont_disabled_tf"),
         ],
         condition=IfCondition(use_ros2_control),
     )
@@ -235,6 +234,9 @@ def generate_launch_description():
             "60",
             "--param-file",
             ros2_control_config_file,
+            "--controller-ros-args",
+            "--remap",
+            "/tf:=diff_cont_disabled_tf",
         ],
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
