@@ -36,7 +36,7 @@
   <joint name="tools_camera_body_joint" type="fixed">
     <parent link="base_link"/>
     <child link="tools_camera_link"/>
-    <origin xyz="0.442669 0 0.068687" rpy="${-pi} 0.958458 0"/>
+    <origin xyz="0.442669 0 0.068687" rpy="0 0.958458 0"/>
   </joint>
 
   <link name="tools_camera_link"/>
