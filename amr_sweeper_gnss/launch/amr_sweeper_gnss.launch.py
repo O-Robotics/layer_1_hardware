@@ -23,6 +23,7 @@ def generate_launch_description():
     gnss_namespace = LaunchConfiguration("gnss_namespace")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
+    ublox_params_file = LaunchConfiguration("ublox_params_file")
     device_family = LaunchConfiguration("device_family")
     device_serial_string = LaunchConfiguration("device_serial_string")
     log_level = LaunchConfiguration("log_level")
@@ -67,6 +68,14 @@ def generate_launch_description():
                 "ntrip_client.yaml",
             ]),
         ),
+        DeclareLaunchArgument(
+            "ublox_params_file",
+            default_value=PathJoinSubstitution([
+                FindPackageShare("amr_sweeper_gnss"),
+                "config",
+                "ublox_dgnss.yaml",
+            ]),
+        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(_launch_file("ublox_dgnss.launch.py")),
             launch_arguments={
@@ -74,6 +83,7 @@ def generate_launch_description():
                 "use_ublox_nav_sat_fix_hp": use_ublox_nav_sat_fix_hp,
                 "gnss_namespace": gnss_namespace,
                 "gnss_frame_id": gnss_frame_id,
+                "params_file": ublox_params_file,
                 "device_family": device_family,
                 "device_serial_string": device_serial_string,
                 "log_level": log_level,

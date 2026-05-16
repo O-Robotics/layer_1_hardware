@@ -1,0 +1,54 @@
+ublox_dgnss:
+  ros__parameters:
+    CFG_USBOUTPROT_NMEA:  false  # Enable NMEA output over USB. Default: false
+    CFG_USBINPROT_RTCM3X: true   # Accept RTCM3 corrections over USB. Default: true
+    CFG_USBOUTPROT_RTCM3X: false  # Enable RTCM3 output over USB. Default: false
+
+    CFG_RATE_MEAS: 200  # Measurement interval in milliseconds. Default: 200
+    CFG_RATE_NAV:  1    # Navigation solutions per measurement cycle. Default: 1
+
+    CFG_NAVSPG_FIXMODE:  2     # Fix mode, where 2 requests 3D-only solutions. Default: 2
+    CFG_NAVSPG_INIFIX3D: true  # Require a 3D fix during initialization. Default: true
+    CFG_NAVSPG_DYNMODEL: 4     # Dynamic model, where 4 is automotive/ground vehicle. Default: 4
+
+    CFG_SIGNAL_GPS_ENA:      true  # Enable the GPS constellation. Default: true
+    CFG_SIGNAL_GPS_L1CA_ENA: true  # Enable GPS L1 C/A tracking. Default: true
+    CFG_SIGNAL_GPS_L2C_ENA:  true  # Enable GPS L2C tracking. Default: true
+
+    CFG_SIGNAL_GAL_ENA:      true  # Enable the Galileo constellation. Default: true
+    CFG_SIGNAL_GAL_E1_ENA:   true  # Enable Galileo E1 tracking. Default: true
+    CFG_SIGNAL_GAL_E5B_ENA:  true  # Enable Galileo E5b tracking. Default: true
+
+    CFG_SIGNAL_QZSS_ENA:      true  # Enable the QZSS constellation. Default: true
+    CFG_SIGNAL_QZSS_L1CA_ENA: true  # Enable QZSS L1 C/A tracking. Default: true
+    CFG_SIGNAL_QZSS_L1S_ENA:  true  # Enable QZSS L1S tracking. Default: true
+    CFG_SIGNAL_QZSS_L2C_ENA:  true  # Enable QZSS L2C tracking. Default: true
+
+    CFG_SIGNAL_SBAS_ENA:      true  # Enable SBAS support. Default: true
+    CFG_SIGNAL_SBAS_L1CA_ENA: true  # Enable SBAS L1 C/A tracking. Default: true
+
+    CFG_SIGNAL_GLO_ENA:    false  # Enable the GLONASS constellation. Default: false
+    CFG_SIGNAL_GLO_L1_ENA: false  # Enable GLONASS L1 tracking. Default: false
+    CFG_SIGNAL_GLO_L2_ENA: false  # Enable GLONASS L2 tracking. Default: false
+
+    CFG_SIGNAL_BDS_ENA:    false  # Enable the BeiDou constellation. Default: false
+    CFG_SIGNAL_BDS_B1_ENA: false  # Enable BeiDou B1 tracking. Default: false
+    CFG_SIGNAL_BDS_B2_ENA: false  # Enable BeiDou B2 tracking. Default: false
+
+    CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB: 1  # Publish high-precision LLH position over USB. Default: 1
+    CFG_MSGOUT_UBX_NAV_STATUS_USB:   5  # Publish UBX NAV-STATUS every 5 cycles over USB. Default: 5
+    CFG_MSGOUT_UBX_NAV_COV_USB:      1  # Publish UBX NAV-COV over USB. Default: 1
+    CFG_MSGOUT_UBX_RXM_RTCM_USB:     0  # Disable UBX RXM-RTCM debug output over USB. Default: 0
+    CFG_MSGOUT_UBX_NAV_PVT_USB:      0  # Disable UBX NAV-PVT output over USB. Default: 0
+
+ublox_nav_sat_fix_hp:
+  ros__parameters:
+    min_fix_type:                3         # Minimum UBX fix type accepted for NavSat output. Default: 3
+    min_horizontal_stddev_m:     1.5       # Reject fixes worse than this horizontal standard deviation. Default: 1.5
+    min_vertical_stddev_m:       3.0       # Reject fixes worse than this vertical standard deviation. Default: 3.0
+    horizontal_covariance_scale: 4.0       # Scale factor applied to horizontal covariance. Default: 4.0
+    vertical_covariance_scale:   4.0       # Scale factor applied to vertical covariance. Default: 4.0
+    use_hacc_vacc_covariance_floor: true   # Use hAcc/vAcc values as the minimum covariance floor. Default: true
+
+    qos_overrides.fix.publisher.reliability:    reliable  # Publish fix with reliable QoS. Default: reliable
+    qos_overrides.navsat.publisher.reliability: reliable  # Publish navsat with reliable QoS. Default: reliable

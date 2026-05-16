@@ -36,6 +36,7 @@ sudo apt install ros-jazzy-rtcm-msgs
 - `use_ublox_dgnss_node`: default `true`
 - `use_ublox_nav_sat_fix_hp`: default `true`
 - `use_ntrip_client`: default `true`
+- `ublox_params_file`: default `config/ublox_dgnss.yaml`
 - `ntrip_params_file`: default `config/ntrip_client.yaml`
 - `gnss_namespace`: default `amr_sweeper/gnss`
 - `gnss_frame_id`: default `gnss_link`
@@ -78,9 +79,11 @@ For moving-base, ECEF, or satellite-diagnostic variants, launch the upstream
 The NTRIP client launch supports a YAML parameter file for caster details.
 
 Installed default config:
+- `share/amr_sweeper_gnss/config/ublox_dgnss.yaml`
 - `share/amr_sweeper_gnss/config/ntrip_client.yaml`
 
 Source config in the repo:
+- `config/ublox_dgnss.yaml`
 - `config/ntrip_client.yaml`
 
 Example standalone launch:
@@ -88,8 +91,16 @@ Example standalone launch:
 ```bash
 ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py \
   gnss_namespace:=amr_sweeper/gnss \
+  ublox_params_file:=/absolute/path/to/ublox_dgnss.yaml \
   ntrip_params_file:=/absolute/path/to/ntrip_client.yaml
 ```
+
+Useful u-blox parameters in `config/ublox_dgnss.yaml`:
+- receiver protocol enablement for USB RTCM/NMEA
+- measurement and navigation rates
+- enabled GNSS constellations and signals
+- published UBX message rates
+- NavSatFix quality thresholds and QoS overrides for `ublox_nav_sat_fix_hp`
 
 Example standalone NTRIP launch with optional caster GGA uplink:
 

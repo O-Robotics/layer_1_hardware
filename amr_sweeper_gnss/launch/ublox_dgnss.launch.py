@@ -3,9 +3,10 @@
 import launch
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -46,42 +47,15 @@ def generate_launch_description():
         default_value=TextSubstitution(text='INFO'),
         description='Log level for GNSS component containers',
     )
-    params = [
-        {'DEVICE_FAMILY': LaunchConfiguration('device_family')},
-        {'DEVICE_SERIAL_STRING': LaunchConfiguration('device_serial_string')},
-        {'FRAME_ID': LaunchConfiguration('gnss_frame_id')},
-        {'CFG_USBOUTPROT_NMEA': False},
-        {'CFG_USBINPROT_RTCM3X': True},
-        {'CFG_USBOUTPROT_RTCM3X': False},
-        {'CFG_RATE_MEAS': 200},
-        {'CFG_RATE_NAV': 1},
-        {'CFG_NAVSPG_FIXMODE': 2},
-        {'CFG_NAVSPG_INIFIX3D': True},
-        {'CFG_NAVSPG_DYNMODEL': 4},
-        {'CFG_SIGNAL_GPS_ENA': True},
-        {'CFG_SIGNAL_GPS_L1CA_ENA': True},
-        {'CFG_SIGNAL_GPS_L2C_ENA': True},
-        {'CFG_SIGNAL_GAL_ENA': True},
-        {'CFG_SIGNAL_GAL_E1_ENA': True},
-        {'CFG_SIGNAL_GAL_E5B_ENA': True},
-        {'CFG_SIGNAL_QZSS_ENA': True},
-        {'CFG_SIGNAL_QZSS_L1CA_ENA': True},
-        {'CFG_SIGNAL_QZSS_L1S_ENA': True},
-        {'CFG_SIGNAL_QZSS_L2C_ENA': True},
-        {'CFG_SIGNAL_SBAS_ENA': True},
-        {'CFG_SIGNAL_SBAS_L1CA_ENA': True},
-        {'CFG_SIGNAL_GLO_ENA': False},
-        {'CFG_SIGNAL_GLO_L1_ENA': False},
-        {'CFG_SIGNAL_GLO_L2_ENA': False},
-        {'CFG_SIGNAL_BDS_ENA': False},
-        {'CFG_SIGNAL_BDS_B1_ENA': False},
-        {'CFG_SIGNAL_BDS_B2_ENA': False},
-        {'CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB': 1},
-        {'CFG_MSGOUT_UBX_NAV_STATUS_USB': 5},
-        {'CFG_MSGOUT_UBX_NAV_COV_USB': 1},
-        {'CFG_MSGOUT_UBX_RXM_RTCM_USB': 0},
-        {'CFG_MSGOUT_UBX_NAV_PVT_USB': 0},
-    ]
+    declare_params_file = DeclareLaunchArgument(
+        'params_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('amr_sweeper_gnss'),
+            'config',
+            'ublox_dgnss.yaml',
+        ]),
+        description='Parameter file for ublox_dgnss and ublox_nav_sat_fix_hp nodes',
+    )
 
     ublox_dgnss_container = ComposableNodeContainer(
         name='ublox_dgnss_container',
@@ -95,7 +69,12 @@ def generate_launch_description():
                 plugin='ublox_dgnss::UbloxDGNSSNode',
                 name='ublox_dgnss',
                 namespace=LaunchConfiguration('gnss_namespace'),
-                parameters=params,
+                parameters=[
+                    LaunchConfiguration('params_file'),
+                    {'DEVICE_FAMILY': LaunchConfiguration('device_family')},
+                    {'DEVICE_SERIAL_STRING': LaunchConfiguration('device_serial_string')},
+                    {'FRAME_ID': LaunchConfiguration('gnss_frame_id')},
+                ],
                 remappings=[
                     ('/ntrip_client/rtcm', 'rtcm'),
                 ],
@@ -116,16 +95,7 @@ def generate_launch_description():
                 plugin='ublox_nav_sat_fix_hp::UbloxNavSatHpFixNode',
                 name='ublox_nav_sat_fix_hp',
                 namespace=LaunchConfiguration('gnss_namespace'),
-                parameters=[{
-                    'min_fix_type': 3,
-                    'min_horizontal_stddev_m': 1.5,
-                    'min_vertical_stddev_m': 3.0,
-                    'horizontal_covariance_scale': 4.0,
-                    'vertical_covariance_scale': 4.0,
-                    'use_hacc_vacc_covariance_floor': True,
-                    'qos_overrides.fix.publisher.reliability': 'reliable',
-                    'qos_overrides.navsat.publisher.reliability': 'reliable',
-                }],
+                parameters=[LaunchConfiguration('params_file')],
                 remappings=[('fix', 'navsat')],
             )
         ],
@@ -140,6 +110,7 @@ def generate_launch_description():
         declare_device_family,
         declare_device_serial_string,
         declare_log_level,
+        declare_params_file,
         ublox_dgnss_container,
         ublox_nav_sat_fix_hp_container,
     ])
