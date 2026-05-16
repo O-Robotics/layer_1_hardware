@@ -878,7 +878,7 @@ int main(int argc, char ** argv)
 
   std::shared_ptr<amr_sweeper_gnss::NtripClientNode> node;
 
-  while (true) {
+  while (rclcpp::ok()) {
     try {
       node = std::make_shared<amr_sweeper_gnss::NtripClientNode>();
       startup_fatal_threshold = node->fatal_after_consecutive_errors();
@@ -898,8 +898,23 @@ int main(int argc, char ** argv)
       std::cerr << "ERROR: Failed to start NTRIP client (attempt " <<
         startup_attempt << "/" << startup_fatal_threshold << "): " <<
         exc.what() << ". Retrying..." << std::endl;
-      std::this_thread::sleep_for(std::chrono::duration<double>(startup_retry_seconds));
+      if (!rclcpp::ok()) {
+        break;
+      }
+
+      const auto retry_until =
+        std::chrono::steady_clock::now() + std::chrono::duration<double>(startup_retry_seconds);
+      while (rclcpp::ok() && std::chrono::steady_clock::now() < retry_until) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
     }
+  }
+
+  if (!rclcpp::ok() || node == nullptr) {
+    if (rclcpp::ok()) {
+      rclcpp::shutdown();
+    }
+    return 1;
   }
 
   rclcpp::executors::SingleThreadedExecutor executor;
