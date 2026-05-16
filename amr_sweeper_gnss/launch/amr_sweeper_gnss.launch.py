@@ -68,7 +68,7 @@ def generate_launch_description():
             ]),
         ),
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(_launch_file("ublox_rover_hpposllh_navsatfix.launch.py")),
+            PythonLaunchDescriptionSource(_launch_file("ublox_dgnss.launch.py")),
             launch_arguments={
                 "use_ublox_dgnss_node": use_ublox_dgnss_node,
                 "use_ublox_nav_sat_fix_hp": use_ublox_nav_sat_fix_hp,

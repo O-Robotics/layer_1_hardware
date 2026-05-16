@@ -6,7 +6,7 @@ ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py
 
 ## Overview
 `amr_sweeper_gnss` is the AMR Sweeper wrapper package for the upstream
-`ublox_dgnss` rover stack plus an AMR-local NTRIP ROS 2 node. It keeps
+`ublox_dgnss` rover stack plus an AMR-local NTRIP ROS 2 node in C++. It keeps
 the workspace-specific launch entrypoint, namespace defaults, and NTRIP
 YAML config, while the GNSS receiver implementation comes from the
 dependency packages:
@@ -14,7 +14,7 @@ dependency packages:
 - `ublox_dgnss`
 - `ublox_dgnss_node`
 - `ublox_nav_sat_fix_hp_node`
-- `amr_sweeper_gnss` local `ntrip_client.py`
+- `amr_sweeper_gnss` local `ntrip_client`
 
 ## External Dependencies
 - `ublox_dgnss`: vendored in this workspace under `src/dependencies/ublox_dgnss`
@@ -46,7 +46,7 @@ sudo apt install ros-jazzy-rtcm-msgs
 This launch starts the standard AMR Sweeper GNSS stack:
 - Upstream `ublox_dgnss_node` for the u-blox receiver connection and UBX topic publishing
 - Upstream `ublox_nav_sat_fix_hp_node` for converting high-precision u-blox outputs into the `navsat` topic
-- Optional AMR-local `ntrip_client.py` node when `use_ntrip_client:=true`
+- Optional AMR-local `ntrip_client` node when `use_ntrip_client:=true`
   for RTCM correction streaming from an NTRIP caster
 
 ### Notes
@@ -67,7 +67,7 @@ This launch starts the standard AMR Sweeper GNSS stack:
 ## Package Launch Options
 - `ntrip_client.launch.py`: starts only the NTRIP client node for RTCM
   correction streaming
-- `ublox_rover_hpposllh_navsatfix.launch.py`: starts the rover driver plus NavSat conversion without the package-level GNSS wrapper
+- `ublox_dgnss.launch.py`: starts the rover driver plus NavSat conversion without the package-level GNSS wrapper
 
 The package keeps only the AMR-specific launch entrypoints used by this workspace.
 For moving-base, ECEF, or satellite-diagnostic variants, launch the upstream
@@ -101,8 +101,11 @@ ros2 launch amr_sweeper_gnss ntrip_client.launch.py \
 ```
 
 Useful NTRIP parameters in `config/ntrip_client.yaml`:
+- `alternate_mountpoint`: optional backup mountpoint the node will try after a failed connection or dropped RTCM stream
+- `startup_retry_seconds`: wait time before retrying node startup after a startup/config failure
 - `failed_connection_retry_seconds`: wait time before reconnecting after a failed connection attempt or dropped stream
 - `reconnect_attempt_wait_seconds`: legacy compatibility fallback used when `failed_connection_retry_seconds` is not positive
 - `socket_timeout_seconds`: socket read/connect timeout for the TCP session
 - `rtcm_timeout_seconds`: reconnect when a connected session stops delivering valid RTCM for this long
 - `retry_attempts_before_error`: number of consecutive connection-loss or bad-RTCM warnings before the node escalates to error logs
+- `fatal_after_consecutive_errors`: number of consecutive startup or runtime failures before the node exits fatally

@@ -8,14 +8,16 @@
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>openssl</depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
+  <depend>sensor_msgs</depend>
   <depend>ublox_dgnss</depend>
   <depend>ublox_dgnss_node</depend>
   <depend>ublox_nav_sat_fix_hp_node</depend>
   <depend>rtcm_msgs</depend>
+  <depend>yaml-cpp</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
