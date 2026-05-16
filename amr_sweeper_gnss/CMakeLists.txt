@@ -6,10 +6,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(ublox_dgnss REQUIRED)
-find_package(ublox_dgnss_node REQUIRED)
-find_package(ublox_nav_sat_fix_hp_node REQUIRED)
-find_package(ntrip_client_node REQUIRED)
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}

@@ -1,10 +1,20 @@
 ntrip_client:
   ros__parameters:
-    use_https: false
     host: rtk2go.com
     port: 2101
     mountpoint: SDS_RTK
+    ntrip_version: None
+    authenticate: true
     username: info@o-robotics.com
     password: none
-    log_level: INFO
-    maxage_conn: 30
+    ssl: false
+    cert: None
+    key: None
+    ca_cert: None
+    rtcm_frame_id: gnss_link
+    rtcm_message_package: rtcm_msgs
+    reconnect_attempt_max: 10
+    reconnect_attempt_wait_seconds: 5
+    rtcm_timeout_seconds: 4
+    nmea_max_length: 128
+    nmea_min_length: 3

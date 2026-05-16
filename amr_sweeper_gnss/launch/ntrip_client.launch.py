@@ -1,16 +1,15 @@
 """Launch the AMR Sweeper NTRIP client wrapper."""
 
 import launch
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    """Generate launch description for the upstream ntrip client node."""
+    """Generate launch description for the Jazzy ntrip_client node."""
 
     use_ntrip_client_node_arg = DeclareLaunchArgument(
         'use_ntrip_client_node', default_value=TextSubstitution(text='true')
@@ -29,22 +28,23 @@ def generate_launch_description():
     log_level_arg = DeclareLaunchArgument(
         'log_level', default_value=TextSubstitution(text='INFO')
     )
-    params = [LaunchConfiguration('params_file')]
+    ntrip_debug = SetEnvironmentVariable(
+        name='NTRIP_CLIENT_DEBUG',
+        value='true',
+        condition=IfCondition(LaunchConfiguration('debug')),
+    )
 
-    container = ComposableNodeContainer(
-        name='ntrip_client_container',
-        namespace='',
-        package='rclcpp_components',
-        executable='component_container_mt',
+    ntrip_node = Node(
+        package='ntrip_client',
+        executable='ntrip_ros.py',
+        name='ntrip_client',
+        namespace=LaunchConfiguration('gnss_namespace'),
+        output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-        composable_node_descriptions=[
-            ComposableNode(
-                package='ntrip_client_node',
-                plugin='ublox_dgnss::NTRIPClientNode',
-                name='ntrip_client',
-                namespace=LaunchConfiguration('gnss_namespace'),
-                parameters=params,
-            )
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('fix', 'navsat'),
+            ('rtcm', '/ntrip_client/rtcm'),
         ],
         condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
     )
@@ -54,5 +54,9 @@ def generate_launch_description():
         params_file_arg,
         gnss_namespace_arg,
         log_level_arg,
-        container,
+        DeclareLaunchArgument(
+            'debug', default_value=TextSubstitution(text='false')
+        ),
+        ntrip_debug,
+        ntrip_node,
     ])
