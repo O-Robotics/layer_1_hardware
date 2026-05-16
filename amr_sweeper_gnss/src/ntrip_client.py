@@ -40,8 +40,11 @@ class AmrNtripClient(Node):
                 ('key', 'None'),
                 ('ca_cert', 'None'),
                 ('rtcm_frame_id', 'gnss_link'),
+                ('failed_connection_retry_seconds', 5.0),
                 ('reconnect_attempt_wait_seconds', 5),
                 ('socket_timeout_seconds', 10.0),
+                ('rtcm_timeout_seconds', 4.0),
+                ('retry_attempts_before_error', 3),
                 ('send_nmea', False),
             ],
         )
@@ -59,14 +62,34 @@ class AmrNtripClient(Node):
         self._ca_cert = self._none_if_literal_none(str(self.get_parameter('ca_cert').value))
         self._rtcm_frame_id = str(self.get_parameter('rtcm_frame_id').value)
         self._reconnect_wait = float(self.get_parameter('reconnect_attempt_wait_seconds').value)
+        self._failed_connection_retry = float(
+            self.get_parameter('failed_connection_retry_seconds').value
+        )
         self._socket_timeout = float(self.get_parameter('socket_timeout_seconds').value)
+        self._rtcm_timeout = float(self.get_parameter('rtcm_timeout_seconds').value)
+        self._retry_attempts_before_error = int(
+            self.get_parameter('retry_attempts_before_error').value
+        )
         self._send_nmea = bool(self.get_parameter('send_nmea').value)
+
+        if self._authenticate and (not self._username or not self._password):
+            raise ValueError(
+                'authenticate is true, but username or password is empty'
+            )
+
+        if self._failed_connection_retry <= 0.0:
+            self._failed_connection_retry = self._reconnect_wait
+        if self._retry_attempts_before_error < 1:
+            self._retry_attempts_before_error = 1
 
         self._publisher = self.create_publisher(Message, 'rtcm', 10)
         self._socket_lock = threading.Lock()
         self._socket: Optional[socket.socket] = None
         self._stop_event = threading.Event()
         self._parser_buffer = bytearray()
+        self._last_valid_rtcm_time: Optional[float] = None
+        self._connection_issue_count = 0
+        self._bad_rtcm_issue_count = 0
 
         if self._send_nmea:
             best_effort_qos = QoSProfile(
@@ -102,10 +125,13 @@ class AmrNtripClient(Node):
             try:
                 self._connect_and_stream()
             except Exception as exc:  # pragma: no cover
-                self.get_logger().warning(f'NTRIP reconnect after error: {exc}')
+                self._report_connection_issue(
+                    f'NTRIP reconnect after error: {exc}. '
+                    f'Retrying in {self._failed_connection_retry:.1f}s'
+                )
                 self._close_socket()
             if not self._stop_event.is_set():
-                time.sleep(self._reconnect_wait)
+                time.sleep(self._failed_connection_retry)
 
     def _connect_and_stream(self) -> None:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -133,16 +159,24 @@ class AmrNtripClient(Node):
         with self._socket_lock:
             self._socket = sock
 
+        self._parser_buffer.clear()
+        self._last_valid_rtcm_time = None
         self.get_logger().info(
             f'Connected to http://{self._host}:{self._port}/{self._mountpoint}'
         )
 
-        self._parser_buffer.clear()
         if payload:
             self._handle_rtcm_bytes(payload)
 
         while not self._stop_event.is_set():
-            chunk = sock.recv(4096)
+            try:
+                chunk = sock.recv(4096)
+            except socket.timeout as exc:
+                if self._stream_timed_out():
+                    raise RuntimeError(
+                        f'No valid RTCM received for {self._rtcm_timeout:.1f}s'
+                    ) from exc
+                continue
             if not chunk:
                 raise RuntimeError('Socket closed by caster')
             self._handle_rtcm_bytes(chunk)
@@ -172,11 +206,15 @@ class AmrNtripClient(Node):
             packet = self._extract_rtcm_packet()
             if packet is None:
                 break
+            if not self._validate_rtcm_packet(packet):
+                continue
             msg = Message()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = self._rtcm_frame_id
             msg.message = list(packet)
             self._publisher.publish(msg)
+            self._last_valid_rtcm_time = time.monotonic()
+            self._reset_issue_counters()
 
     def _extract_rtcm_packet(self) -> Optional[bytes]:
         while self._parser_buffer and self._parser_buffer[0] != 0xD3:
@@ -193,6 +231,24 @@ class AmrNtripClient(Node):
         packet = bytes(self._parser_buffer[:total_len])
         del self._parser_buffer[:total_len]
         return packet
+
+    def _validate_rtcm_packet(self, packet: bytes) -> bool:
+        payload = packet[3:-3]
+        if not payload:
+            self._report_bad_rtcm_issue('Discarding empty RTCM packet')
+            return False
+        if all(byte == 0 for byte in payload):
+            self._report_bad_rtcm_issue('Discarding RTCM packet with all-zero payload')
+            return False
+        expected_crc = int.from_bytes(packet[-3:], byteorder='big')
+        actual_crc = self._crc24q(packet[:-3])
+        if expected_crc != actual_crc:
+            self._report_bad_rtcm_issue(
+                f'Discarding RTCM packet with failed CRC '
+                f'(expected=0x{expected_crc:06X}, actual=0x{actual_crc:06X})'
+            )
+            return False
+        return True
 
     def _handle_fix(self, fix: NavSatFix) -> None:
         sentence = self._build_gga_sentence(fix)
@@ -262,6 +318,47 @@ class AmrNtripClient(Node):
             sock.close()
         except OSError:
             pass
+
+    def _stream_timed_out(self) -> bool:
+        if self._rtcm_timeout <= 0.0:
+            return False
+        if self._last_valid_rtcm_time is None:
+            return False
+        return (time.monotonic() - self._last_valid_rtcm_time) >= self._rtcm_timeout
+
+    def _report_connection_issue(self, message: str) -> None:
+        self._connection_issue_count += 1
+        self._log_escalating_issue(self._connection_issue_count, message)
+
+    def _report_bad_rtcm_issue(self, message: str) -> None:
+        self._bad_rtcm_issue_count += 1
+        self._log_escalating_issue(self._bad_rtcm_issue_count, message)
+
+    def _log_escalating_issue(self, count: int, message: str) -> None:
+        if count < self._retry_attempts_before_error:
+            self.get_logger().warning(message)
+            return
+        if count == self._retry_attempts_before_error:
+            self.get_logger().error(
+                f'{message}. Escalating after {count} consecutive failures'
+            )
+            return
+        self.get_logger().error(message)
+
+    def _reset_issue_counters(self) -> None:
+        self._connection_issue_count = 0
+        self._bad_rtcm_issue_count = 0
+
+    @staticmethod
+    def _crc24q(data: bytes) -> int:
+        crc = 0
+        for byte in data:
+            crc ^= byte << 16
+            for _ in range(8):
+                crc <<= 1
+                if crc & 0x1000000:
+                    crc ^= 0x1864CFB
+        return crc & 0xFFFFFF
 
 
 def main() -> None:

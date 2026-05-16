@@ -99,3 +99,10 @@ ros2 launch amr_sweeper_gnss ntrip_client.launch.py \
   params_file:=/absolute/path/to/ntrip_client.yaml \
   use_nmea_to_caster:=true
 ```
+
+Useful NTRIP parameters in `config/ntrip_client.yaml`:
+- `failed_connection_retry_seconds`: wait time before reconnecting after a failed connection attempt or dropped stream
+- `reconnect_attempt_wait_seconds`: legacy compatibility fallback used when `failed_connection_retry_seconds` is not positive
+- `socket_timeout_seconds`: socket read/connect timeout for the TCP session
+- `rtcm_timeout_seconds`: reconnect when a connected session stops delivering valid RTCM for this long
+- `retry_attempts_before_error`: number of consecutive connection-loss or bad-RTCM warnings before the node escalates to error logs
