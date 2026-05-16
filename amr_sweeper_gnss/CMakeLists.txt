@@ -16,7 +16,7 @@ install(DIRECTORY config
 )
 
 install(PROGRAMS
-  scripts/navsat_qos_bridge.py
+  src/ntrip_client.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

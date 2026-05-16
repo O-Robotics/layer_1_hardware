@@ -9,7 +9,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    """Generate launch description for the Jazzy ntrip_client node."""
+    """Generate launch description for the AMR-local NTRIP client node."""
 
     use_nmea_to_caster_arg = DeclareLaunchArgument(
         'use_nmea_to_caster', default_value=TextSubstitution(text='false')
@@ -37,24 +37,17 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('debug')),
     )
 
-    navsat_qos_bridge = Node(
-        package='amr_sweeper_gnss',
-        executable='navsat_qos_bridge.py',
-        name='navsat_qos_bridge',
-        namespace=LaunchConfiguration('gnss_namespace'),
-        output='screen',
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-        condition=IfCondition(LaunchConfiguration('use_nmea_to_caster')),
-    )
-
     ntrip_node_with_nmea = Node(
-        package='ntrip_client',
-        executable='ntrip_ros.py',
+        package='amr_sweeper_gnss',
+        executable='ntrip_client.py',
         name='ntrip_client',
         namespace=LaunchConfiguration('gnss_namespace'),
         output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-        parameters=[LaunchConfiguration('params_file')],
+        parameters=[
+            LaunchConfiguration('params_file'),
+            {'send_nmea': True},
+        ],
         remappings=[
             ('fix', 'ntrip_fix'),
         ],
@@ -62,13 +55,16 @@ def generate_launch_description():
     )
 
     ntrip_node_without_nmea = Node(
-        package='ntrip_client',
-        executable='ntrip_ros.py',
+        package='amr_sweeper_gnss',
+        executable='ntrip_client.py',
         name='ntrip_client',
         namespace=LaunchConfiguration('gnss_namespace'),
         output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-        parameters=[LaunchConfiguration('params_file')],
+        parameters=[
+            LaunchConfiguration('params_file'),
+            {'send_nmea': False},
+        ],
         remappings=[
             ('fix', 'disabled/fix'),
             ('nmea', 'disabled/nmea'),
@@ -86,7 +82,11 @@ def generate_launch_description():
             'debug', default_value=TextSubstitution(text='false')
         ),
         ntrip_debug,
-        navsat_qos_bridge,
-        ntrip_node_with_nmea,
-        ntrip_node_without_nmea,
+        launch.actions.GroupAction(
+            condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
+            actions=[
+                ntrip_node_with_nmea,
+                ntrip_node_without_nmea,
+            ],
+        ),
     ])

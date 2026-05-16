@@ -46,6 +46,8 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - This layer is intended for the physical AMR Sweeper robot, not simulation.
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
 - Under the default robot root `/amr_sweeper`, package-owned sensor namespaces follow the package role, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras`, and `/amr_sweeper/depth_camera`.
+- When enabled, the GNSS NTRIP client runs inside `/amr_sweeper/gnss` and
+  publishes RTCM on `/amr_sweeper/gnss/rtcm`.
 - The layer 1 ros2_control bringup relies on `robot_state_publisher` for the `robot_description` topic instead of passing the description directly into `ros2_control_node`.
 - Controller spawners in the layer 1 ros2_control launch load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml`, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.
 - The robot description entrypoint is `amr_sweeper_description.launch.py`, which also owns the default controller-config path used by the bringup.

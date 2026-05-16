@@ -15,7 +15,6 @@
   <depend>ublox_dgnss</depend>
   <depend>ublox_dgnss_node</depend>
   <depend>ublox_nav_sat_fix_hp_node</depend>
-  <depend>ntrip_client</depend>
   <depend>rtcm_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>

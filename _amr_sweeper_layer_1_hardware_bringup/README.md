@@ -53,3 +53,6 @@ The main bringup launch starts the core hardware stack under the default robot r
 - The inlined ros2_control sequence expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
 - The ros2_control controller spawners load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml` with `--param-file`.
 - The `namespace` argument becomes the robot root, while package-owned sensor namespaces are nested below it, such as `imu`, `gnss`, `usb_cameras`, and `depth_camera`.
+- When `use_ntrip_client:=true`, the GNSS wrapper launches the package-local
+  NTRIP node under `/amr_sweeper/gnss` and keeps RTCM on
+  `/amr_sweeper/gnss/rtcm`.

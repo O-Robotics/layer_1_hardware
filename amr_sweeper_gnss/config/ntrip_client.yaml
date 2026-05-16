@@ -2,7 +2,8 @@
   ros__parameters:
     host: rtk2go.com
     port: 2101
-    mountpoint: SDS_RTK
+    mountpoint: EC8700DNK
+#    mountpoint: SDS_RTK
     ntrip_version: Ntrip/2.0
     authenticate: true
     username: info@o-robotics.com
