@@ -30,6 +30,7 @@ def generate_launch_description():
     depth_camera_namespace = PathJoinSubstitution(["/", namespace, "depth_camera"])
     imu_namespace = PathJoinSubstitution(["/", namespace, "imu"])
     log_level = LaunchConfiguration("log_level")
+    ublox_log_level = LaunchConfiguration("ublox_log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
     use_amr_sweeper_description = LaunchConfiguration("use_amr_sweeper_description")
@@ -53,6 +54,7 @@ def generate_launch_description():
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
+    ld.add_action(DeclareLaunchArgument("ublox_log_level", default_value="WARN"))
     ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
 
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"))
@@ -305,6 +307,8 @@ def generate_launch_description():
                     "gnss_namespace": gnss_namespace,
                     "gnss_frame_id": gnss_frame_id,
                     "ntrip_params_file": ntrip_params_file,
+                    "ublox_log_level": ublox_log_level,
+                    "log_level": log_level,
                 }.items(),
                 condition=IfCondition(use_amr_sweeper_gnss),
             ),

@@ -43,6 +43,7 @@ sudo apt install ros-jazzy-rtcm-msgs
 - `device_family`: default `F9P`
 - `device_serial_string`: default `""`
 - `log_level`: default `INFO`
+- `ublox_log_level`: default `WARN`
 
 This launch starts the standard AMR Sweeper GNSS stack:
 - Upstream `ublox_dgnss_node` for the u-blox receiver connection and UBX topic publishing

@@ -27,6 +27,7 @@ def generate_launch_description():
     device_family = LaunchConfiguration("device_family")
     device_serial_string = LaunchConfiguration("device_serial_string")
     log_level = LaunchConfiguration("log_level")
+    ublox_log_level = LaunchConfiguration("ublox_log_level")
     return LaunchDescription([
         DeclareLaunchArgument(
             "use_ublox_dgnss_node",
@@ -61,6 +62,10 @@ def generate_launch_description():
             default_value=TextSubstitution(text="INFO"),
         ),
         DeclareLaunchArgument(
+            "ublox_log_level",
+            default_value=TextSubstitution(text="WARN"),
+        ),
+        DeclareLaunchArgument(
             "ntrip_params_file",
             default_value=PathJoinSubstitution([
                 FindPackageShare("amr_sweeper_gnss"),
@@ -86,7 +91,7 @@ def generate_launch_description():
                 "params_file": ublox_params_file,
                 "device_family": device_family,
                 "device_serial_string": device_serial_string,
-                "log_level": log_level,
+                "log_level": ublox_log_level,
             }.items(),
         ),
         IncludeLaunchDescription(

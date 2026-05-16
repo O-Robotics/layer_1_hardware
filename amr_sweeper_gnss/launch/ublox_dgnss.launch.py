@@ -44,8 +44,8 @@ def generate_launch_description():
     )
     declare_log_level = DeclareLaunchArgument(
         'log_level',
-        default_value=TextSubstitution(text='INFO'),
-        description='Log level for GNSS component containers',
+        default_value=TextSubstitution(text='WARN'),
+        description='Log level for ublox GNSS component containers',
     )
     declare_params_file = DeclareLaunchArgument(
         'params_file',

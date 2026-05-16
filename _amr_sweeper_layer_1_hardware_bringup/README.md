@@ -27,6 +27,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 ## Launch Arguments
 - `namespace`: default `amr_sweeper`
 - `log_level`: default `info`
+- `ublox_log_level`: default `WARN`
 - `use_sim_time`: default `false`
 - `use_amr_sweeper_description`: default `true`
 - `use_ros2_control`: default `true`
