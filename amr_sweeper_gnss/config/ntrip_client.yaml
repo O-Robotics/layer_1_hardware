@@ -18,3 +18,7 @@
     rtcm_timeout_seconds: 4
     nmea_max_length: 128
     nmea_min_length: 3
+    qos_overrides:
+      /fix:
+        subscription:
+          reliability: best_effort
