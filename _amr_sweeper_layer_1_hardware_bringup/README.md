@@ -28,14 +28,14 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `namespace`: default `amr_sweeper`
 - `log_level`: default `info`
 - `use_sim_time`: default `false`
-- `use_robot_description`: default `true`
+- `use_amr_sweeper_description`: default `true`
 - `use_ros2_control`: default `true`
-- `use_battery_node`: default `true`
-- `use_system_info_node`: default `true`
-- `use_usb_cameras`: default `true`
-- `use_depth_camera`: default `true`
-- `use_imu_node`: default `true`
-- `use_gnss_rover`: default `true`
+- `use_amr_sweeper_battery`: default `true`
+- `use_amr_sweeper_system_info`: default `true`
+- `use_amr_sweeper_usb_cameras`: default `true`
+- `use_amr_sweeper_depth_camera`: default `true`
+- `use_amr_sweeper_imu`: default `true`
+- `use_amr_sweeper_gnss`: default `true`
 - `use_ntrip_client`: default `true`
 - `battery_can_interface`: default `can0`
 - `steadydrive_can_interface`: default `can0`
@@ -53,6 +53,6 @@ The main bringup launch starts the core hardware stack under the default robot r
 - The inlined ros2_control sequence expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
 - The ros2_control controller spawners load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml` with `--param-file`.
 - The `namespace` argument becomes the robot root, while package-owned sensor namespaces are nested below it, such as `imu`, `gnss`, `usb_cameras`, and `depth_camera`.
-- When `use_ntrip_client:=true`, the GNSS wrapper launches the package-local
+- When `use_amr_sweeper_gnss:=true` and `use_ntrip_client:=true`, the GNSS wrapper launches the package-local
   NTRIP node under `/amr_sweeper/gnss` and keeps RTCM on
   `/amr_sweeper/gnss/rtcm`.

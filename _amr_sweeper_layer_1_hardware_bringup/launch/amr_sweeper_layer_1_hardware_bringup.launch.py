@@ -32,14 +32,14 @@ def generate_launch_description():
     log_level = LaunchConfiguration("log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
-    use_robot_description = LaunchConfiguration("use_robot_description")
+    use_amr_sweeper_description = LaunchConfiguration("use_amr_sweeper_description")
     use_ros2_control = LaunchConfiguration("use_ros2_control")
-    use_battery_node = LaunchConfiguration("use_battery_node")
-    use_system_info_node = LaunchConfiguration("use_system_info_node")
-    use_usb_cameras = LaunchConfiguration("use_usb_cameras")
-    use_depth_camera = LaunchConfiguration("use_depth_camera")
-    use_imu_node = LaunchConfiguration("use_imu_node")
-    use_gnss_rover = LaunchConfiguration("use_gnss_rover")
+    use_amr_sweeper_battery = LaunchConfiguration("use_amr_sweeper_battery")
+    use_amr_sweeper_system_info = LaunchConfiguration("use_amr_sweeper_system_info")
+    use_amr_sweeper_usb_cameras = LaunchConfiguration("use_amr_sweeper_usb_cameras")
+    use_amr_sweeper_depth_camera = LaunchConfiguration("use_amr_sweeper_depth_camera")
+    use_amr_sweeper_imu = LaunchConfiguration("use_amr_sweeper_imu")
+    use_amr_sweeper_gnss = LaunchConfiguration("use_amr_sweeper_gnss")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     steadydrive_can_interface = LaunchConfiguration("steadydrive_can_interface")
@@ -55,14 +55,14 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
     ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
 
-    ld.add_action(DeclareLaunchArgument("use_robot_description", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ros2_control", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_battery_node", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_system_info_node", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_usb_cameras", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_depth_camera", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_imu_node", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_gnss_rover", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_depth_camera", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
@@ -94,15 +94,15 @@ def generate_launch_description():
                     "use_sim_time": use_sim_time,
                     "use_ros2_control": use_ros2_control,
                     "ros2_control_config_file": ros2_control_config_file,
-                    "enable_usb_cameras": use_usb_cameras,
-                    "enable_gnss": use_gnss_rover,
-                    "enable_imu": use_imu_node,
-                    "enable_depth_camera": use_depth_camera,
+                    "enable_usb_cameras": use_amr_sweeper_usb_cameras,
+                    "enable_gnss": use_amr_sweeper_gnss,
+                    "enable_imu": use_amr_sweeper_imu,
+                    "enable_depth_camera": use_amr_sweeper_depth_camera,
                     "steadydrive_can_interface": steadydrive_can_interface,
                     "steadydrive_left_motor_can_id": steadydrive_left_motor_can_id,
                     "steadydrive_right_motor_can_id": steadydrive_right_motor_can_id,
                 }.items(),
-                condition=IfCondition(use_robot_description),
+                condition=IfCondition(use_amr_sweeper_description),
             ),
         ],
     ))
@@ -117,7 +117,7 @@ def generate_launch_description():
         parameters=[{
             "can_interface": battery_can_interface,
         }],
-        condition=IfCondition(use_battery_node),
+        condition=IfCondition(use_amr_sweeper_battery),
     ))
 
     ld.add_action(Node(
@@ -127,7 +127,7 @@ def generate_launch_description():
         name="amr_sweeper_system_info_node",
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],
-        condition=IfCondition(use_system_info_node),
+        condition=IfCondition(use_amr_sweeper_system_info),
     ))
 
     ld.add_action(GroupAction(
@@ -139,7 +139,7 @@ def generate_launch_description():
                     "namespace": usb_cameras_namespace,
                     "log_level": log_level,
                 }.items(),
-                condition=IfCondition(use_usb_cameras),
+                condition=IfCondition(use_amr_sweeper_usb_cameras),
             ),
         ],
     ))
@@ -154,7 +154,7 @@ def generate_launch_description():
                     "log_level": log_level,
                     "use_sim_time": use_sim_time,
                 }.items(),
-                condition=IfCondition(use_depth_camera),
+                condition=IfCondition(use_amr_sweeper_depth_camera),
             ),
         ],
     ))
@@ -169,9 +169,9 @@ def generate_launch_description():
                     "use_sim_time": use_sim_time,
                     "port": imu_port,
                     "baud": imu_baud,
-                    "use_imu_node": use_imu_node,
+                    "use_imu_node": use_amr_sweeper_imu,
                 }.items(),
-                condition=IfCondition(use_imu_node),
+                condition=IfCondition(use_amr_sweeper_imu),
             ),
         ],
     ))
@@ -299,14 +299,14 @@ def generate_launch_description():
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")),
                 launch_arguments={
-                    "use_ublox_dgnss_node": use_gnss_rover,
-                    "use_ublox_nav_sat_fix_hp": use_gnss_rover,
+                    "use_ublox_dgnss_node": use_amr_sweeper_gnss,
+                    "use_ublox_nav_sat_fix_hp": use_amr_sweeper_gnss,
                     "use_ntrip_client": use_ntrip_client,
                     "gnss_namespace": gnss_namespace,
                     "gnss_frame_id": gnss_frame_id,
                     "ntrip_params_file": ntrip_params_file,
                 }.items(),
-                condition=IfCondition(use_gnss_rover),
+                condition=IfCondition(use_amr_sweeper_gnss),
             ),
         ],
     ))
