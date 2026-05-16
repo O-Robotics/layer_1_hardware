@@ -2,7 +2,7 @@
 
 import launch
 from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -47,7 +47,7 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('use_nmea_to_caster')),
     )
 
-    ntrip_node = Node(
+    ntrip_node_with_nmea = Node(
         package='ntrip_client',
         executable='ntrip_ros.py',
         name='ntrip_client',
@@ -55,7 +55,25 @@ def generate_launch_description():
         output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         parameters=[LaunchConfiguration('params_file')],
-        condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
+        remappings=[
+            ('fix', 'ntrip_fix'),
+        ],
+        condition=IfCondition(LaunchConfiguration('use_nmea_to_caster')),
+    )
+
+    ntrip_node_without_nmea = Node(
+        package='ntrip_client',
+        executable='ntrip_ros.py',
+        name='ntrip_client',
+        namespace=LaunchConfiguration('gnss_namespace'),
+        output='screen',
+        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+        parameters=[LaunchConfiguration('params_file')],
+        remappings=[
+            ('fix', '__unused_fix'),
+            ('nmea', '__unused_nmea'),
+        ],
+        condition=UnlessCondition(LaunchConfiguration('use_nmea_to_caster')),
     )
 
     return launch.LaunchDescription([
@@ -69,5 +87,6 @@ def generate_launch_description():
         ),
         ntrip_debug,
         navsat_qos_bridge,
-        ntrip_node,
+        ntrip_node_with_nmea,
+        ntrip_node_without_nmea,
     ])
