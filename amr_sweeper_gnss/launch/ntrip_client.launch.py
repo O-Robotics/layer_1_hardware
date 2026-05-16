@@ -70,8 +70,8 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
-            ('fix', '__unused_fix'),
-            ('nmea', '__unused_nmea'),
+            ('fix', 'disabled/fix'),
+            ('nmea', 'disabled/nmea'),
         ],
         condition=UnlessCondition(LaunchConfiguration('use_nmea_to_caster')),
     )
