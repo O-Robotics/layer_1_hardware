@@ -3,7 +3,8 @@
     host:          rtk2go.com    # NTRIP caster hostname. Default: 127.0.0.1
     port:          2101          # NTRIP caster TCP port. Default: 2101
     mountpoint:    EC8700DNK     # RTCM mountpoint to request from the caster. Default: mount
-    alternate_mountpoint: SDS_RTK  # Backup mountpoint tried after a failed or dropped primary stream. Default: empty string
+    alternate_mountpoint: SDS_RTK  # Backup mountpoint tried after repeated primary-stream failures. Default: empty string
+    mountpoint_failover_threshold: 2  # Consecutive failures on one mountpoint before switching to the alternate. Default: 2
     ntrip_version: Ntrip/2.0     # NTRIP version header sent in the request. Default: Ntrip/2.0
 
     authenticate:  true                 # Enable HTTP basic auth for the caster. Default: false

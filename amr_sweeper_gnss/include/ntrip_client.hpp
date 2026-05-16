@@ -64,6 +64,8 @@ private:
   std::string alternate_mountpoint_;
   std::vector<std::string> mountpoints_;
   std::size_t active_mountpoint_index_{0};
+  int mountpoint_failover_threshold_{2};
+  int current_mountpoint_failure_count_{0};
   std::string ntrip_version_;
   bool authenticate_{false};
   std::string username_;

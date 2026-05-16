@@ -113,6 +113,7 @@ ros2 launch amr_sweeper_gnss ntrip_client.launch.py \
 
 Useful NTRIP parameters in `config/ntrip_client.yaml`:
 - `alternate_mountpoint`: optional backup mountpoint the node will try after a failed connection or dropped RTCM stream
+- `mountpoint_failover_threshold`: number of consecutive failures on the active mountpoint before the node switches to the backup mountpoint
 - `startup_retry_seconds`: wait time before retrying node startup after a startup/config failure
 - `failed_connection_retry_seconds`: wait time before reconnecting after a failed connection attempt or dropped stream
 - `reconnect_attempt_wait_seconds`: legacy compatibility fallback used when `failed_connection_retry_seconds` is not positive

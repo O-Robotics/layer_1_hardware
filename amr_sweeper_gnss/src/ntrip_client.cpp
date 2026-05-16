@@ -98,6 +98,7 @@ NtripClientNode::NtripClientNode()
   declare_parameter<int>("port", 2101);
   declare_parameter<std::string>("mountpoint", "mount");
   declare_parameter<std::string>("alternate_mountpoint", "");
+  declare_parameter<int>("mountpoint_failover_threshold", 2);
   declare_parameter<std::string>("ntrip_version", "Ntrip/2.0");
   declare_parameter<bool>("authenticate", false);
   declare_parameter<std::string>("username", "");
@@ -120,6 +121,7 @@ NtripClientNode::NtripClientNode()
   port_ = get_parameter("port").as_int();
   mountpoint_ = get_parameter("mountpoint").as_string();
   alternate_mountpoint_ = get_parameter("alternate_mountpoint").as_string();
+  mountpoint_failover_threshold_ = get_parameter("mountpoint_failover_threshold").as_int();
   ntrip_version_ = get_parameter("ntrip_version").as_string();
   authenticate_ = get_parameter("authenticate").as_bool();
   username_ = get_parameter("username").as_string();
@@ -167,6 +169,9 @@ NtripClientNode::NtripClientNode()
   }
   if (fatal_after_consecutive_errors_ < 1) {
     fatal_after_consecutive_errors_ = 1;
+  }
+  if (mountpoint_failover_threshold_ < 1) {
+    mountpoint_failover_threshold_ = 1;
   }
 
   publisher_ = create_publisher<rtcm_msgs::msg::Message>("rtcm", 10);
@@ -226,7 +231,11 @@ void NtripClientNode::run()
       }
 
       close_socket();
-      advance_mountpoint();
+      ++current_mountpoint_failure_count_;
+      if (current_mountpoint_failure_count_ >= mountpoint_failover_threshold_) {
+        current_mountpoint_failure_count_ = 0;
+        advance_mountpoint();
+      }
     }
 
     if (!stop_requested_.load()) {
@@ -268,6 +277,7 @@ void NtripClientNode::connect_and_stream()
   parser_buffer_.clear();
   last_valid_rtcm_time_.reset();
   connected_at_ = std::chrono::steady_clock::now();
+  current_mountpoint_failure_count_ = 0;
   RCLCPP_INFO(
     get_logger(),
     "Connected to http://%s:%d/%s",
