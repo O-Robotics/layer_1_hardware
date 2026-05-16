@@ -48,6 +48,7 @@ def generate_launch_description():
     steadydrive_right_motor_can_id = LaunchConfiguration("steadydrive_right_motor_can_id")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
+    imu_params_file = LaunchConfiguration("imu_params_file")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
@@ -72,6 +73,11 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("steadydrive_right_motor_can_id", default_value="0x142"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
+    ld.add_action(DeclareLaunchArgument("imu_params_file", default_value=PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_imu"),
+        "config",
+        "amr_sweeper_imu.yaml",
+    ])))
     ld.add_action(DeclareLaunchArgument("gnss_frame_id", default_value="gnss_link"))
     ld.add_action(DeclareLaunchArgument("ntrip_params_file", default_value=PathJoinSubstitution([
         FindPackageShare("amr_sweeper_gnss"),
@@ -165,10 +171,11 @@ def generate_launch_description():
         scoped=True,
         actions=[
             IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "imu.launch.py")),
+                PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "amr_sweeper_imu.launch.py")),
                 launch_arguments={
                     "namespace": imu_namespace,
                     "use_sim_time": use_sim_time,
+                    "params_file": imu_params_file,
                     "port": imu_port,
                     "baud": imu_baud,
                     "use_imu_node": use_amr_sweeper_imu,

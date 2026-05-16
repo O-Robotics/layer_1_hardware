@@ -42,6 +42,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `steadydrive_can_interface`: default `can0`
 - `imu_port`: default `/dev/imu_usb`
 - `imu_baud`: default `9600`
+- `imu_params_file`: default `amr_sweeper_imu/config/amr_sweeper_imu.yaml`
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
@@ -54,6 +55,7 @@ The main bringup launch starts the core hardware stack under the default robot r
 - The inlined ros2_control sequence expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
 - The ros2_control controller spawners load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml` with `--param-file`.
 - The `namespace` argument becomes the robot root, while package-owned sensor namespaces are nested below it, such as `imu`, `gnss`, `usb_cameras`, and `depth_camera`.
+- The IMU bringup loads defaults from `amr_sweeper_imu/config/amr_sweeper_imu.yaml`, and `imu_params_file` can swap that file without changing the package launch file.
 - When `use_amr_sweeper_gnss:=true` and `use_ntrip_client:=true`, the GNSS wrapper launches the package-local
   NTRIP node under `/amr_sweeper/gnss` and keeps RTCM on
   `/amr_sweeper/gnss/rtcm`.

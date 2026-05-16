@@ -1,0 +1,35 @@
+/**:
+  ros__parameters:
+    port:                          /dev/imu_usb  # Stable symlink created by the local udev rule. Default: /dev/imu_usb
+    baud:                          9600          # Serial baud rate. The driver currently supports 9600/19200/38400/57600/115200. Default: 9600
+    imu_frame_id:                  imu_link      # Frame ID stamped on published IMU messages. Default: imu_link
+    publish_hz:                    10.0          # Maximum ROS publish rate in Hz after parsing incoming angle frames. Default: 10.0
+    read_period_ms:                2             # Serial polling period in milliseconds. Lower values retry reads more aggressively. Default: 2
+    reconnect_attempt_interval_ms: 1000          # Delay between reopen attempts after a serial failure. Default: 1000
+    retry_attempts_before_error:   3             # Consecutive failures allowed before WARN escalates to ERROR. Default: 3
+    fatal_after_consecutive_errors: 10           # Consecutive failures allowed before the node escalates to FATAL and stops retrying. Default: 10
+    max_reconnect_attempts:        10            # Hard cap on reconnect attempts. Set to 0 for unlimited retries. Default: 10
+    configure_device_on_startup:   true          # Program the JY901 registers from the configured parameters after connecting. Default: true
+    save_configuration:            true          # Send the SAVE command after programming registers so changes persist across power cycles. Default: true
+    device_bootstrap_baud:         9600          # Baud used for the initial serial connection before any baud reconfiguration. Default: 9600
+    device_return_rate_hz:         10.0          # JY901 output rate written to the RATE register. Supported values: 0.1, 0.5, 1, 2, 5, 10, 20, 50, 100, 125, 200. Default: 10.0
+    installation_direction:        horizontal    # JY901 installation direction register: horizontal or vertical. Default: horizontal
+    algorithm_mode:                nine_axis     # JY901 fusion mode: nine_axis or six_axis. Default: nine_axis
+    gyroscope_auto_calibration:    true          # Enable the JY901 gyroscope auto-calibration mode. Default: true
+    led_enabled:                   true          # Leave the onboard LED enabled. Default: true
+
+    output_time:                   false         # Enable 0x50 time packets from the JY901. Default: false
+    output_acceleration:           true          # Enable 0x51 acceleration packets required by this driver. Default: true
+    output_angular_velocity:       true          # Enable 0x52 angular-velocity packets required by this driver. Default: true
+    output_angle:                  true          # Enable 0x53 angle packets required by this driver. Default: true
+    output_magnetic:               false         # Enable 0x54 magnetic-field packets. Default: false
+    output_port_status:            false         # Enable 0x55 port-status packets. Default: false
+    output_pressure_height:        false         # Enable 0x56 pressure/height packets. Default: false
+    output_gps_coordinates:        false         # Enable 0x57 longitude/latitude packets. Default: false
+    output_gps_velocity:           false         # Enable 0x58 GPS speed packets. Default: false
+    output_quaternion:             false         # Enable 0x59 quaternion packets. Default: false
+    output_satellite_accuracy:     false         # Enable 0x5A satellite-position-accuracy packets. Default: false
+
+    orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.05]    # Row-major 3x3 covariance for the driver-provided quaternion.
+    angular_velocity_covariance:    [0.02, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0, 0.01]  # Row-major 3x3 covariance for gyro output in rad^2/s^2.
+    linear_acceleration_covariance: [0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5]     # Row-major 3x3 covariance for accelerometer output in (m/s^2)^2.

@@ -1,8 +1,9 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -30,6 +31,15 @@ def generate_launch_description():
         name='publish_hz',
         default_value='10.0',
         description='Maximum IMU publish rate in Hz')
+    declare_params_file = DeclareLaunchArgument(
+        name='params_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('amr_sweeper_imu'),
+            'config',
+            'amr_sweeper_imu.yaml',
+        ]),
+        description='Parameter file for the IMU node',
+    )
     declare_use_imu_node = DeclareLaunchArgument(
         name='use_imu_node',
         default_value='true',
@@ -37,9 +47,10 @@ def generate_launch_description():
 
     ns = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    params_file = LaunchConfiguration('params_file')
     port = LaunchConfiguration('port')
     baud = LaunchConfiguration('baud')
-    frame_id = LaunchConfiguration('imu_frame_id')
+    imu_frame_id = LaunchConfiguration('imu_frame_id')
     publish_hz = LaunchConfiguration('publish_hz')
     use_imu_node = LaunchConfiguration('use_imu_node')
 
@@ -48,11 +59,14 @@ def generate_launch_description():
         executable='imu_node',
         name='imu_node',
         namespace=ns,
-        parameters=[{'port': port},
-                    {'baud': baud},
-                    {'frame_id': frame_id},
-                    {'publish_hz': publish_hz},
-                    {'use_sim_time': use_sim_time}],
+        parameters=[
+            params_file,
+            {'port': port},
+            {'baud': baud},
+            {'imu_frame_id': imu_frame_id},
+            {'publish_hz': publish_hz},
+            {'use_sim_time': use_sim_time},
+        ],
         output='screen',
         condition=IfCondition(use_imu_node),
     )
@@ -65,6 +79,7 @@ def generate_launch_description():
             declare_baud,
             declare_frame_id,
             declare_publish_hz,
+            declare_params_file,
             declare_use_imu_node,
             imu_node,
         ]
