@@ -38,6 +38,9 @@ private:
   void handle_rtcm_bytes(const std::vector<std::uint8_t> & chunk);
   std::optional<std::vector<std::uint8_t>> extract_rtcm_packet();
   bool validate_rtcm_packet(const std::vector<std::uint8_t> & packet);
+  bool looks_like_sourcetable(
+    const std::string & header,
+    const std::vector<std::uint8_t> & payload) const;
   void handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
   std::string build_gga_sentence(const sensor_msgs::msg::NavSatFix & fix) const;
   std::string build_request() const;
@@ -79,6 +82,7 @@ private:
   double reconnect_wait_{5.0};
   double failed_connection_retry_{5.0};
   double socket_timeout_seconds_{10.0};
+  double initial_rtcm_grace_seconds_{10.0};
   double rtcm_timeout_seconds_{4.0};
   int retry_attempts_before_error_{3};
   int fatal_after_consecutive_errors_{10};

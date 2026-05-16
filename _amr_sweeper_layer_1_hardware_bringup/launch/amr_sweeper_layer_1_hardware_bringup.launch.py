@@ -25,10 +25,10 @@ def _launch_file(package_name: str, launch_file_name: str):
 
 def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
-    gnss_namespace = PathJoinSubstitution([namespace, "gnss"])
-    usb_cameras_namespace = PathJoinSubstitution([namespace, "usb_cameras"])
-    depth_camera_namespace = PathJoinSubstitution([namespace, "depth_camera"])
-    imu_namespace = PathJoinSubstitution([namespace, "imu"])
+    gnss_namespace = PathJoinSubstitution(["/", namespace, "gnss"])
+    usb_cameras_namespace = PathJoinSubstitution(["/", namespace, "usb_cameras"])
+    depth_camera_namespace = PathJoinSubstitution(["/", namespace, "depth_camera"])
+    imu_namespace = PathJoinSubstitution(["/", namespace, "imu"])
     log_level = LaunchConfiguration("log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
 

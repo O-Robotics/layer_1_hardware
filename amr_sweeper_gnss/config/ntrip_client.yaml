@@ -23,6 +23,7 @@
     failed_connection_retry_seconds: 5.0   # Wait before reconnecting after a dropped or failed stream. Default: 5.0
     reconnect_attempt_wait_seconds:  5.0   # Legacy fallback retry wait if failed_connection_retry_seconds <= 0. Default: 5.0
     socket_timeout_seconds:          10.0  # Socket connect/read timeout before watchdog logic decides whether to retry. Default: 10.0
+    initial_rtcm_grace_seconds:     10.0  # Extra grace time allowed after connect before the first valid RTCM is required. Default: 10.0
     rtcm_timeout_seconds:            4.0   # Max time without valid RTCM before reconnecting. Default: 4.0
 
     retry_attempts_before_error:    3   # Consecutive failures before warnings escalate to errors. Default: 3

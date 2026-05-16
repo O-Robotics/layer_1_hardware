@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -112,6 +113,7 @@ NtripClientNode::NtripClientNode()
   declare_parameter<double>("failed_connection_retry_seconds", 5.0);
   declare_parameter<double>("reconnect_attempt_wait_seconds", 5.0);
   declare_parameter<double>("socket_timeout_seconds", 10.0);
+  declare_parameter<double>("initial_rtcm_grace_seconds", 10.0);
   declare_parameter<double>("rtcm_timeout_seconds", 4.0);
   declare_parameter<int>("retry_attempts_before_error", 3);
   declare_parameter<int>("fatal_after_consecutive_errors", 10);
@@ -135,6 +137,7 @@ NtripClientNode::NtripClientNode()
   reconnect_wait_ = get_parameter("reconnect_attempt_wait_seconds").as_double();
   failed_connection_retry_ = get_parameter("failed_connection_retry_seconds").as_double();
   socket_timeout_seconds_ = get_parameter("socket_timeout_seconds").as_double();
+  initial_rtcm_grace_seconds_ = get_parameter("initial_rtcm_grace_seconds").as_double();
   rtcm_timeout_seconds_ = get_parameter("rtcm_timeout_seconds").as_double();
   retry_attempts_before_error_ = get_parameter("retry_attempts_before_error").as_int();
   fatal_after_consecutive_errors_ = get_parameter("fatal_after_consecutive_errors").as_int();
@@ -163,6 +166,9 @@ NtripClientNode::NtripClientNode()
   }
   if (startup_retry_seconds_ <= 0.0) {
     startup_retry_seconds_ = failed_connection_retry_;
+  }
+  if (initial_rtcm_grace_seconds_ <= 0.0) {
+    initial_rtcm_grace_seconds_ = socket_timeout_seconds_;
   }
   if (retry_attempts_before_error_ < 1) {
     retry_attempts_before_error_ = 1;
@@ -272,6 +278,10 @@ void NtripClientNode::connect_and_stream()
     header.find("HTTP/1.1 200 OK") == std::string::npos)
   {
     throw std::runtime_error("Invalid caster response: " + header);
+  }
+  if (looks_like_sourcetable(header, payload)) {
+    throw std::runtime_error(
+            "Received sourcetable or text response instead of RTCM stream");
   }
 
   parser_buffer_.clear();
@@ -553,6 +563,19 @@ bool NtripClientNode::validate_rtcm_packet(const std::vector<std::uint8_t> & pac
   return true;
 }
 
+bool NtripClientNode::looks_like_sourcetable(
+  const std::string & header,
+  const std::vector<std::uint8_t> & payload) const
+{
+  if (header.find("Content-Type: text/plain") != std::string::npos) {
+    return true;
+  }
+
+  std::string payload_text(payload.begin(), payload.end());
+  return payload_text.find("SOURCETABLE") != std::string::npos ||
+         payload_text.find("STR;") != std::string::npos;
+}
+
 void NtripClientNode::handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg)
 {
   const std::string sentence = build_gga_sentence(*msg);
@@ -695,7 +718,11 @@ void NtripClientNode::close_socket()
 
 bool NtripClientNode::stream_timed_out() const
 {
-  if (rtcm_timeout_seconds_ <= 0.0) {
+  const double timeout_seconds = last_valid_rtcm_time_.has_value() ?
+    rtcm_timeout_seconds_ :
+    std::max(rtcm_timeout_seconds_, initial_rtcm_grace_seconds_);
+
+  if (timeout_seconds <= 0.0) {
     return false;
   }
 
@@ -709,7 +736,7 @@ bool NtripClientNode::stream_timed_out() const
 
   const auto elapsed =
     std::chrono::duration<double>(std::chrono::steady_clock::now() - *reference_time).count();
-  return elapsed >= rtcm_timeout_seconds_;
+  return elapsed >= timeout_seconds;
 }
 
 void NtripClientNode::report_connection_issue(const std::string & message)

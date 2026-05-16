@@ -118,6 +118,7 @@ Useful NTRIP parameters in `config/ntrip_client.yaml`:
 - `failed_connection_retry_seconds`: wait time before reconnecting after a failed connection attempt or dropped stream
 - `reconnect_attempt_wait_seconds`: legacy compatibility fallback used when `failed_connection_retry_seconds` is not positive
 - `socket_timeout_seconds`: socket read/connect timeout for the TCP session
+- `initial_rtcm_grace_seconds`: extra grace window after a successful stream header before the first valid RTCM is required
 - `rtcm_timeout_seconds`: reconnect when a connected session stops delivering valid RTCM for this long
 - `retry_attempts_before_error`: number of consecutive connection-loss or bad-RTCM warnings before the node escalates to error logs
 - `fatal_after_consecutive_errors`: number of consecutive startup or runtime failures before the node exits fatally

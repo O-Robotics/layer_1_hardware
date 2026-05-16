@@ -62,6 +62,7 @@ def generate_launch_description():
         namespace='',
         package='rclcpp_components',
         executable='component_container_mt',
+        output='log',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         composable_node_descriptions=[
             ComposableNode(
@@ -88,6 +89,7 @@ def generate_launch_description():
         namespace='',
         package='rclcpp_components',
         executable='component_container_mt',
+        output='log',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         composable_node_descriptions=[
             ComposableNode(
