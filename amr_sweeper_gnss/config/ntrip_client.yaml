@@ -1,4 +1,4 @@
-ntrip_client:
+/**:
   ros__parameters:
     host: rtk2go.com
     port: 2101
