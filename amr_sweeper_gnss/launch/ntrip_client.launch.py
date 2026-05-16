@@ -34,6 +34,16 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('debug')),
     )
 
+    navsat_qos_bridge = Node(
+        package='amr_sweeper_gnss',
+        executable='navsat_qos_bridge.py',
+        name='navsat_qos_bridge',
+        namespace=LaunchConfiguration('gnss_namespace'),
+        output='screen',
+        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+        condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
+    )
+
     ntrip_node = Node(
         package='ntrip_client',
         executable='ntrip_ros.py',
@@ -43,7 +53,7 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
-            ('fix', 'navsat'),
+            ('fix', 'ntrip_fix'),
         ],
         condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
     )
@@ -57,5 +67,6 @@ def generate_launch_description():
             'debug', default_value=TextSubstitution(text='false')
         ),
         ntrip_debug,
+        navsat_qos_bridge,
         ntrip_node,
     ])

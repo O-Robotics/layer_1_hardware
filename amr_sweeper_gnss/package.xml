@@ -10,6 +10,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
   <depend>ublox_dgnss</depend>
   <depend>ublox_dgnss_node</depend>
   <depend>ublox_nav_sat_fix_hp_node</depend>
