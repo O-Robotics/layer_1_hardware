@@ -86,6 +86,7 @@ private:
   int connection_issue_count_{0};
   int configuration_issue_count_{0};
   std::string fatal_error_message_;
+  std::string last_serial_error_message_;
 
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
   rclcpp::TimerBase::SharedPtr read_timer_;

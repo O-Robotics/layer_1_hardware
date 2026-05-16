@@ -142,7 +142,10 @@ JY901ImuNode::JY901ImuNode()
   imu_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_raw", 10);
 
   if (!open_serial()) {
-    report_connection_issue("Failed to open IMU serial port '" + port_ + "'");
+    report_connection_issue(
+      last_serial_error_message_.empty() ?
+      "Failed to open IMU serial port '" + port_ + "'" :
+      last_serial_error_message_);
   } else if (!configure_device()) {
     report_configuration_issue("IMU opened, but device programming did not fully succeed");
   } else {
@@ -165,14 +168,18 @@ JY901ImuNode::~JY901ImuNode()
 bool JY901ImuNode::open_serial()
 {
   close_serial();
+  last_serial_error_message_.clear();
 
   serial_fd_ = ::open(port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (serial_fd_ < 0) {
+    last_serial_error_message_ = errno_message("Failed to open IMU serial port '" + port_ + "'");
     return false;
   }
 
   termios tty{};
   if (tcgetattr(serial_fd_, &tty) != 0) {
+    last_serial_error_message_ = errno_message(
+      "Failed to read IMU serial attributes for '" + port_ + "'");
     close_serial();
     return false;
   }
@@ -196,6 +203,8 @@ bool JY901ImuNode::open_serial()
   tty.c_cc[VTIME] = 0;
 
   if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
+    last_serial_error_message_ = errno_message(
+      "Failed to configure IMU serial attributes for '" + port_ + "'");
     close_serial();
     return false;
   }
@@ -494,7 +503,10 @@ void JY901ImuNode::read_serial()
           read_timer_->reset();
         }
       } else {
-        report_connection_issue("Failed to reconnect IMU serial port '" + port_ + "'");
+        report_connection_issue(
+          last_serial_error_message_.empty() ?
+          "Failed to reconnect IMU serial port '" + port_ + "'" :
+          last_serial_error_message_);
       }
     }
     return;
