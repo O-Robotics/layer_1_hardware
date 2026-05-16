@@ -96,6 +96,9 @@ def generate_launch_description():
                 name='ublox_dgnss',
                 namespace=LaunchConfiguration('gnss_namespace'),
                 parameters=params,
+                remappings=[
+                    ('/ntrip_client/rtcm', 'rtcm'),
+                ],
             )
         ],
         condition=IfCondition(LaunchConfiguration('use_ublox_dgnss_node')),

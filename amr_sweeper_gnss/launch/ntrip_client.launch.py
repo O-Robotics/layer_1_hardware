@@ -44,7 +44,6 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('params_file')],
         remappings=[
             ('fix', 'navsat'),
-            ('rtcm', '/ntrip_client/rtcm'),
         ],
         condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
     )
