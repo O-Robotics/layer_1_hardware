@@ -11,6 +11,9 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     """Generate launch description for the Jazzy ntrip_client node."""
 
+    use_nmea_to_caster_arg = DeclareLaunchArgument(
+        'use_nmea_to_caster', default_value=TextSubstitution(text='false')
+    )
     use_ntrip_client_node_arg = DeclareLaunchArgument(
         'use_ntrip_client_node', default_value=TextSubstitution(text='true')
     )
@@ -41,7 +44,7 @@ def generate_launch_description():
         namespace=LaunchConfiguration('gnss_namespace'),
         output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-        condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
+        condition=IfCondition(LaunchConfiguration('use_nmea_to_caster')),
     )
 
     ntrip_node = Node(
@@ -52,13 +55,11 @@ def generate_launch_description():
         output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         parameters=[LaunchConfiguration('params_file')],
-        remappings=[
-            ('fix', 'ntrip_fix'),
-        ],
         condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
     )
 
     return launch.LaunchDescription([
+        use_nmea_to_caster_arg,
         use_ntrip_client_node_arg,
         params_file_arg,
         gnss_namespace_arg,
