@@ -54,7 +54,7 @@ install(
   DESTINATION include
 )
 install(
-  DIRECTORY config/ resources/
+  DIRECTORY config resources
   DESTINATION share/${PROJECT_NAME}
 )
 install(
