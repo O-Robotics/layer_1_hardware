@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -207,43 +208,28 @@ double parse_positive_motor_direction_sign(const std::string & direction, const 
   return 1.0;
 }
 
-double load_shared_gear_ratio(const std::string & package_name, const std::string & config_file_name)
-{
-  try {
-    const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
-    const auto config_path = package_share + "/config/" + config_file_name;
-    const YAML::Node root = YAML::LoadFile(config_path);
-
-    if (!root || !root["gear_ratio"]) {
-      throw std::runtime_error("missing required key 'gear_ratio'");
-    }
-
-    const double ratio = root["gear_ratio"].as<double>();
-    if (ratio <= 0.0) {
-      throw std::out_of_range("gear_ratio must be positive");
-    }
-    return ratio;
-  } catch (const std::exception & error) {
-    throw std::runtime_error(
-      "Failed to load gear_ratio from " + package_name + "/config/" + config_file_name + ": " +
-      error.what());
-  }
-}
-
 YAML::Node load_hardware_config(const std::string & package_name, const std::string & config_file_name)
 {
+  const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
+  const auto config_path = package_share + "/config/" + config_file_name;
+
   try {
-    const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
-    const auto config_path = package_share + "/config/" + config_file_name;
-    const YAML::Node root = YAML::LoadFile(config_path);
+    std::ifstream config_stream(config_path);
+    if (!config_stream.is_open()) {
+      throw std::runtime_error("could not open file");
+    }
+
+    const YAML::Node root = YAML::Load(config_stream);
     if (!root || !root.IsMap()) {
       throw std::runtime_error("config root must be a YAML map");
     }
     return root;
+  } catch (const YAML::ParserException & error) {
+    throw std::runtime_error("Failed to parse YAML in " + config_path + ": " + error.what());
+  } catch (const YAML::BadConversion & error) {
+    throw std::runtime_error("Invalid value type in " + config_path + ": " + error.what());
   } catch (const std::exception & error) {
-    throw std::runtime_error(
-      "Failed to load hardware config from " + package_name + "/config/" + config_file_name +
-      ": " + error.what());
+    throw std::runtime_error("Failed to load hardware config from " + config_path + ": " + error.what());
   }
 }
 
@@ -263,6 +249,20 @@ uint32_t load_required_uint32(
     throw std::runtime_error(config_label + " is missing required key '" + key + "'");
   }
   return root[key].as<uint32_t>();
+}
+
+double load_required_positive_double(
+  const YAML::Node & root, const std::string & key, const std::string & config_label)
+{
+  if (!root[key]) {
+    throw std::runtime_error(config_label + " is missing required key '" + key + "'");
+  }
+
+  const double value = root[key].as<double>();
+  if (value <= 0.0) {
+    throw std::runtime_error(config_label + " key '" + key + "' must be positive");
+  }
+  return value;
 }
 
 class EpollEventLoop
@@ -569,7 +569,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
     const YAML::Node hardware_config =
       load_hardware_config("amr_sweeper_odrive", "amr_sweeper_odrive.yaml");
     const double shared_gear_ratio =
-      load_shared_gear_ratio("amr_sweeper_odrive", "amr_sweeper_odrive.yaml");
+      load_required_positive_double(hardware_config, "gear_ratio", "amr_sweeper_odrive.yaml");
     can_interface_ =
       load_required_string(hardware_config, "can_interface", "amr_sweeper_odrive.yaml");
     const std::array<uint32_t, 2> config_node_ids = {
