@@ -35,4 +35,5 @@ This package contains the robot description used by the AMR Sweeper runtime stac
 - In the default hardware bringup, `robot_state_publisher` from this package supplies the `robot_description` topic consumed by ros2_control.
 - The default robot root namespace is `/amr_sweeper`.
 - `amr_sweeper_description.launch.py` owns the default controller-config path used by the layer 1 ros2_control bringup.
+- Hardware-specific ODrive and Steadydrive runtime parameters are no longer declared in the description xacros; those values are loaded directly by `amr_sweeper_odrive` and `amr_sweeper_steadydrive` from their package-local config files.
 - Each USB camera now exposes a single physical frame named `<camera_name>_link` plus the ROS optical frame `<camera_name>_optical_frame`, with no translation offset between them.

@@ -16,9 +16,6 @@ def generate_launch_description():
     enable_gnss = LaunchConfiguration('enable_gnss')
     enable_imu = LaunchConfiguration('enable_imu')
     enable_depth_camera = LaunchConfiguration('enable_depth_camera')
-    steadydrive_can_interface = LaunchConfiguration('steadydrive_can_interface')
-    steadydrive_left_motor_can_id = LaunchConfiguration('steadydrive_left_motor_can_id')
-    steadydrive_right_motor_can_id = LaunchConfiguration('steadydrive_right_motor_can_id')
 
     pkg_path = get_package_share_directory('amr_sweeper_description')
     xacro_file = os.path.join(pkg_path, 'urdf', 'robot', 'robot.urdf.xacro')
@@ -33,9 +30,6 @@ def generate_launch_description():
         ' enable_gnss:=', enable_gnss,
         ' enable_imu:=', enable_imu,
         ' enable_depth_camera:=', enable_depth_camera,
-        ' steadydrive_can_interface:=', steadydrive_can_interface,
-        ' steadydrive_left_motor_can_id:=', steadydrive_left_motor_can_id,
-        ' steadydrive_right_motor_can_id:=', steadydrive_right_motor_can_id,
     ]), value_type=str)
 
     return LaunchDescription([
@@ -48,9 +42,6 @@ def generate_launch_description():
         DeclareLaunchArgument('enable_gnss', default_value='true'),
         DeclareLaunchArgument('enable_imu', default_value='true'),
         DeclareLaunchArgument('enable_depth_camera', default_value='true'),
-        DeclareLaunchArgument('steadydrive_can_interface', default_value='can0'),
-        DeclareLaunchArgument('steadydrive_left_motor_can_id', default_value='0x141'),
-        DeclareLaunchArgument('steadydrive_right_motor_can_id', default_value='0x142'),
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',

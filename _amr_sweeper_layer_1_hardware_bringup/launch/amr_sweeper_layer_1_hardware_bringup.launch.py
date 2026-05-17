@@ -43,9 +43,6 @@ def generate_launch_description():
     use_amr_sweeper_gnss = LaunchConfiguration("use_amr_sweeper_gnss")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
     battery_can_interface = LaunchConfiguration("battery_can_interface")
-    steadydrive_can_interface = LaunchConfiguration("steadydrive_can_interface")
-    steadydrive_left_motor_can_id = LaunchConfiguration("steadydrive_left_motor_can_id")
-    steadydrive_right_motor_can_id = LaunchConfiguration("steadydrive_right_motor_can_id")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
     imu_params_file = LaunchConfiguration("imu_params_file")
@@ -68,9 +65,6 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
-    ld.add_action(DeclareLaunchArgument("steadydrive_can_interface", default_value="can0"))
-    ld.add_action(DeclareLaunchArgument("steadydrive_left_motor_can_id", default_value="0x141"))
-    ld.add_action(DeclareLaunchArgument("steadydrive_right_motor_can_id", default_value="0x142"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
     ld.add_action(DeclareLaunchArgument("imu_params_file", default_value=PathJoinSubstitution([
@@ -106,9 +100,6 @@ def generate_launch_description():
                     "enable_gnss": use_amr_sweeper_gnss,
                     "enable_imu": use_amr_sweeper_imu,
                     "enable_depth_camera": use_amr_sweeper_depth_camera,
-                    "steadydrive_can_interface": steadydrive_can_interface,
-                    "steadydrive_left_motor_can_id": steadydrive_left_motor_can_id,
-                    "steadydrive_right_motor_can_id": steadydrive_right_motor_can_id,
                 }.items(),
                 condition=IfCondition(use_amr_sweeper_description),
             ),

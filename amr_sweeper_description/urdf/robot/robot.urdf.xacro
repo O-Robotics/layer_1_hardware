@@ -7,9 +7,6 @@
   <xacro:arg name="enable_gnss" default="true"/>
   <xacro:arg name="enable_imu" default="true"/>
   <xacro:arg name="enable_depth_camera" default="true"/>
-  <xacro:arg name="steadydrive_can_interface" default="can0"/>
-  <xacro:arg name="steadydrive_left_motor_can_id" default="0x141"/>
-  <xacro:arg name="steadydrive_right_motor_can_id" default="0x142"/>
 
   <xacro:include filename="materials.xacro"/>
   <xacro:include filename="robot_core.xacro"/>

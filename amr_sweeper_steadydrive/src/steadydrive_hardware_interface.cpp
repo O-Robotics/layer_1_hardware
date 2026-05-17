@@ -1,5 +1,7 @@
-#include "steadydrive_hw_interface/robot_hardware_interface_steadydrive.hpp"
+#include "steadydrive_hardware_interface.hpp"
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <array>
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
@@ -12,6 +14,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <yaml-cpp/yaml.h>
 
 namespace {
 constexpr int LEFT_MOTOR_INDEX = 0;
@@ -61,23 +64,55 @@ double parse_positive_motor_direction_sign(const std::string & direction, const 
   return 1.0;
 }
 
-double parse_gear_ratio(const hardware_interface::ComponentInfo & joint)
+double load_shared_gear_ratio(const std::string & package_name, const std::string & config_file_name)
 {
-  const auto it = joint.parameters.find("gear_ratio");
-  if (it == joint.parameters.end()) {
-    return 1.0;
-  }
-
   try {
-    const double ratio = std::stod(it->second);
+    const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
+    const auto config_path = package_share + "/config/" + config_file_name;
+    const YAML::Node root = YAML::LoadFile(config_path);
+    const YAML::Node parameters = root["/**"] ? root["/**"]["ros__parameters"] : YAML::Node();
+
+    if (!parameters || !parameters["gear_ratio"]) {
+      throw std::runtime_error("missing required key 'gear_ratio'");
+    }
+
+    const double ratio = parameters["gear_ratio"].as<double>();
     if (ratio <= 0.0) {
       throw std::out_of_range("gear_ratio must be positive");
     }
     return ratio;
   } catch (const std::exception & error) {
     throw std::runtime_error(
-      "Joint '" + joint.name + "' has invalid gear_ratio '" + it->second + "': " + error.what());
+      "Failed to load gear_ratio from " + package_name + "/config/" + config_file_name + ": " +
+      error.what());
   }
+}
+
+YAML::Node load_hardware_config(const std::string & package_name, const std::string & config_file_name)
+{
+  try {
+    const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
+    const auto config_path = package_share + "/config/" + config_file_name;
+    const YAML::Node root = YAML::LoadFile(config_path);
+    const YAML::Node parameters = root["/**"] ? root["/**"]["ros__parameters"] : YAML::Node();
+    if (!parameters) {
+      throw std::runtime_error("missing required '/**/ros__parameters' block");
+    }
+    return parameters;
+  } catch (const std::exception & error) {
+    throw std::runtime_error(
+      "Failed to load hardware config from " + package_name + "/config/" + config_file_name +
+      ": " + error.what());
+  }
+}
+
+std::string load_required_string(
+  const YAML::Node & root, const std::string & key, const std::string & config_label)
+{
+  if (!root[key]) {
+    throw std::runtime_error(config_label + " is missing required key '" + key + "'");
+  }
+  return root[key].as<std::string>();
 }
 }  // namespace
 
@@ -121,27 +156,33 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
       return hardware_interface::CallbackReturn::ERROR;
     }
 
+    const YAML::Node hardware_config =
+      load_hardware_config("amr_sweeper_steadydrive", "amr_sweeper_steadydrive.yaml");
+    const double shared_gear_ratio =
+      load_shared_gear_ratio("amr_sweeper_steadydrive", "amr_sweeper_steadydrive.yaml");
+    can_interface_ = load_required_string(
+      hardware_config, "can_interface", "amr_sweeper_steadydrive.yaml");
+    const std::array<std::string, 2> config_directions = {
+      load_required_string(
+        hardware_config, "left_positive_motor_direction", "amr_sweeper_steadydrive.yaml"),
+      load_required_string(
+        hardware_config, "right_positive_motor_direction", "amr_sweeper_steadydrive.yaml"),
+    };
+    const std::array<std::string, 2> config_can_ids = {
+      load_required_string(
+        hardware_config, "left_motor_id", "amr_sweeper_steadydrive.yaml"),
+      load_required_string(
+        hardware_config, "right_motor_id", "amr_sweeper_steadydrive.yaml"),
+    };
+
     for (size_t i = 0; i < info_.joints.size(); ++i) {
       const auto & joint = info_.joints[i];
-      const auto it = joint.parameters.find("positive_motor_direction");
-      const std::string positive_motor_direction = it != joint.parameters.end() ? it->second : "CCW";
       positive_motor_direction_signs_[i] =
-        parse_positive_motor_direction_sign(positive_motor_direction, joint.name);
-      gear_ratios_[i] = parse_gear_ratio(joint);
+        parse_positive_motor_direction_sign(config_directions[i], joint.name);
+      gear_ratios_[i] = shared_gear_ratio;
     }
-
-    const auto can_interface_it = info_.hardware_parameters.find("can_interface");
-    can_interface_ =
-      can_interface_it != info_.hardware_parameters.end() ? can_interface_it->second : "can0";
-
-    const auto left_can_id_it = info_.hardware_parameters.find("left_motor_can_id");
-    const auto right_can_id_it = info_.hardware_parameters.find("right_motor_can_id");
-    motor_can_ids_[LEFT_MOTOR_INDEX] = parse_can_id(
-      left_can_id_it != info_.hardware_parameters.end() ? left_can_id_it->second : "0x141",
-      "left_motor_can_id");
-    motor_can_ids_[RIGHT_MOTOR_INDEX] = parse_can_id(
-      right_can_id_it != info_.hardware_parameters.end() ? right_can_id_it->second : "0x142",
-      "right_motor_can_id");
+    motor_can_ids_[LEFT_MOTOR_INDEX] = parse_can_id(config_can_ids[LEFT_MOTOR_INDEX], "left_motor_id");
+    motor_can_ids_[RIGHT_MOTOR_INDEX] = parse_can_id(config_can_ids[RIGHT_MOTOR_INDEX], "right_motor_id");
 
     RCLCPP_INFO(
       rclcpp::get_logger(hw_name_),

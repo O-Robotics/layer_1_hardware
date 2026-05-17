@@ -33,7 +33,6 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `use_amr_sweeper_gnss`: default `true`
 - `use_ntrip_client`: default `true`
 - `battery_can_interface`: default `can0`
-- `steadydrive_can_interface`: default `can0`
 - `imu_port`: default `/dev/imu_usb`
 - `imu_baud`: default `9600`
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
@@ -51,3 +50,4 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - The layer 1 ros2_control bringup relies on `robot_state_publisher` for the `robot_description` topic instead of passing the description directly into `ros2_control_node`.
 - Controller spawners in the layer 1 ros2_control launch load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml`, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.
 - The robot description entrypoint is `amr_sweeper_description.launch.py`, which also owns the default controller-config path used by the bringup.
+- Hardware-specific wheel and tool-motor parameters such as CAN interface, motor IDs, positive motor directions, and gear ratios now live in `amr_sweeper_odrive/config/amr_sweeper_odrive.yaml` and `amr_sweeper_steadydrive/config/amr_sweeper_steadydrive.yaml`.

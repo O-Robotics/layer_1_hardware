@@ -4,20 +4,17 @@
   <name>amr_sweeper_odrive</name>
   <version>0.0.0</version>
   <description>Consolidated ODrive CAN and ros2_control integration</description>
+  <author email="info@O-Robotics.com">O-Robotics</author>
   <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>ament_cmake_auto</buildtool_depend>
-  <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
+  <depend>ament_index_cpp</depend>
   <depend>rclcpp</depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
-
-  <exec_depend>rosidl_default_runtime</exec_depend>
-
-  <member_of_group>rosidl_interface_packages</member_of_group>
+  <depend>yaml-cpp</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

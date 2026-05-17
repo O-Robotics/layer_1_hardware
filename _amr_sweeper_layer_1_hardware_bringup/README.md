@@ -39,7 +39,6 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `use_amr_sweeper_gnss`: default `true`
 - `use_ntrip_client`: default `true`
 - `battery_can_interface`: default `can0`
-- `steadydrive_can_interface`: default `can0`
 - `imu_port`: default `/dev/imu_usb`
 - `imu_baud`: default `9600`
 - `imu_params_file`: default `amr_sweeper_imu/config/amr_sweeper_imu.yaml`
@@ -59,3 +58,4 @@ The main bringup launch starts the core hardware stack under the default robot r
 - When `use_amr_sweeper_gnss:=true` and `use_ntrip_client:=true`, the GNSS wrapper launches the package-local
   NTRIP node under `/amr_sweeper/gnss` and keeps RTCM on
   `/amr_sweeper/gnss/rtcm`.
+- Wheel and tool motor hardware parameters are no longer launch arguments on this bringup path; they are loaded by the hardware-interface packages from `amr_sweeper_odrive/config/amr_sweeper_odrive.yaml` and `amr_sweeper_steadydrive/config/amr_sweeper_steadydrive.yaml`.

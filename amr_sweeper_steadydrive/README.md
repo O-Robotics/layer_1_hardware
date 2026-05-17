@@ -12,3 +12,5 @@ This package provides the SteadyDrive motor interface used for the tool-side dri
 ## Notes
 - The ros2_control plugin in this package is the only supported runtime owner of the SteadyDrive CAN hardware.
 - Layer 2 tool control publishes into the controller command path exposed by this package.
+- Hardware-specific runtime configuration is loaded from `config/amr_sweeper_steadydrive.yaml`.
+- The config file owns the SocketCAN interface, left/right motor IDs, positive motor directions, and the shared gear ratio used by the SteadyDrive hardware interface.
