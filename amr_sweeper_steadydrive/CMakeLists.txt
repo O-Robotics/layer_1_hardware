@@ -36,6 +36,11 @@ ament_target_dependencies(
   yaml-cpp
 )
 
+target_link_libraries(
+  steadydrive_hw_interface_lib
+  yaml-cpp
+)
+
 pluginlib_export_plugin_description_file(hardware_interface src/hardware.xml)
 
 # INSTALL

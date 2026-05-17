@@ -10,8 +10,9 @@ from launch.actions import (
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -49,6 +50,22 @@ def generate_launch_description():
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
+    robot_xacro_file = PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_description"),
+        "urdf",
+        "robot",
+        "robot.urdf.xacro",
+    ])
+    robot_description = ParameterValue(Command([
+        "xacro ",
+        robot_xacro_file,
+        " robot_namespace:=", namespace,
+        " use_ros2_control:=", use_ros2_control,
+        " enable_usb_cameras:=", use_amr_sweeper_usb_cameras,
+        " enable_gnss:=", use_amr_sweeper_gnss,
+        " enable_imu:=", use_amr_sweeper_imu,
+        " enable_depth_camera:=", use_amr_sweeper_depth_camera,
+    ]), value_type=str)
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
@@ -183,6 +200,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {"use_sim_time": use_sim_time},
+            {"robot_description": robot_description},
             ros2_control_config_file,
         ],
         remappings=[
