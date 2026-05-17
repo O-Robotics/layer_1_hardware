@@ -1,8 +1,6 @@
-/**:
-  ros__parameters:
-    can_interface:                  can0   # SocketCAN interface used by the ODrive wheel controller. Default: can0
-    left_motor_id:                  0      # ODrive node ID for the left wheel motor. Default: 0
-    right_motor_id:                 2      # ODrive node ID for the right wheel motor. Default: 2
-    left_positive_motor_direction:  CCW    # Positive motor rotation direction for the left wheel joint. Default: CCW
-    right_positive_motor_direction: CW     # Positive motor rotation direction for the right wheel joint. Default: CW
-    gear_ratio:                     50.0   # Shared gearbox ratio from wheel joint to motor shaft. Default: 50.0
+can_interface:                  can0   # SocketCAN interface used by the ODrive wheel controller. Default: can0
+left_motor_id:                  0      # ODrive node ID for the left wheel motor. Default: 0
+right_motor_id:                 2      # ODrive node ID for the right wheel motor. Default: 2
+left_positive_motor_direction:  CCW    # Positive motor rotation direction for the left wheel joint. Default: CCW
+right_positive_motor_direction: CW     # Positive motor rotation direction for the right wheel joint. Default: CW
+gear_ratio:                     50.0   # Shared gearbox ratio from wheel joint to motor shaft. Default: 50.0

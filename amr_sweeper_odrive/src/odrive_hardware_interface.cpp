@@ -213,13 +213,12 @@ double load_shared_gear_ratio(const std::string & package_name, const std::strin
     const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
     const auto config_path = package_share + "/config/" + config_file_name;
     const YAML::Node root = YAML::LoadFile(config_path);
-    const YAML::Node parameters = root["/**"] ? root["/**"]["ros__parameters"] : YAML::Node();
 
-    if (!parameters || !parameters["gear_ratio"]) {
+    if (!root || !root["gear_ratio"]) {
       throw std::runtime_error("missing required key 'gear_ratio'");
     }
 
-    const double ratio = parameters["gear_ratio"].as<double>();
+    const double ratio = root["gear_ratio"].as<double>();
     if (ratio <= 0.0) {
       throw std::out_of_range("gear_ratio must be positive");
     }
@@ -237,11 +236,10 @@ YAML::Node load_hardware_config(const std::string & package_name, const std::str
     const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
     const auto config_path = package_share + "/config/" + config_file_name;
     const YAML::Node root = YAML::LoadFile(config_path);
-    const YAML::Node parameters = root["/**"] ? root["/**"]["ros__parameters"] : YAML::Node();
-    if (!parameters) {
-      throw std::runtime_error("missing required '/**/ros__parameters' block");
+    if (!root || !root.IsMap()) {
+      throw std::runtime_error("config root must be a YAML map");
     }
-    return parameters;
+    return root;
   } catch (const std::exception & error) {
     throw std::runtime_error(
       "Failed to load hardware config from " + package_name + "/config/" + config_file_name +

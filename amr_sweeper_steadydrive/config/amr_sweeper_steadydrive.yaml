@@ -1,8 +1,6 @@
-/**:
-  ros__parameters:
-    can_interface:                  can0   # SocketCAN interface used by the Steadydrive tool motors. Default: can0
-    left_motor_id:                  0x141  # CAN ID for the left Steadydrive motor. Default: 0x141
-    right_motor_id:                 0x142  # CAN ID for the right Steadydrive motor. Default: 0x142
-    left_positive_motor_direction:  CCW    # Positive motor rotation direction for the left brush joint. Default: CCW
-    right_positive_motor_direction: CW     # Positive motor rotation direction for the right brush joint. Default: CW
-    gear_ratio:                     10.0   # Shared gearbox ratio from brush joint to motor shaft. Default: 10.0
+can_interface:                  can0   # SocketCAN interface used by the Steadydrive tool motors. Default: can0
+left_motor_id:                  0x141  # CAN ID for the left Steadydrive motor. Default: 0x141
+right_motor_id:                 0x142  # CAN ID for the right Steadydrive motor. Default: 0x142
+left_positive_motor_direction:  CCW    # Positive motor rotation direction for the left brush joint. Default: CCW
+right_positive_motor_direction: CW     # Positive motor rotation direction for the right brush joint. Default: CW
+gear_ratio:                     10.0   # Shared gearbox ratio from brush joint to motor shaft. Default: 10.0
