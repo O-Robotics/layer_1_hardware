@@ -18,7 +18,7 @@
 
     # -- Depth stream ---------------------------------------------------------
     enable_depth: true
-    depth_module.depth_profile: 640x480x15  # Balanced profile for forward obstacle detection on the D555.
+    depth_module.depth_profile: 640x360x15  # Balanced profile for forward obstacle detection on the D555.
     depth_module.depth_format: Z16
     depth_module.enable_auto_exposure: true
 
