@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    output_frame: depth_camera_depth_optical_frame  # Target frame for the generated LaserScan.
+    output_frame: depth_camera_link  # Publish the LaserScan in the camera body frame instead of the optical frame.
     range_min: 0.25                 # Ignore returns closer than the camera's reliable near field.
     range_max: 8.0                  # Ignore returns beyond the useful obstacle-detection range.
     scan_height: 5                  # Number of image rows sampled around the optical center line.

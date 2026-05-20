@@ -139,7 +139,7 @@ def generate_launch_description():
         DeclareLaunchArgument("depth_image_topic", default_value=""),
         DeclareLaunchArgument("depth_camera_info_topic", default_value=""),
         DeclareLaunchArgument("scan_topic", default_value="scan"),
-        DeclareLaunchArgument("output_frame", default_value="depth_camera_depth_optical_frame"),
+        DeclareLaunchArgument("output_frame", default_value="depth_camera_link"),
         DeclareLaunchArgument("range_min", default_value="0.25"),
         DeclareLaunchArgument("range_max", default_value="8.0"),
         DeclareLaunchArgument("scan_height", default_value="20"),
