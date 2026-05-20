@@ -8,7 +8,7 @@ Dependencies to other AMR Sweeper packages:
 - None
 
 ## Purpose
-This package runs the depth-image-to-laserscan conversion node used by the AMR Sweeper depth camera setup.
+This package runs the RealSense depth camera driver together with the depth-image-to-laserscan conversion node used by the AMR Sweeper depth camera setup.
 
 ## Main Launch File
 `launch/amr_sweeper_depth_camera.launch.py`
@@ -20,9 +20,13 @@ This package runs the depth-image-to-laserscan conversion node used by the AMR S
 - `namespace`: default `amr_sweeper/depth_camera`
 - `log_level`: default `info`
 - `use_sim_time`: default `false`
+- `use_realsense_ros`: default `true`
+- `realsense_namespace`: default `amr_sweeper`
+- `realsense_node_name`: default `depth_camera`
+- `realsense_params_file`: default `config/realsense-ros.yaml`
 - `use_depthimage_to_laserscan`: default `true`
-- `depth_image_topic`: default `/camera/camera/depth/image_rect_raw`
-- `depth_camera_info_topic`: default `/camera/camera/depth/camera_info`
+- `depth_image_topic`: default `/amr_sweeper/depth_camera/depth/image_rect_raw`
+- `depth_camera_info_topic`: default `/amr_sweeper/depth_camera/depth/camera_info`
 - `scan_topic`: default `scan`
 - `output_frame`: default `depth_camera_depth_optical_frame`
 - `range_min`: default `0.25`
@@ -31,11 +35,12 @@ This package runs the depth-image-to-laserscan conversion node used by the AMR S
 - `scan_time`: default `0.0333`
 
 ## Overview
-`amr_sweeper_depth_camera` contains the launch configuration needed to convert the RealSense D555 depth image stream into a `sensor_msgs/LaserScan` using the ROS `depthimage_to_laserscan` node. The package assumes the RealSense driver is already running on the robot and keeps the input topics configurable so robot-specific environment variables or driver launch setups can decide where the depth stream comes from. By default the package lives under `/amr_sweeper/depth_camera`.
+`amr_sweeper_depth_camera` contains the launch configuration needed to start the RealSense D555 driver and convert its depth image stream into a `sensor_msgs/LaserScan` using the ROS `depthimage_to_laserscan` node. By default the RealSense driver is exposed as `/amr_sweeper/depth_camera`, and the generated scan stays under that same stack namespace. Both the driver parameters and the input/output topics remain configurable through launch arguments and YAML files.
 
 ## Notes
-- Main node: `depthimage_to_laserscan_node`.
-- The default input topics match the common RealSense ROS topic layout under `/camera/camera/...`.
+- Main nodes: `realsense2_camera_node` and `depthimage_to_laserscan_node`.
+- The default input topics follow the flattened workspace namespace style under `/amr_sweeper/depth_camera/...`.
 - The default output topic resolves to `/amr_sweeper/depth_camera/scan`.
 - The default `output_frame` matches the depth camera frame names already present in the robot description.
-- Override the topic launch arguments if the RealSense node on the robot publishes under a different namespace.
+- The RealSense driver uses namespace `amr_sweeper` with node name `depth_camera`, which yields the flattened driver path `/amr_sweeper/depth_camera`.
+- Override the topic launch arguments if the RealSense node should publish under a different namespace or name.

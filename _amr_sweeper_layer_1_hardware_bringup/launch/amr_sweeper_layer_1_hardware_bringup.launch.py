@@ -167,6 +167,7 @@ def generate_launch_description():
                 PythonLaunchDescriptionSource(_launch_file("amr_sweeper_depth_camera", "amr_sweeper_depth_camera.launch.py")),
                 launch_arguments={
                     "namespace": depth_camera_namespace,
+                    "realsense_namespace": PathJoinSubstitution(["/", namespace]),
                     "log_level": log_level,
                     "use_sim_time": use_sim_time,
                 }.items(),

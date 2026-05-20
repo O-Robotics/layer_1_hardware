@@ -16,7 +16,7 @@
     installation_direction:        horizontal    # JY901 installation direction register: horizontal or vertical. Default: horizontal
     algorithm_mode:                nine_axis     # JY901 fusion mode: nine_axis or six_axis. Default: nine_axis
     gyroscope_auto_calibration:    true          # Enable the JY901 gyroscope auto-calibration mode. Default: true
-    led_enabled:                   true          # Leave the onboard LED enabled. Default: true
+    led_enabled:                   false         # Leave the onboard LED enabled. Default: true
 
     output_time:                   false         # Enable 0x50 time packets from the JY901. Default: false
     output_acceleration:           true          # Enable 0x51 acceleration packets required by this driver. Default: true
@@ -30,6 +30,6 @@
     output_quaternion:             false         # Enable 0x59 quaternion packets. Default: false
     output_satellite_accuracy:     false         # Enable 0x5A satellite-position-accuracy packets. Default: false
 
-    orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.05]    # Row-major 3x3 covariance for the driver-provided quaternion.
+    orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.01]    # Row-major 3x3 covariance for the driver-provided quaternion.
     angular_velocity_covariance:    [0.02, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0, 0.01]  # Row-major 3x3 covariance for gyro output in rad^2/s^2.
     linear_acceleration_covariance: [0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5]     # Row-major 3x3 covariance for accelerometer output in (m/s^2)^2.

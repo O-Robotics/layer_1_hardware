@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
-    output_frame: depth_camera_depth_optical_frame
-    range_min: 0.25
-    range_max: 8.0
-    scan_height: 20
-    scan_time: 0.0333
+    output_frame: depth_camera_depth_optical_frame  # Target frame for the generated LaserScan.
+    range_min: 0.25                 # Ignore returns closer than the camera's reliable near field.
+    range_max: 8.0                  # Ignore returns beyond the useful obstacle-detection range.
+    scan_height: 20                 # Number of image rows sampled around the optical center line.
+    scan_time: 0.0333               # Approximate scan period in seconds for a 30 Hz depth stream.
