@@ -60,7 +60,6 @@ def generate_launch_description():
             {
                 "use_sim_time": ParameterValue(use_sim_time, value_type=bool),
                 "camera_name": ParameterValue(realsense_node_name, value_type=str),
-                "camera_namespace": ParameterValue(realsense_namespace, value_type=str),
             },
         ],
         condition=IfCondition(use_realsense_ros),
@@ -97,7 +96,7 @@ def generate_launch_description():
         DeclareLaunchArgument("log_level", default_value="info"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("use_realsense_ros", default_value="true"),
-        DeclareLaunchArgument("realsense_namespace", default_value="amr_sweeper"),
+        DeclareLaunchArgument("realsense_namespace", default_value="/amr_sweeper"),
         DeclareLaunchArgument("realsense_node_name", default_value="depth_camera"),
         DeclareLaunchArgument("realsense_params_file", default_value=default_realsense_params_file),
         DeclareLaunchArgument("use_depthimage_to_laserscan", default_value="true"),

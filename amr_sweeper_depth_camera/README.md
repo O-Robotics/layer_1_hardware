@@ -21,7 +21,7 @@ This package runs the RealSense depth camera driver together with the depth-imag
 - `log_level`: default `info`
 - `use_sim_time`: default `false`
 - `use_realsense_ros`: default `true`
-- `realsense_namespace`: default `amr_sweeper`
+- `realsense_namespace`: default `/amr_sweeper`
 - `realsense_node_name`: default `depth_camera`
 - `realsense_params_file`: default `config/realsense-ros.yaml`
 - `use_depthimage_to_laserscan`: default `true`
@@ -42,5 +42,5 @@ This package runs the RealSense depth camera driver together with the depth-imag
 - The default input topics follow the flattened workspace namespace style under `/amr_sweeper/depth_camera/...`.
 - The default output topic resolves to `/amr_sweeper/depth_camera/scan`.
 - The default `output_frame` matches the depth camera frame names already present in the robot description.
-- The RealSense driver uses namespace `amr_sweeper` with node name `depth_camera`, which yields the flattened driver path `/amr_sweeper/depth_camera`.
+- The RealSense driver uses namespace `/amr_sweeper` with node name `depth_camera`, which yields the flattened driver path `/amr_sweeper/depth_camera`.
 - Override the topic launch arguments if the RealSense node should publish under a different namespace or name.

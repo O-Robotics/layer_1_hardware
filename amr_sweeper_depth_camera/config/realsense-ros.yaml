@@ -1,7 +1,6 @@
 /**:
   ros__parameters:
     camera_name: depth_camera          # Driver node name for the AMR Sweeper depth camera.
-    camera_namespace: /amr_sweeper     # Driver lives at the robot root so its node name becomes /amr_sweeper/depth_camera.
     device_type: D555                  # Prefer the RealSense D555 device when multiple RealSense cameras are present.
     serial_no: ""                      # Optional serial number selector. Leave empty to use the first matching D555.
     usb_port_id: ""                    # Optional port selector. Leave empty unless the deployment needs a fixed port binding.
@@ -24,15 +23,20 @@
     depth_module.enable_auto_exposure: true
 
     # -- Color stream ---------------------------------------------------------
-    enable_color: true
-    rgb_camera.color_profile: 1280x720x15
+    enable_color: true                # For teleoperation through Foxglove
+    rgb_camera.color_profile: 448x252x5
     rgb_camera.color_format: RGB8
     rgb_camera.enable_auto_exposure: true
 
+    # -- Infrared streams ----------------------------------------------------
+    enable_infra: false               # Keep infrared image topics disabled unless a downstream consumer needs them.
+    enable_infra1: false
+    enable_infra2: false
+
     # -- IMU ------------------------------------------------------------------
-    enable_gyro: true
-    enable_accel: true
-    unite_imu_method: 2                # Publish a fused IMU stream using linear interpolation.
+    enable_gyro: false                # AMR Sweeper already has a dedicated IMU package.
+    enable_accel: false
+    unite_imu_method: 0               # Do not publish the fused IMU topic when gyro/accel are disabled.
     gyro_fps: 200
     accel_fps: 100
 
