@@ -11,14 +11,14 @@
     reconnect_timeout: 6.0             # Seconds between reconnect attempts if the camera disconnects.
 
     # -- TF / frame model -----------------------------------------------------
-    base_frame_id: depth_camera_link   # Root frame anchored in the AMR Sweeper robot description.
+    base_frame_id: link                # RealSense prefixes camera_name, so this resolves to depth_camera_link and matches the URDF.
     publish_tf: false                  # Robot description already provides the depth camera TF tree.
     tf_publish_rate: 0.0               # Keep dynamic TF publishing disabled when publish_tf is false.
     tf_prefix: ""                      # No additional frame prefix on top of the robot description frames.
 
     # -- Depth stream ---------------------------------------------------------
     enable_depth: true
-    depth_module.depth_profile: 640x360x15  # Balanced profile for forward obstacle detection on the D555.
+    depth_module.depth_profile: 640x360x15  # Requested D555 depth profile for depthimage_to_laserscan.
     depth_module.depth_format: Z16
     depth_module.enable_auto_exposure: true
 
@@ -47,8 +47,8 @@
     pointcloud.enable: false           # The sweeper stack currently consumes LaserScan rather than PointCloud2.
     colorizer.enable: false
     decimation_filter.enable: false
-    spatial_filter.enable: false
-    temporal_filter.enable: false
+    spatial_filter.enable: true
+    temporal_filter.enable: true
     hole_filling_filter.enable: false
 
     # -- Optional D500 safety features ---------------------------------------
