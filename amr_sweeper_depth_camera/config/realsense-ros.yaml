@@ -18,7 +18,7 @@
 
     # -- Depth stream ---------------------------------------------------------
     enable_depth: true
-    depth_module.depth_profile: 1280x720x15  # Balanced profile for forward obstacle detection on the D555.
+    depth_module.depth_profile: 640x480x15  # Balanced profile for forward obstacle detection on the D555.
     depth_module.depth_format: Z16
     depth_module.enable_auto_exposure: true
 
@@ -36,6 +36,7 @@
     # -- IMU ------------------------------------------------------------------
     enable_gyro: false                # AMR Sweeper already has a dedicated IMU package.
     enable_accel: false
+    enable_motion: false              # D555 exposes a combined motion stream; disable it explicitly for this package.
     unite_imu_method: 0               # Do not publish the fused IMU topic when gyro/accel are disabled.
     gyro_fps: 200
     accel_fps: 100

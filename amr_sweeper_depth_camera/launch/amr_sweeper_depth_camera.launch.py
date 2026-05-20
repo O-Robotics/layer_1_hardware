@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -40,9 +40,7 @@ def _load_ros_parameter_file(path: str) -> dict:
 
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
-    realsense_node_name_value = LaunchConfiguration("realsense_node_name").perform(context)
-    if not realsense_node_name_value:
-        realsense_node_name_value = _leaf_name(namespace_value)
+    realsense_node_name_value = _leaf_name(namespace_value)
 
     realsense_namespace_value = _parent_namespace(namespace_value)
     if realsense_namespace_value == "/" and namespace_value != "/":
@@ -67,6 +65,16 @@ def _launch_setup(context, *args, **kwargs):
     depth_camera_info_topic_value = LaunchConfiguration("depth_camera_info_topic").perform(context)
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
+
+    launch_summary = LogInfo(
+        msg=(
+            "amr_sweeper_depth_camera: "
+            f"realsense namespace={realsense_namespace_value}, "
+            f"realsense node={realsense_node_name_value}, "
+            f"depth topic={depth_image_topic_value}, "
+            f"camera_info topic={depth_camera_info_topic_value}"
+        )
+    )
 
     realsense_ros_node = Node(
         package="realsense2_camera",
@@ -111,7 +119,7 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_depthimage_to_laserscan")),
     )
 
-    return [realsense_ros_node, depthimage_to_laserscan_node]
+    return [launch_summary, realsense_ros_node, depthimage_to_laserscan_node]
 
 
 def generate_launch_description():
@@ -126,7 +134,6 @@ def generate_launch_description():
         DeclareLaunchArgument("log_level", default_value="info"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("use_realsense_ros", default_value="true"),
-        DeclareLaunchArgument("realsense_node_name", default_value="depth_camera"),
         DeclareLaunchArgument("realsense_params_file", default_value=default_realsense_params_file),
         DeclareLaunchArgument("use_depthimage_to_laserscan", default_value="true"),
         DeclareLaunchArgument("depth_image_topic", default_value=""),
