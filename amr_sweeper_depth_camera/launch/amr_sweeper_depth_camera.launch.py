@@ -49,11 +49,29 @@ def _launch_setup(context, *args, **kwargs):
     realsense_params = _load_ros_parameter_file(
         LaunchConfiguration("realsense_params_file").perform(context)
     )
-    depthimage_to_laserscan_params_file = PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_depth_camera"),
-        "config",
-        "depthimage_to_laserscan.yaml",
-    ])
+    depthimage_to_laserscan_params = _load_ros_parameter_file(
+        LaunchConfiguration("depthimage_to_laserscan_params_file").perform(context)
+    )
+
+    output_frame_value = LaunchConfiguration("output_frame").perform(context)
+    if output_frame_value:
+        depthimage_to_laserscan_params["output_frame"] = output_frame_value
+
+    range_min_value = LaunchConfiguration("range_min").perform(context)
+    if range_min_value:
+        depthimage_to_laserscan_params["range_min"] = float(range_min_value)
+
+    range_max_value = LaunchConfiguration("range_max").perform(context)
+    if range_max_value:
+        depthimage_to_laserscan_params["range_max"] = float(range_max_value)
+
+    scan_height_value = LaunchConfiguration("scan_height").perform(context)
+    if scan_height_value:
+        depthimage_to_laserscan_params["scan_height"] = int(scan_height_value)
+
+    scan_time_value = LaunchConfiguration("scan_time").perform(context)
+    if scan_time_value:
+        depthimage_to_laserscan_params["scan_time"] = float(scan_time_value)
 
     default_depth_image_topic = f"{namespace_value}/depth/image_rect_raw"
     default_depth_camera_info_topic = f"{namespace_value}/depth/camera_info"
@@ -101,15 +119,8 @@ def _launch_setup(context, *args, **kwargs):
         output="screen",
         arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
         parameters=[
-            depthimage_to_laserscan_params_file,
-            {
-                "use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool),
-                "output_frame": ParameterValue(LaunchConfiguration("output_frame"), value_type=str),
-                "range_min": ParameterValue(LaunchConfiguration("range_min"), value_type=float),
-                "range_max": ParameterValue(LaunchConfiguration("range_max"), value_type=float),
-                "scan_height": ParameterValue(LaunchConfiguration("scan_height"), value_type=int),
-                "scan_time": ParameterValue(LaunchConfiguration("scan_time"), value_type=float),
-            },
+            depthimage_to_laserscan_params,
+            {"use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)},
         ],
         remappings=[
             ("depth", depth_image_topic_value),
@@ -128,6 +139,11 @@ def generate_launch_description():
         "config",
         "realsense-ros.yaml",
     ])
+    default_depthimage_to_laserscan_params_file = PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_depth_camera"),
+        "config",
+        "depthimage_to_laserscan.yaml",
+    ])
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper/depth_camera"),
@@ -136,13 +152,17 @@ def generate_launch_description():
         DeclareLaunchArgument("use_realsense_ros", default_value="true"),
         DeclareLaunchArgument("realsense_params_file", default_value=default_realsense_params_file),
         DeclareLaunchArgument("use_depthimage_to_laserscan", default_value="true"),
+        DeclareLaunchArgument(
+            "depthimage_to_laserscan_params_file",
+            default_value=default_depthimage_to_laserscan_params_file,
+        ),
         DeclareLaunchArgument("depth_image_topic", default_value=""),
         DeclareLaunchArgument("depth_camera_info_topic", default_value=""),
         DeclareLaunchArgument("scan_topic", default_value="scan"),
-        DeclareLaunchArgument("output_frame", default_value="depth_camera_link"),
-        DeclareLaunchArgument("range_min", default_value="0.25"),
-        DeclareLaunchArgument("range_max", default_value="8.0"),
-        DeclareLaunchArgument("scan_height", default_value="20"),
-        DeclareLaunchArgument("scan_time", default_value="0.0333"),
+        DeclareLaunchArgument("output_frame", default_value=""),
+        DeclareLaunchArgument("range_min", default_value=""),
+        DeclareLaunchArgument("range_max", default_value=""),
+        DeclareLaunchArgument("scan_height", default_value=""),
+        DeclareLaunchArgument("scan_time", default_value=""),
         OpaqueFunction(function=_launch_setup),
     ])
