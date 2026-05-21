@@ -252,6 +252,7 @@ void NtripClientNode::run()
 
 void NtripClientNode::connect_and_stream()
 {
+  stream_ready_.store(false);
   {
     std::lock_guard<std::mutex> lock(socket_mutex_);
     socket_fd_ = create_connected_socket();
@@ -288,6 +289,7 @@ void NtripClientNode::connect_and_stream()
   last_valid_rtcm_time_.reset();
   connected_at_ = std::chrono::steady_clock::now();
   current_mountpoint_failure_count_ = 0;
+  stream_ready_.store(true);
   RCLCPP_INFO(
     get_logger(),
     "Connected to http://%s:%d/%s",
@@ -578,10 +580,14 @@ bool NtripClientNode::looks_like_sourcetable(
 
 void NtripClientNode::handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg)
 {
+  if (!stream_ready_.load()) {
+    return;
+  }
+
   const std::string sentence = build_gga_sentence(*msg);
 
   std::lock_guard<std::mutex> lock(socket_mutex_);
-  if (socket_fd_ < 0) {
+  if (socket_fd_ < 0 || !stream_ready_.load()) {
     return;
   }
 
@@ -699,6 +705,7 @@ void NtripClientNode::advance_mountpoint()
 void NtripClientNode::close_socket()
 {
   std::lock_guard<std::mutex> lock(socket_mutex_);
+  stream_ready_.store(false);
 
   if (ssl_handle_ != nullptr) {
     SSL_shutdown(ssl_handle_);

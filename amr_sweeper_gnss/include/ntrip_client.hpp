@@ -98,6 +98,7 @@ private:
 
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> fatal_error_{false};
+  std::atomic<bool> stream_ready_{false};
   std::thread worker_thread_;
   std::vector<std::uint8_t> parser_buffer_;
   std::optional<std::chrono::steady_clock::time_point> last_valid_rtcm_time_;
