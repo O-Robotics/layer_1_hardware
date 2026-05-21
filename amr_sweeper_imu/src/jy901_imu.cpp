@@ -404,10 +404,12 @@ bool JY901ImuNode::configure_device()
     return true;
   }
 
-  if (!output_acceleration_ || !output_angular_velocity_ || !output_angle_) {
+  if (!output_acceleration_ || !output_angular_velocity_ ||
+    (!output_angle_ && !output_quaternion_))
+  {
     RCLCPP_WARN(
       get_logger(),
-      "The driver expects acceleration, angular velocity, and angle packets to be enabled");
+      "The driver expects acceleration, angular velocity, and either angle or quaternion packets to be enabled");
   }
 
   const auto rate_code = rate_to_device_code(device_return_rate_hz_);
@@ -571,6 +573,16 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       euler_deg_[0] = static_cast<double>(d0) / 32768.0 * 180.0;
       euler_deg_[1] = static_cast<double>(d1) / 32768.0 * 180.0;
       euler_deg_[2] = static_cast<double>(d2) / 32768.0 * 180.0;
+      if (!output_quaternion_) {
+        maybe_publish();
+      }
+      break;
+    case 0x59:
+      quaternion_[0] = static_cast<double>(d0) / 32768.0;
+      quaternion_[1] = static_cast<double>(d1) / 32768.0;
+      quaternion_[2] = static_cast<double>(d2) / 32768.0;
+      quaternion_[3] = static_cast<double>(read_i16_le(&frame_buf_[8])) / 32768.0;
+      has_quaternion_ = true;
       maybe_publish();
       break;
     default:
@@ -587,26 +599,46 @@ void JY901ImuNode::maybe_publish()
   }
   last_pub_time_ = now;
 
-  const double roll = euler_deg_[0] * kDegToRad;
-  const double pitch = euler_deg_[1] * kDegToRad;
-  const double yaw = euler_deg_[2] * kDegToRad;
-
-  const double cy = std::cos(yaw * 0.5);
-  const double sy = std::sin(yaw * 0.5);
-  const double cp = std::cos(pitch * 0.5);
-  const double sp = std::sin(pitch * 0.5);
-  const double cr = std::cos(roll * 0.5);
-  const double sr = std::sin(roll * 0.5);
-
   sensor_msgs::msg::Imu msg;
   msg.header.stamp = now;
   msg.header.frame_id = frame_id_;
+  bool orientation_valid = true;
 
-  msg.orientation.x = sr * cp * cy - cr * sp * sy;
-  msg.orientation.y = cr * sp * cy + sr * cp * sy;
-  msg.orientation.z = cr * cp * sy - sr * sp * cy;
-  msg.orientation.w = cr * cp * cy + sr * sp * sy;
+  if (output_quaternion_ && has_quaternion_) {
+    const double norm = std::sqrt(
+      (quaternion_[0] * quaternion_[0]) +
+      (quaternion_[1] * quaternion_[1]) +
+      (quaternion_[2] * quaternion_[2]) +
+      (quaternion_[3] * quaternion_[3]));
+    if (norm > 1e-9) {
+      msg.orientation.w = quaternion_[0] / norm;
+      msg.orientation.x = quaternion_[1] / norm;
+      msg.orientation.y = quaternion_[2] / norm;
+      msg.orientation.z = quaternion_[3] / norm;
+    } else {
+      orientation_valid = false;
+    }
+  } else {
+    const double roll = euler_deg_[0] * kDegToRad;
+    const double pitch = euler_deg_[1] * kDegToRad;
+    const double yaw = euler_deg_[2] * kDegToRad;
+
+    const double cy = std::cos(yaw * 0.5);
+    const double sy = std::sin(yaw * 0.5);
+    const double cp = std::cos(pitch * 0.5);
+    const double sp = std::sin(pitch * 0.5);
+    const double cr = std::cos(roll * 0.5);
+    const double sr = std::sin(roll * 0.5);
+
+    msg.orientation.x = sr * cp * cy - cr * sp * sy;
+    msg.orientation.y = cr * sp * cy + sr * cp * sy;
+    msg.orientation.z = cr * cp * sy - sr * sp * cy;
+    msg.orientation.w = cr * cp * cy + sr * sp * sy;
+  }
   std::copy(orientation_covariance_.begin(), orientation_covariance_.end(), msg.orientation_covariance.begin());
+  if (!orientation_valid) {
+    msg.orientation_covariance[0] = -1.0;
+  }
 
   msg.angular_velocity.x = gyro_[0];
   msg.angular_velocity.y = gyro_[1];

@@ -35,5 +35,6 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - Default tunable parameters live in `config/amr_sweeper_imu.yaml`.
 - The launch file passes that wildcard YAML directly into the node, then launch arguments such as `port`, `baud`, `imu_frame_id`, and `publish_hz` can override individual values.
 - On startup the node can also program JY901 registers for return content, return rate, installation direction, algorithm mode, gyro auto-calibration, LED state, and baud according to the YAML.
+- When `output_quaternion` is enabled, the node now uses the IMU's native `0x59` quaternion packet as the primary ROS orientation source instead of rebuilding orientation from Euler angles.
 - If `baud` differs from the sensor's current baud, use `device_bootstrap_baud` to tell the node how to reach the sensor before reprogramming it.
 - Reconnect failures now follow a warn/error/fatal escalation pattern similar to the GNSS NTRIP client, using `retry_attempts_before_error`, `fatal_after_consecutive_errors`, and `max_reconnect_attempts`.

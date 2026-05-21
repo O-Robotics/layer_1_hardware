@@ -97,6 +97,8 @@ private:
   std::array<double, 3> accel_{0.0, 0.0, 0.0};
   std::array<double, 3> gyro_{0.0, 0.0, 0.0};
   std::array<double, 3> euler_deg_{0.0, 0.0, 0.0};
+  std::array<double, 4> quaternion_{1.0, 0.0, 0.0, 0.0};
+  bool has_quaternion_{false};
 
   std::vector<double> orientation_covariance_;
   std::vector<double> angular_velocity_covariance_;

@@ -21,13 +21,13 @@
     output_time:                   false         # Enable 0x50 time packets from the JY901. Default: false
     output_acceleration:           true          # Enable 0x51 acceleration packets required by this driver. Default: true
     output_angular_velocity:       true          # Enable 0x52 angular-velocity packets required by this driver. Default: true
-    output_angle:                  true          # Enable 0x53 angle packets required by this driver. Default: true
+    output_angle:                  true          # Keep 0x53 angle packets enabled for debugging and comparison. Default: true
     output_magnetic:               false         # Enable 0x54 magnetic-field packets. Default: false
     output_port_status:            false         # Enable 0x55 port-status packets. Default: false
     output_pressure_height:        false         # Enable 0x56 pressure/height packets. Default: false
     output_gps_coordinates:        false         # Enable 0x57 longitude/latitude packets. Default: false
     output_gps_velocity:           false         # Enable 0x58 GPS speed packets. Default: false
-    output_quaternion:             false         # Enable 0x59 quaternion packets. Default: false
+    output_quaternion:             true          # Enable 0x59 quaternion packets and use them as the primary ROS orientation source. Default: true
     output_satellite_accuracy:     false         # Enable 0x5A satellite-position-accuracy packets. Default: false
 
     orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.01]    # Row-major 3x3 covariance for the driver-provided quaternion.
