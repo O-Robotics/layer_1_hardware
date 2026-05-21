@@ -14,6 +14,9 @@ def generate_launch_description():
     use_nmea_to_caster_arg = DeclareLaunchArgument(
         'use_nmea_to_caster', default_value=TextSubstitution(text='false')
     )
+    fix_topic_arg = DeclareLaunchArgument(
+        'fix_topic', default_value=TextSubstitution(text='navsat')
+    )
     use_ntrip_client_node_arg = DeclareLaunchArgument(
         'use_ntrip_client_node', default_value=TextSubstitution(text='true')
     )
@@ -49,7 +52,7 @@ def generate_launch_description():
             {'send_nmea': True},
         ],
         remappings=[
-            ('fix', 'ntrip_fix'),
+            ('fix', LaunchConfiguration('fix_topic')),
         ],
         condition=IfCondition(LaunchConfiguration('use_nmea_to_caster')),
     )
@@ -74,6 +77,7 @@ def generate_launch_description():
 
     return launch.LaunchDescription([
         use_nmea_to_caster_arg,
+        fix_topic_arg,
         use_ntrip_client_node_arg,
         params_file_arg,
         gnss_namespace_arg,

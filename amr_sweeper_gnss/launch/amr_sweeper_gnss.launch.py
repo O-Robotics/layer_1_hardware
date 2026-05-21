@@ -20,6 +20,8 @@ def generate_launch_description():
     use_ublox_dgnss_node = LaunchConfiguration("use_ublox_dgnss_node")
     use_ublox_nav_sat_fix_hp = LaunchConfiguration("use_ublox_nav_sat_fix_hp")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
+    use_nmea_to_caster = LaunchConfiguration("use_nmea_to_caster")
+    fix_topic = LaunchConfiguration("fix_topic")
     gnss_namespace = LaunchConfiguration("gnss_namespace")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
@@ -40,6 +42,14 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "use_ntrip_client",
             default_value=TextSubstitution(text="true"),
+        ),
+        DeclareLaunchArgument(
+            "use_nmea_to_caster",
+            default_value=TextSubstitution(text="false"),
+        ),
+        DeclareLaunchArgument(
+            "fix_topic",
+            default_value=TextSubstitution(text="navsat"),
         ),
         DeclareLaunchArgument(
             "gnss_namespace",
@@ -98,6 +108,8 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(_launch_file("ntrip_client.launch.py")),
             launch_arguments={
                 "use_ntrip_client_node": use_ntrip_client,
+                "use_nmea_to_caster": use_nmea_to_caster,
+                "fix_topic": fix_topic,
                 "gnss_namespace": gnss_namespace,
                 "params_file": ntrip_params_file,
                 "log_level": log_level,
