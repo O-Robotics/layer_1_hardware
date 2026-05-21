@@ -1,30 +1,46 @@
 /**:
   ros__parameters:
-    host:          rtk2go.com    # NTRIP caster hostname. Default: 127.0.0.1
-    port:          2101          # NTRIP caster TCP port. Default: 2101
-    mountpoint:    EC8700DNK     # RTCM mountpoint to request from the caster. Default: mount
-    alternate_mountpoint: SDS_RTK  # Backup mountpoint tried after repeated primary-stream failures. Default: empty string
-    mountpoint_failover_threshold: 2  # Consecutive failures on one mountpoint before switching to the alternate. Default: 2
-    ntrip_version: Ntrip/2.0     # NTRIP version header sent in the request. Default: Ntrip/2.0
+    # -- NTRIP Caster - RTK2go -------------------------------------------------
+    # RTK2go reference configuration kept here for fallback:
+    # host:                          rtk2go.com          # NTRIP caster hostname. Default: 127.0.0.1
+    # port:                          2101                # NTRIP caster TCP port. Default: 2101
+    # mountpoint:                    EC8700DNK           # RTCM mountpoint to request from the caster. Default: mount
+    # alternate_mountpoint:          SDS_RTK             # Backup mountpoint tried after repeated primary-stream failures. Default: empty string
+    # mountpoint_failover_threshold: 2                   # Consecutive failures on one mountpoint before switching to the alternate. Default: 2
+    # ntrip_version:                 Ntrip/2.0           # NTRIP version header sent in the request. Default: Ntrip/2.0
+    # authenticate:                  false               # Enable HTTP basic auth for the caster. Default: false
+    # username:                      ""                  # No username for RTK2go. Default: empty string
+    # password:                      ""                  # No password for RTK2go. Default: empty string
 
-    authenticate:  true                 # Enable HTTP basic auth for the caster. Default: false
-    username:      info@o-robotics.com  # Username used when authenticate=true. Default: empty string
-    password:      none                 # Password used when authenticate=true. Default: empty string
+    # -- NTRIP Caster - GPSnet -------------------------------------------------
+    host:                          vrs.gpsnet.dk       # Geoteam GPSnet caster hostname from ORobotics-01.pdf. Default: 127.0.0.1
+    port:                          9000                # Geoteam GPSnet caster TCP port from ORobotics-01.pdf. Default: 2101
+    mountpoint:                    SU-4SAT-RTCM        # Geoteam RTCM 3.4 VRS mountpoint from ORobotics-01.pdf. Default: mount
+    alternate_mountpoint:          ""                  # No secondary Geoteam mountpoint configured yet. Default: empty string
+    mountpoint_failover_threshold: 2                   # Consecutive failures on one mountpoint before switching to the alternate. Default: 2
+    ntrip_version:                 Ntrip/2.0           # NTRIP version header sent in the request. Default: Ntrip/2.0
+    authenticate:                  true                # Enable HTTP basic auth for the caster. Default: false
+    username:                      ORobotics-01        # Geoteam GPSnet login from ORobotics-01.pdf. Default: empty string
+    password:                      15425874            # Geoteam GPSnet password from ORobotics-01.pdf. Default: empty string
 
-    ssl:      false  # Enable TLS/SSL for the socket connection. Default: false
-    cert:     None   # Optional client certificate path for SSL auth. Default: None
-    key:      None   # Optional client private key path for SSL auth. Default: None
-    ca_cert:  None   # Optional CA certificate bundle path for SSL verification. Default: None
+    # -- TLS / SSL -------------------------------------------------------------
+    ssl:                           false               # Enable TLS/SSL for the socket connection. Default: false
+    cert:                          None                # Optional client certificate path for SSL auth. Default: None
+    key:                           None                # Optional client private key path for SSL auth. Default: None
+    ca_cert:                       None                # Optional CA certificate bundle path for SSL verification. Default: None
 
-    rtcm_frame_id: gnss_link  # Frame ID stamped on published RTCM messages. Default: gnss_link
-    send_nmea:     false      # Send GGA/NMEA uplink from the fix topic to the caster when enabled by launch. Default: false
+    # -- RTCM output -----------------------------------------------------------
+    rtcm_frame_id:                 gnss_link           # Frame ID stamped on published RTCM messages. Default: gnss_link
+    send_nmea:                     false               # Send GGA/NMEA uplink from the fix topic to the caster when enabled by launch. Default: false
 
-    startup_retry_seconds:           5.0   # Wait before retrying node startup after a startup failure. Default: 5.0
-    failed_connection_retry_seconds: 5.0   # Wait before reconnecting after a dropped or failed stream. Default: 5.0
-    reconnect_attempt_wait_seconds:  5.0   # Legacy fallback retry wait if failed_connection_retry_seconds <= 0. Default: 5.0
-    socket_timeout_seconds:          10.0  # Socket connect/read timeout before watchdog logic decides whether to retry. Default: 10.0
-    initial_rtcm_grace_seconds:     10.0  # Extra grace time allowed after connect before the first valid RTCM is required. Default: 10.0
-    rtcm_timeout_seconds:            4.0   # Max time without valid RTCM before reconnecting. Default: 4.0
+    # -- Connection supervision ------------------------------------------------
+    startup_retry_seconds:           5.0                 # Wait before retrying node startup after a startup failure. Default: 5.0
+    failed_connection_retry_seconds: 5.0                 # Wait before reconnecting after a dropped or failed stream. Default: 5.0
+    reconnect_attempt_wait_seconds:  5.0                 # Legacy fallback retry wait if failed_connection_retry_seconds <= 0. Default: 5.0
+    socket_timeout_seconds:          10.0                # Socket connect/read timeout before watchdog logic decides whether to retry. Default: 10.0
+    initial_rtcm_grace_seconds:      10.0                # Extra grace time allowed after connect before the first valid RTCM is required. Default: 10.0
+    rtcm_timeout_seconds:            4.0                 # Max time without valid RTCM before reconnecting. Default: 4.0
 
-    retry_attempts_before_error:    3   # Consecutive failures before warnings escalate to errors. Default: 3
-    fatal_after_consecutive_errors: 10  # Consecutive failures before the node exits fatally. Default: 10
+    # -- Error escalation ------------------------------------------------------
+    retry_attempts_before_error:     3                   # Consecutive failures before warnings escalate to errors. Default: 3
+    fatal_after_consecutive_errors:  10                  # Consecutive failures before the node exits fatally. Default: 10
