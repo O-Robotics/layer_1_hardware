@@ -573,7 +573,7 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       euler_deg_[0] = static_cast<double>(d0) / 32768.0 * 180.0;
       euler_deg_[1] = static_cast<double>(d1) / 32768.0 * 180.0;
       euler_deg_[2] = static_cast<double>(d2) / 32768.0 * 180.0;
-      if (!output_quaternion_) {
+      if (!output_quaternion_ || !has_quaternion_) {
         maybe_publish();
       }
       break;
