@@ -21,7 +21,7 @@
     ntrip_version:                 Ntrip/2.0           # NTRIP version header sent in the request. Default: Ntrip/2.0
     authenticate:                  true                # Enable HTTP basic auth for the caster. Default: false
     username:                      ORobotics-01        # Geoteam GPSnet login from ORobotics-01.pdf. Default: empty string
-    password:                      15425874            # Geoteam GPSnet password from ORobotics-01.pdf. Default: empty string
+    password:                      "15425874"          # Geoteam GPSnet password from ORobotics-01.pdf. Default: empty string
 
     # -- TLS / SSL -------------------------------------------------------------
     ssl:                           false               # Enable TLS/SSL for the socket connection. Default: false
