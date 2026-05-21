@@ -149,6 +149,7 @@ JY901ImuNode::JY901ImuNode()
   } else if (!configure_device()) {
     report_configuration_issue("IMU opened, but device programming did not fully succeed");
   } else {
+    RCLCPP_INFO(get_logger(), "IMU configuration complete");
     reset_issue_counters();
   }
 
@@ -253,10 +254,6 @@ bool JY901ImuNode::send_command(uint8_t address, uint16_t value)
 
   const ssize_t bytes_written = ::write(serial_fd_, command.data(), command.size());
   if (bytes_written != static_cast<ssize_t>(command.size())) {
-    return false;
-  }
-
-  if (tcdrain(serial_fd_) != 0) {
     return false;
   }
 
