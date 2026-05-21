@@ -16,8 +16,8 @@
     host:                          vrs.gpsnet.dk       # Geoteam GPSnet caster hostname from ORobotics-01.pdf. Default: 127.0.0.1
     port:                          9000                # Geoteam GPSnet caster TCP port from ORobotics-01.pdf. Default: 2101
     mountpoint:                    SU-4SAT-RTCM        # Geoteam RTCM 3.4 VRS mountpoint from ORobotics-01.pdf. Default: mount
-    alternate_mountpoint:          ""                  # No secondary Geoteam mountpoint configured yet. Default: empty string
-    mountpoint_failover_threshold: 2                   # Consecutive failures on one mountpoint before switching to the alternate. Default: 2
+    alternate_mountpoint:          SU-GNSS             # Fallback RTCM 3.1 VRS mountpoint to test if SU-4SAT-RTCM stays silent. Default: empty string
+    mountpoint_failover_threshold: 1                   # Switch to the alternate mountpoint after the first failed stream attempt. Default: 2
     ntrip_version:                 Ntrip/2.0           # NTRIP version header sent in the request. Default: Ntrip/2.0
     authenticate:                  true                # Enable HTTP basic auth for the caster. Default: false
     username:                      ORobotics-01        # Geoteam GPSnet login from ORobotics-01.pdf. Default: empty string
@@ -38,8 +38,8 @@
     failed_connection_retry_seconds: 5.0                 # Wait before reconnecting after a dropped or failed stream. Default: 5.0
     reconnect_attempt_wait_seconds:  5.0                 # Legacy fallback retry wait if failed_connection_retry_seconds <= 0. Default: 5.0
     socket_timeout_seconds:          10.0                # Socket connect/read timeout before watchdog logic decides whether to retry. Default: 10.0
-    initial_rtcm_grace_seconds:      10.0                # Extra grace time allowed after connect before the first valid RTCM is required. Default: 10.0
-    rtcm_timeout_seconds:            4.0                 # Max time without valid RTCM before reconnecting. Default: 4.0
+    initial_rtcm_grace_seconds:      60.0                # Extra grace time allowed after connect before the first valid RTCM is required. Default: 10.0
+    rtcm_timeout_seconds:            15.0                # Max time without valid RTCM before reconnecting. Default: 4.0
 
     # -- Error escalation ------------------------------------------------------
     retry_attempts_before_error:     3                   # Consecutive failures before warnings escalate to errors. Default: 3
