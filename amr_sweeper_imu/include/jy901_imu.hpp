@@ -74,6 +74,10 @@ private:
   bool output_gps_velocity_{false};
   bool output_quaternion_{false};
   bool output_satellite_accuracy_{false};
+  double yaw_offset_deg_{0.0};
+  double yaw_offset_rad_{0.0};
+  bool invert_roll_{false};
+  bool invert_pitch_{false};
 
   int serial_fd_{-1};
   int active_baud_{9600};

@@ -61,6 +61,63 @@ std::string errno_message(const std::string & prefix)
   return prefix + ": " + std::strerror(errno);
 }
 
+void quaternion_to_rpy(
+  double w,
+  double x,
+  double y,
+  double z,
+  double & roll,
+  double & pitch,
+  double & yaw)
+{
+  const double sinr_cosp = 2.0 * ((w * x) + (y * z));
+  const double cosr_cosp = 1.0 - 2.0 * ((x * x) + (y * y));
+  roll = std::atan2(sinr_cosp, cosr_cosp);
+
+  const double sinp = 2.0 * ((w * y) - (z * x));
+  if (std::fabs(sinp) >= 1.0) {
+    pitch = std::copysign(kPi / 2.0, sinp);
+  } else {
+    pitch = std::asin(sinp);
+  }
+
+  const double siny_cosp = 2.0 * ((w * z) + (x * y));
+  const double cosy_cosp = 1.0 - 2.0 * ((y * y) + (z * z));
+  yaw = std::atan2(siny_cosp, cosy_cosp);
+}
+
+void rpy_to_quaternion(
+  double roll,
+  double pitch,
+  double yaw,
+  double & w,
+  double & x,
+  double & y,
+  double & z)
+{
+  const double cy = std::cos(yaw * 0.5);
+  const double sy = std::sin(yaw * 0.5);
+  const double cp = std::cos(pitch * 0.5);
+  const double sp = std::sin(pitch * 0.5);
+  const double cr = std::cos(roll * 0.5);
+  const double sr = std::sin(roll * 0.5);
+
+  x = sr * cp * cy - cr * sp * sy;
+  y = cr * sp * cy + sr * cp * sy;
+  z = cr * cp * sy - sr * sp * cy;
+  w = cr * cp * cy + sr * sp * sy;
+}
+
+void rotate_xy(double yaw, double & x, double & y)
+{
+  const double cos_yaw = std::cos(yaw);
+  const double sin_yaw = std::sin(yaw);
+  const double rotated_x = (cos_yaw * x) - (sin_yaw * y);
+  const double rotated_y = (sin_yaw * x) + (cos_yaw * y);
+  x = rotated_x;
+  y = rotated_y;
+}
+
 }  // namespace
 
 namespace amr_sweeper_imu
@@ -97,6 +154,9 @@ JY901ImuNode::JY901ImuNode()
   output_gps_velocity_ = declare_parameter<bool>("output_gps_velocity", false);
   output_quaternion_ = declare_parameter<bool>("output_quaternion", false);
   output_satellite_accuracy_ = declare_parameter<bool>("output_satellite_accuracy", false);
+  yaw_offset_deg_ = declare_parameter<double>("yaw_offset_deg", 0.0);
+  invert_roll_ = declare_parameter<bool>("invert_roll", false);
+  invert_pitch_ = declare_parameter<bool>("invert_pitch", false);
   orientation_covariance_ = declare_parameter<std::vector<double>>(
     "orientation_covariance",
     std::vector<double>{0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.05});
@@ -125,6 +185,7 @@ JY901ImuNode::JY901ImuNode()
   if (max_reconnect_attempts_ < 0) {
     max_reconnect_attempts_ = 0;
   }
+  yaw_offset_rad_ = yaw_offset_deg_ * kDegToRad;
   active_baud_ = configure_device_on_startup_ ? device_bootstrap_baud_ : baud_;
   if (orientation_covariance_.size() != 9) {
     RCLCPP_WARN(get_logger(), "orientation_covariance must have 9 elements; using defaults");
@@ -600,6 +661,9 @@ void JY901ImuNode::maybe_publish()
   msg.header.stamp = now;
   msg.header.frame_id = frame_id_;
   bool orientation_valid = true;
+  double roll = euler_deg_[0] * kDegToRad;
+  double pitch = euler_deg_[1] * kDegToRad;
+  double yaw = euler_deg_[2] * kDegToRad;
 
   if (output_quaternion_ && has_quaternion_) {
     const double norm = std::sqrt(
@@ -608,46 +672,55 @@ void JY901ImuNode::maybe_publish()
       (quaternion_[2] * quaternion_[2]) +
       (quaternion_[3] * quaternion_[3]));
     if (norm > 1e-9) {
-      msg.orientation.w = quaternion_[0] / norm;
-      msg.orientation.x = quaternion_[1] / norm;
-      msg.orientation.y = quaternion_[2] / norm;
-      msg.orientation.z = quaternion_[3] / norm;
+      quaternion_to_rpy(
+        quaternion_[0] / norm,
+        quaternion_[1] / norm,
+        quaternion_[2] / norm,
+        quaternion_[3] / norm,
+        roll,
+        pitch,
+        yaw);
     } else {
       orientation_valid = false;
     }
-  } else {
-    const double roll = euler_deg_[0] * kDegToRad;
-    const double pitch = euler_deg_[1] * kDegToRad;
-    const double yaw = euler_deg_[2] * kDegToRad;
+  }
 
-    const double cy = std::cos(yaw * 0.5);
-    const double sy = std::sin(yaw * 0.5);
-    const double cp = std::cos(pitch * 0.5);
-    const double sp = std::sin(pitch * 0.5);
-    const double cr = std::cos(roll * 0.5);
-    const double sr = std::sin(roll * 0.5);
+  if (orientation_valid) {
+    if (invert_roll_) {
+      roll = -roll;
+    }
+    if (invert_pitch_) {
+      pitch = -pitch;
+    }
+    yaw += yaw_offset_rad_;
 
-    msg.orientation.x = sr * cp * cy - cr * sp * sy;
-    msg.orientation.y = cr * sp * cy + sr * cp * sy;
-    msg.orientation.z = cr * cp * sy - sr * sp * cy;
-    msg.orientation.w = cr * cp * cy + sr * sp * sy;
+    rpy_to_quaternion(
+      roll,
+      pitch,
+      yaw,
+      msg.orientation.w,
+      msg.orientation.x,
+      msg.orientation.y,
+      msg.orientation.z);
   }
   std::copy(orientation_covariance_.begin(), orientation_covariance_.end(), msg.orientation_covariance.begin());
   if (!orientation_valid) {
     msg.orientation_covariance[0] = -1.0;
   }
 
-  msg.angular_velocity.x = gyro_[0];
-  msg.angular_velocity.y = gyro_[1];
+  msg.angular_velocity.x = invert_roll_ ? -gyro_[0] : gyro_[0];
+  msg.angular_velocity.y = invert_pitch_ ? -gyro_[1] : gyro_[1];
   msg.angular_velocity.z = gyro_[2];
+  rotate_xy(yaw_offset_rad_, msg.angular_velocity.x, msg.angular_velocity.y);
   std::copy(
     angular_velocity_covariance_.begin(),
     angular_velocity_covariance_.end(),
     msg.angular_velocity_covariance.begin());
 
-  msg.linear_acceleration.x = accel_[0];
-  msg.linear_acceleration.y = accel_[1];
+  msg.linear_acceleration.x = invert_roll_ ? -accel_[0] : accel_[0];
+  msg.linear_acceleration.y = invert_pitch_ ? -accel_[1] : accel_[1];
   msg.linear_acceleration.z = accel_[2];
+  rotate_xy(yaw_offset_rad_, msg.linear_acceleration.x, msg.linear_acceleration.y);
   std::copy(
     linear_acceleration_covariance_.begin(),
     linear_acceleration_covariance_.end(),
