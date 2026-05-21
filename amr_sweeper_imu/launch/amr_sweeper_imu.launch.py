@@ -9,7 +9,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     declare_namespace = DeclareLaunchArgument(
         name='namespace',
-        default_value='amr_sweeper',
+        default_value='amr_sweeper/imu',
         description='Namespace for IMU node')
     declare_use_sim_time = DeclareLaunchArgument(
         name='use_sim_time',

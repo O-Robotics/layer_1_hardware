@@ -17,7 +17,7 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - `amr_sweeper_imu.launch.py`
 
 ## Launch Arguments
-- `namespace`: default `amr_sweeper`
+- `namespace`: default `amr_sweeper/imu`
 - `use_sim_time`: default `false`
 - `params_file`: default `config/amr_sweeper_imu.yaml`
 - `port`: default `/dev/imu_usb`
@@ -33,8 +33,9 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - Main node: `imu_node`.
 - Layer 3 localization relies on this package for IMU data.
 - Default tunable parameters live in `config/amr_sweeper_imu.yaml`.
+- The node publishes `data_raw` under the selected namespace. With the default standalone namespace this resolves to `/amr_sweeper/imu/data_raw`, and Layer 1 bringup also launches it under that same final topic.
 - The launch file passes that wildcard YAML directly into the node, then launch arguments such as `port`, `baud`, `imu_frame_id`, and `publish_hz` can override individual values.
 - On startup the node can also program JY901 registers for return content, return rate, installation direction, algorithm mode, gyro auto-calibration, LED state, and baud according to the YAML.
-- The driver can parse the IMU's native `0x59` quaternion packet and use it as the primary ROS orientation source, but `output_quaternion` stays disabled by default because some JY901 units appear to stop streaming when that packet is requested.
+- The driver can parse the IMU's native `0x59` quaternion packet and use it as the primary ROS orientation source when `output_quaternion` is enabled.
 - If `baud` differs from the sensor's current baud, use `device_bootstrap_baud` to tell the node how to reach the sensor before reprogramming it.
 - Reconnect failures now follow a warn/error/fatal escalation pattern similar to the GNSS NTRIP client, using `retry_attempts_before_error`, `fatal_after_consecutive_errors`, and `max_reconnect_attempts`.
