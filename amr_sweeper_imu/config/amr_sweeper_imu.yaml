@@ -27,7 +27,7 @@
     output_pressure_height:        false         # Enable 0x56 pressure/height packets. Default: false
     output_gps_coordinates:        false         # Enable 0x57 longitude/latitude packets. Default: false
     output_gps_velocity:           false         # Enable 0x58 GPS speed packets. Default: false
-    output_quaternion:             true          # Enable 0x59 quaternion packets and use them as the primary ROS orientation source. Default: true
+    output_quaternion:             false         # Keep disabled by default. Some JY901 units stop streaming when 0x59 is requested; the driver can still parse it for controlled testing. Default: false
     output_satellite_accuracy:     false         # Enable 0x5A satellite-position-accuracy packets. Default: false
 
     orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.01]    # Row-major 3x3 covariance for the driver-provided quaternion.
