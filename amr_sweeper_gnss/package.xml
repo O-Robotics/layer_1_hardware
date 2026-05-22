@@ -13,9 +13,6 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <depend>sensor_msgs</depend>
-  <depend>ublox_dgnss</depend>
-  <depend>ublox_dgnss_node</depend>
-  <depend>ublox_nav_sat_fix_hp_node</depend>
   <depend>rtcm_msgs</depend>
   <depend>yaml-cpp</depend>
 

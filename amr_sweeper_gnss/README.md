@@ -8,7 +8,7 @@ Dependencies to other AMR Sweeper packages:
 - None
 
 ## Purpose
-This package wraps the AMR Sweeper GNSS stack around the upstream `ublox_dgnss` rover components plus the local C++ NTRIP client node.
+This package contains the AMR Sweeper GNSS stack: a local C++ u-blox receiver node plus the local C++ NTRIP client node.
 
 ## Main Launch File
 `launch/amr_sweeper_gnss.launch.py`
@@ -20,63 +20,57 @@ This package wraps the AMR Sweeper GNSS stack around the upstream `ublox_dgnss` 
 
 ## Launch Arguments
 - `use_ublox_dgnss_node`: default `true`
-- `use_ublox_nav_sat_fix_hp`: default `true`
+- `use_ublox_nav_sat_fix_hp`: default `true` (deprecated compatibility argument; the local node publishes `navsat` directly)
 - `use_ntrip_client`: default `true`
 - `use_nmea_to_caster`: default `true`
-- `ublox_params_file`: default `config/amr_sweeper_gnss_ublox_dgnss.yaml`
+- `ublox_params_file`: default `config/amr_sweeper_gnss_ublox.yaml`
 - `ntrip_params_file`: default `config/amr_sweeper_gnss_ntrip_client.yaml`
 - `fix_topic`: default `navsat`
 - `gnss_namespace`: default `amr_sweeper/gnss`
 - `gnss_frame_id`: default `gnss_link`
-- `device_family`: default `F9P`
-- `device_serial_string`: default `""`
+- `device_family`: default `F9P` (deprecated compatibility argument)
+- `device_serial_string`: default `""` (deprecated compatibility argument)
 - `log_level`: default `INFO`
 - `ublox_log_level`: default `WARN`
 
 ## Overview
-`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the upstream `ublox_dgnss_node` receiver component, the upstream `ublox_nav_sat_fix_hp_node` NavSat conversion component, and the optional local `ntrip_client` node for RTCM correction streaming.
+`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the local `amr_sweeper_gnss_ublox_node` receiver node and the optional local `ntrip_client` node for RTCM correction streaming. The local u-blox node configures the receiver on connect, subscribes to `rtcm`, and publishes `navsat` directly.
 
 ## External Dependencies
-- `ublox_dgnss`: vendored in this workspace under `src/dependencies/ublox_dgnss`
-  GitHub: `https://github.com/aussierobots/ublox_dgnss`
 - `rtcm_msgs`: installed from the ROS Jazzy packages and used by both the
-  NTRIP client and the u-blox driver
+  NTRIP client and the local u-blox driver
 
 Example install:
 
 ```bash
-git clone https://github.com/aussierobots/ublox_dgnss
 sudo apt install ros-jazzy-rtcm-msgs
 ```
 
 ## Notes
 - This package is normally launched through layer 1 bringup rather than by itself.
 - Layer 3 localization depends on the GNSS topics produced by this package.
-- No GNSS driver source code or custom UBX messages are implemented in this package anymore.
 - By default the GNSS stack is namespaced under `/amr_sweeper/gnss`, so topics
   such as `navsat` become `/amr_sweeper/gnss/navsat`.
 - The NTRIP client runs in that same GNSS namespace and publishes RTCM on
   `/amr_sweeper/gnss/rtcm`.
-- The upstream `ublox_dgnss_node` subscription to `/ntrip_client/rtcm` is
-  remapped in launch to the GNSS-local `rtcm` topic so corrections still reach
-  the receiver under the AMR namespace layout.
+- The local u-blox node subscribes to the GNSS-local `rtcm` topic so
+  corrections still reach the receiver under the AMR namespace layout.
 - When `use_nmea_to_caster:=true` in `ntrip_client.launch.py`, the local NTRIP
   node subscribes to the configured `fix_topic` with best-effort QoS and sends
   GGA messages to the caster. The default `fix_topic` is `navsat`, and the
   default `use_nmea_to_caster` value is `true`.
 - `ntrip_client.launch.py` starts only the NTRIP client node for RTCM correction streaming.
-- `ublox_dgnss.launch.py` starts the rover driver plus NavSat conversion without the package-level GNSS wrapper.
-- The package keeps only the AMR-specific launch entrypoints used by this workspace. For moving-base, ECEF, or satellite-diagnostic variants, launch the upstream `ublox_dgnss` package directly.
+- `ublox_dgnss.launch.py` now launches the local `amr_sweeper_gnss_ublox_node` for compatibility with existing bringup wiring.
 
 ## Configuration Files
-The NTRIP client launch supports a YAML parameter file for caster details.
+The GNSS stack uses one YAML file for the local u-blox node and one YAML file for the local NTRIP client.
 
 Installed default config:
-- `share/amr_sweeper_gnss/config/amr_sweeper_gnss_ublox_dgnss.yaml`
+- `share/amr_sweeper_gnss/config/amr_sweeper_gnss_ublox.yaml`
 - `share/amr_sweeper_gnss/config/amr_sweeper_gnss_ntrip_client.yaml`
 
 Source config in the repo:
-- `config/amr_sweeper_gnss_ublox_dgnss.yaml`
+- `config/amr_sweeper_gnss_ublox.yaml`
 - `config/amr_sweeper_gnss_ntrip_client.yaml`
 
 Example standalone launch:
@@ -86,16 +80,16 @@ ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py \
   gnss_namespace:=amr_sweeper/gnss \
   use_nmea_to_caster:=true \
   fix_topic:=navsat \
-  ublox_params_file:=$(realpath config/amr_sweeper_gnss_ublox_dgnss.yaml) \
+  ublox_params_file:=$(realpath config/amr_sweeper_gnss_ublox.yaml) \
   ntrip_params_file:=$(realpath config/amr_sweeper_gnss_ntrip_client.yaml)
 ```
 
-Useful u-blox parameters in `config/amr_sweeper_gnss_ublox_dgnss.yaml`:
-- receiver protocol enablement for USB RTCM/NMEA
+Useful u-blox parameters in `config/amr_sweeper_gnss_ublox.yaml`:
+- `device_path` and `baud_rate` for the local receiver connection
+- receiver protocol enablement for UBX and RTCM on the USB CDC link
 - measurement and navigation rates
-- enabled GNSS constellations and signals
-- published UBX message rates
-- NavSatFix quality thresholds and QoS overrides for `ublox_nav_sat_fix_hp`
+- the three UBX messages the local node consumes: HPPOSLLH, STATUS, and COV
+- NavSat filtering thresholds and covariance scaling used before publishing `navsat`
 
 Example standalone NTRIP launch:
 

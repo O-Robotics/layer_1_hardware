@@ -88,7 +88,7 @@ def generate_launch_description():
             default_value=PathJoinSubstitution([
                 FindPackageShare("amr_sweeper_gnss"),
                 "config",
-                "amr_sweeper_gnss_ublox_dgnss.yaml",
+                "amr_sweeper_gnss_ublox.yaml",
             ]),
         ),
         IncludeLaunchDescription(

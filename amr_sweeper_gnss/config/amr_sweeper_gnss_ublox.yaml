@@ -1,0 +1,33 @@
+amr_sweeper_gnss_ublox_node:
+  ros__parameters:
+    # -- Device connection ----------------------------------------------------
+    device_path: /dev/gnss_usb       # Preferred udev symlink for the rover receiver.
+    baud_rate: 115200                # Serial line speed for the USB CDC device.
+    frame_id: gnss_link              # Frame stamped on published NavSatFix messages.
+    navsat_topic: navsat             # NavSatFix output topic inside the GNSS namespace.
+    rtcm_topic: rtcm                 # RTCM correction input topic inside the GNSS namespace.
+    reconnect_delay_seconds: 2.0     # Delay before retrying after a disconnect or open failure.
+    publish_timeout_seconds: 1.0     # Reserved for future stale-data supervision in the local node.
+    configure_on_connect: true       # Reapply receiver configuration each time the device reconnects.
+
+    # -- Receiver configuration ----------------------------------------------
+    usb_in_rtcm3x: true              # Accept RTCM3 corrections from the local NTRIP client.
+    usb_out_ubx: true                # Keep UBX output enabled so the node can parse receiver messages.
+    usb_out_nmea: false              # Disable NMEA chatter on the GNSS USB link.
+    usb_out_rtcm3x: false            # Do not mirror RTCM back out over USB.
+    measurement_rate_ms: 200         # Run the receiver measurement cycle at 5 Hz.
+    navigation_rate_cycles: 1        # Publish one navigation solution per measurement cycle.
+    fix_mode: 2                      # Force 3D fixes.
+    require_initial_3d_fix: true     # Require a 3D solution during startup convergence.
+    dynamic_model: 4                 # Ground-vehicle dynamics model.
+    nav_hpposllh_rate: 1             # High-precision LLH output every measurement cycle.
+    nav_status_rate: 5               # Lower-rate status output is sufficient for fix quality checks.
+    nav_cov_rate: 1                  # Covariance output every measurement cycle.
+
+    # -- NavSat filtering -----------------------------------------------------
+    min_fix_type: 3                  # 1=GPS, 2=DGPS, 3=RTK_FLOAT, 4=RTK_FIXED.
+    min_horizontal_stddev_m: 1.5     # Reject solutions with worse horizontal uncertainty than this.
+    min_vertical_stddev_m: 3.0       # Reject solutions with worse vertical uncertainty than this.
+    horizontal_covariance_scale: 4.0 # Inflate horizontal covariance before handing it downstream.
+    vertical_covariance_scale: 4.0   # Inflate vertical covariance before handing it downstream.
+    use_hacc_vacc_covariance_floor: true  # Never report covariance below the receiver accuracy estimate.
