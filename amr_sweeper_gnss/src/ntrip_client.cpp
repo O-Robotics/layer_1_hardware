@@ -251,6 +251,10 @@ void NtripClientNode::run()
 
 void NtripClientNode::connect_and_stream()
 {
+  if (send_nmea_ && !wait_for_latest_fix_before_connect()) {
+    throw std::runtime_error("Stopped while waiting for initial NavSatFix before caster connect");
+  }
+
   stream_ready_.store(false);
   {
     std::lock_guard<std::mutex> lock(socket_mutex_);
@@ -326,6 +330,31 @@ void NtripClientNode::connect_and_stream()
       chunk_buffer.begin(), chunk_buffer.begin() + bytes_read);
     handle_rtcm_bytes(chunk);
   }
+}
+
+bool NtripClientNode::wait_for_latest_fix_before_connect()
+{
+  if (!send_nmea_) {
+    return true;
+  }
+
+  while (!stop_requested_.load() && rclcpp::ok()) {
+    {
+      std::lock_guard<std::mutex> lock(latest_fix_mutex_);
+      if (latest_fix_.has_value()) {
+        return true;
+      }
+    }
+
+    RCLCPP_INFO_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      10000,
+      "Waiting for initial NavSatFix before connecting to caster because send_nmea is enabled");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  return false;
 }
 
 int NtripClientNode::create_connected_socket() const

@@ -41,6 +41,7 @@ private:
   bool looks_like_sourcetable(
     const std::string & header,
     const std::vector<std::uint8_t> & payload) const;
+  bool wait_for_latest_fix_before_connect();
   void handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
   bool send_latest_gga_to_caster();
   std::string build_gga_sentence(const sensor_msgs::msg::NavSatFix & fix) const;
