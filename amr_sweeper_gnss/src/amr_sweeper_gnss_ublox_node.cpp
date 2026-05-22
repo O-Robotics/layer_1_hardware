@@ -96,6 +96,10 @@ void UbloxNode::loadParameters()
   reconnect_delay_seconds_ = clampPositive(declare_parameter("reconnect_delay_seconds", 2.0), 2.0);
   publish_timeout_seconds_ = clampPositive(declare_parameter("publish_timeout_seconds", 1.0), 1.0);
   configure_on_connect_ = declare_parameter("configure_on_connect", true);
+  poll_interval_seconds_ = clampPositive(declare_parameter("poll_interval_seconds", 1.0), 1.0);
+  retry_attempts_before_error_ = declare_parameter("retry_attempts_before_error", 3);
+  fatal_after_consecutive_errors_ = declare_parameter("fatal_after_consecutive_errors", 10);
+  max_reconnect_attempts_ = declare_parameter("max_reconnect_attempts", 10);
 
   usb_in_rtcm3x_ = declare_parameter("usb_in_rtcm3x", true);
   usb_out_ubx_ = declare_parameter("usb_out_ubx", true);
@@ -116,6 +120,16 @@ void UbloxNode::loadParameters()
   horizontal_covariance_scale_ = declare_parameter("horizontal_covariance_scale", 4.0);
   vertical_covariance_scale_ = declare_parameter("vertical_covariance_scale", 4.0);
   use_hacc_vacc_covariance_floor_ = declare_parameter("use_hacc_vacc_covariance_floor", true);
+
+  if (retry_attempts_before_error_ < 1) {
+    retry_attempts_before_error_ = 1;
+  }
+  if (fatal_after_consecutive_errors_ < 1) {
+    fatal_after_consecutive_errors_ = 1;
+  }
+  if (max_reconnect_attempts_ < 0) {
+    max_reconnect_attempts_ = 0;
+  }
 }
 
 void UbloxNode::onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg)
@@ -134,23 +148,87 @@ void UbloxNode::onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg)
 
 void UbloxNode::run()
 {
-  while (!stop_requested_.load()) {
+  while (!stop_requested_.load() && !fatal_error_.load()) {
     if (!openDevice()) {
+      reportConnectionIssue("Unable to open GNSS device '" + device_path_ + "'");
       std::this_thread::sleep_for(std::chrono::duration<double>(reconnect_delay_seconds_));
       continue;
     }
 
     if (configure_on_connect_ && !configureReceiver()) {
-      RCLCPP_WARN(get_logger(), "Receiver configuration reported an issue; continuing with live stream");
+      reportConfigurationIssue("Receiver configuration reported an issue; continuing with live stream");
+    } else {
+      resetIssueCounters();
     }
+    requestEssentialPolls();
+    last_poll_request_time_ = std::chrono::steady_clock::now();
 
     readFromDevice();
     closeDevice();
 
-    if (!stop_requested_.load()) {
+    if (!stop_requested_.load() && !fatal_error_.load()) {
       std::this_thread::sleep_for(std::chrono::duration<double>(reconnect_delay_seconds_));
     }
   }
+}
+
+void UbloxNode::reportConnectionIssue(const std::string & message)
+{
+  ++connection_issue_count_;
+  ++reconnect_attempt_count_;
+
+  if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
+    fatal_error_message_ =
+      message + ". Reached reconnect limit after " + std::to_string(reconnect_attempt_count_) +
+      " attempts";
+    RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
+    fatal_error_.store(true);
+    stop_requested_.store(true);
+    return;
+  }
+
+  logEscalatingIssue(connection_issue_count_, message, "connection");
+}
+
+void UbloxNode::reportConfigurationIssue(const std::string & message)
+{
+  ++configuration_issue_count_;
+  logEscalatingIssue(configuration_issue_count_, message, "configuration");
+}
+
+void UbloxNode::logEscalatingIssue(int count, const std::string & message, const std::string & issue_type)
+{
+  if (count < retry_attempts_before_error_) {
+    RCLCPP_WARN(get_logger(), "%s", message.c_str());
+    return;
+  }
+
+  if (count < fatal_after_consecutive_errors_) {
+    if (count == retry_attempts_before_error_) {
+      RCLCPP_ERROR(
+        get_logger(), "%s. Escalating after %d consecutive failures", message.c_str(), count);
+      return;
+    }
+
+    RCLCPP_ERROR(get_logger(), "%s", message.c_str());
+    return;
+  }
+
+  fatal_error_message_ =
+    message + ". Reached fatal threshold after " + std::to_string(count) +
+    " consecutive " + issue_type + " failures";
+  RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
+  fatal_error_.store(true);
+  stop_requested_.store(true);
+}
+
+void UbloxNode::resetIssueCounters()
+{
+  reconnect_attempt_count_ = 0;
+  connection_issue_count_ = 0;
+  configuration_issue_count_ = 0;
+  fatal_error_.store(false);
+  fatal_error_message_.clear();
 }
 
 bool UbloxNode::openDevice()
@@ -162,13 +240,6 @@ bool UbloxNode::openDevice()
 
   const int fd = open(device_path_.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
   if (fd < 0) {
-    RCLCPP_ERROR_THROTTLE(
-      get_logger(),
-      *get_clock(),
-      10000,
-      "Unable to open GNSS device '%s': %s",
-      device_path_.c_str(),
-      std::strerror(errno));
     return false;
   }
 
@@ -233,6 +304,13 @@ bool UbloxNode::configureReceiver()
   };
 
   return sendConfigBatch(items);
+}
+
+void UbloxNode::requestEssentialPolls()
+{
+  (void)sendFrame(kClassNav, kMsgNavHpPosLlh, {});
+  (void)sendFrame(kClassNav, kMsgNavStatus, {});
+  (void)sendFrame(kClassNav, kMsgNavCov, {});
 }
 
 bool UbloxNode::sendConfigBatch(const std::vector<ConfigItem> & items)
@@ -320,14 +398,23 @@ void UbloxNode::readFromDevice()
       if (errno == EINTR || errno == EAGAIN) {
         continue;
       }
-      RCLCPP_WARN(get_logger(), "GNSS read failed: %s", std::strerror(errno));
+      reportConnectionIssue("GNSS read failed on '" + device_path_ + "': " + std::strerror(errno));
       return;
     }
 
     if (bytes_read == 0) {
+      const auto now_steady = std::chrono::steady_clock::now();
+      if (
+        now_steady - last_poll_request_time_ >=
+        std::chrono::duration<double>(poll_interval_seconds_))
+      {
+        requestEssentialPolls();
+        last_poll_request_time_ = now_steady;
+      }
       continue;
     }
 
+    last_poll_request_time_ = std::chrono::steady_clock::now();
     parseIncomingBytes(buffer.data(), static_cast<std::size_t>(bytes_read));
   }
 }
@@ -516,10 +603,16 @@ void UbloxNode::tryPublishNavSat()
   }
 
   if (!hpposllh.has_value() || !status.has_value()) {
+    RCLCPP_DEBUG_THROTTLE(
+      get_logger(), *get_clock(), 5000, "Waiting for both NAV-HPPOSLLH and NAV-STATUS before publishing navsat");
     return;
   }
 
   if ((hpposllh->invalid_flags & 0x03U) != 0U) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Skipping navsat publish because the receiver flagged the high-precision position as invalid (flags=0x%02x)",
+      hpposllh->invalid_flags);
     return;
   }
 
@@ -541,12 +634,24 @@ void UbloxNode::tryPublishNavSat()
   }
 
   if (fix_quality < min_fix_type_) {
+    RCLCPP_INFO_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Skipping navsat publish because fix quality %d is below the configured minimum %d",
+      fix_quality, min_fix_type_);
     return;
   }
   if (hpposllh->horizontal_accuracy_m > min_horizontal_stddev_m_) {
+    RCLCPP_INFO_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Skipping navsat publish because horizontal accuracy %.3fm exceeds the %.3fm limit",
+      hpposllh->horizontal_accuracy_m, min_horizontal_stddev_m_);
     return;
   }
   if (hpposllh->vertical_accuracy_m > min_vertical_stddev_m_) {
+    RCLCPP_INFO_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Skipping navsat publish because vertical accuracy %.3fm exceeds the %.3fm limit",
+      hpposllh->vertical_accuracy_m, min_vertical_stddev_m_);
     return;
   }
 
@@ -602,6 +707,10 @@ void UbloxNode::tryPublishNavSat()
   msg.position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_KNOWN;
 
   navsat_publisher_->publish(msg);
+  RCLCPP_INFO_THROTTLE(
+    get_logger(), *get_clock(), 5000,
+    "Published navsat fix: lat=%.8f lon=%.8f alt=%.3f quality=%d",
+    msg.latitude, msg.longitude, msg.altitude, fix_quality);
 }
 
 std::uint16_t UbloxNode::computeChecksumA(

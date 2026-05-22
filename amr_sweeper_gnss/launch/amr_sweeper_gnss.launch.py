@@ -73,7 +73,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "ublox_log_level",
-            default_value=TextSubstitution(text="WARN"),
+            default_value=TextSubstitution(text="INFO"),
         ),
         DeclareLaunchArgument(
             "ntrip_params_file",

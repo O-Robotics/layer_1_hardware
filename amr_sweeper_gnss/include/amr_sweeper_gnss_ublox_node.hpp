@@ -72,11 +72,16 @@ private:
 
   void loadParameters();
   void onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg);
+  void reportConnectionIssue(const std::string & message);
+  void reportConfigurationIssue(const std::string & message);
+  void logEscalatingIssue(int count, const std::string & message, const std::string & issue_type);
+  void resetIssueCounters();
 
   void run();
   bool openDevice();
   void closeDevice();
   bool configureReceiver();
+  void requestEssentialPolls();
   bool sendConfigBatch(const std::vector<ConfigItem> & items);
   bool sendFrame(std::uint8_t msg_class, std::uint8_t msg_id, const std::vector<std::uint8_t> & payload);
   bool writeRaw(const std::uint8_t * data, std::size_t size);
@@ -106,6 +111,10 @@ private:
   double reconnect_delay_seconds_{2.0};
   double publish_timeout_seconds_{1.0};
   bool configure_on_connect_{true};
+  double poll_interval_seconds_{1.0};
+  int retry_attempts_before_error_{3};
+  int fatal_after_consecutive_errors_{10};
+  int max_reconnect_attempts_{10};
 
   bool usb_in_rtcm3x_{true};
   bool usb_out_ubx_{true};
@@ -136,11 +145,17 @@ private:
   std::optional<NavStatus> last_status_;
   std::optional<NavCov> last_cov_;
   rclcpp::Time last_fix_publish_time_{0, 0, RCL_ROS_TIME};
+  std::chrono::steady_clock::time_point last_poll_request_time_{};
 
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr navsat_publisher_;
   rclcpp::Subscription<rtcm_msgs::msg::Message>::SharedPtr rtcm_subscription_;
 
   std::atomic<bool> stop_requested_{false};
+  std::atomic<bool> fatal_error_{false};
+  int reconnect_attempt_count_{0};
+  int connection_issue_count_{0};
+  int configuration_issue_count_{0};
+  std::string fatal_error_message_;
   std::thread worker_thread_;
 };
 

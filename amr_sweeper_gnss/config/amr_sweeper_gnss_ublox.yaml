@@ -7,6 +7,9 @@
     navsat_topic: navsat             # NavSatFix output topic inside the GNSS namespace.
     rtcm_topic: rtcm                 # RTCM correction input topic inside the GNSS namespace.
     reconnect_delay_seconds: 2.0     # Delay before retrying after a disconnect or open failure.
+    retry_attempts_before_error: 3   # Match the IMU pattern: warn first, then escalate to error after repeated failures.
+    fatal_after_consecutive_errors: 10  # Stop the node after too many consecutive connection or configuration failures.
+    max_reconnect_attempts: 10       # Hard cap on reconnect attempts before declaring startup failure fatal.
     publish_timeout_seconds: 1.0     # Reserved for future stale-data supervision in the local node.
     configure_on_connect: true       # Reapply receiver configuration each time the device reconnects.
 
@@ -25,9 +28,9 @@
     nav_cov_rate: 1                  # Covariance output every measurement cycle.
 
     # -- NavSat filtering -----------------------------------------------------
-    min_fix_type: 3                  # 1=GPS, 2=DGPS, 3=RTK_FLOAT, 4=RTK_FIXED.
-    min_horizontal_stddev_m: 1.5     # Reject solutions with worse horizontal uncertainty than this.
-    min_vertical_stddev_m: 3.0       # Reject solutions with worse vertical uncertainty than this.
+    min_fix_type: 1                  # Allow a plain GPS fix so NTRIP can bootstrap before RTK converges.
+    min_horizontal_stddev_m: 25.0    # Keep startup permissive; downstream localization can reject poorer fixes if needed.
+    min_vertical_stddev_m: 50.0      # Avoid blocking navsat publication during early convergence.
     horizontal_covariance_scale: 4.0 # Inflate horizontal covariance before handing it downstream.
     vertical_covariance_scale: 4.0   # Inflate vertical covariance before handing it downstream.
     use_hacc_vacc_covariance_floor: true  # Never report covariance below the receiver accuracy estimate.
