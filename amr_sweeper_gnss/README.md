@@ -4,35 +4,21 @@
 ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py
 ```
 
-## Overview
-`amr_sweeper_gnss` is the AMR Sweeper wrapper package for the upstream
-`ublox_dgnss` rover stack plus an AMR-local NTRIP ROS 2 node in C++. It keeps
-the workspace-specific launch entrypoint, namespace defaults, and NTRIP
-YAML config, while the GNSS receiver implementation comes from the
-dependency packages:
+Dependencies to other AMR Sweeper packages:
+- None
 
-- `ublox_dgnss`
-- `ublox_dgnss_node`
-- `ublox_nav_sat_fix_hp_node`
-- `amr_sweeper_gnss` local `ntrip_client`
-
-## External Dependencies
-- `ublox_dgnss`: vendored in this workspace under `src/dependencies/ublox_dgnss`
-  GitHub: `https://github.com/aussierobots/ublox_dgnss`
-- `rtcm_msgs`: installed from the ROS Jazzy packages and used by both the
-  NTRIP client and the u-blox driver
-
-Example install:
-
-```bash
-git clone https://github.com/aussierobots/ublox_dgnss
-sudo apt install ros-jazzy-rtcm-msgs
-```
+## Purpose
+This package wraps the AMR Sweeper GNSS stack around the upstream `ublox_dgnss` rover components plus the local C++ NTRIP client node.
 
 ## Main Launch File
 `launch/amr_sweeper_gnss.launch.py`
 
-### Launch Arguments
+## Available Launch Files
+- `amr_sweeper_gnss.launch.py`
+- `ntrip_client.launch.py`
+- `ublox_dgnss.launch.py`
+
+## Launch Arguments
 - `use_ublox_dgnss_node`: default `true`
 - `use_ublox_nav_sat_fix_hp`: default `true`
 - `use_ntrip_client`: default `true`
@@ -47,13 +33,23 @@ sudo apt install ros-jazzy-rtcm-msgs
 - `log_level`: default `INFO`
 - `ublox_log_level`: default `WARN`
 
-This launch starts the standard AMR Sweeper GNSS stack:
-- Upstream `ublox_dgnss_node` for the u-blox receiver connection and UBX topic publishing
-- Upstream `ublox_nav_sat_fix_hp_node` for converting high-precision u-blox outputs into the `navsat` topic
-- Optional AMR-local `ntrip_client` node when `use_ntrip_client:=true`
-  for RTCM correction streaming from an NTRIP caster
+## Overview
+`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the upstream `ublox_dgnss_node` receiver component, the upstream `ublox_nav_sat_fix_hp_node` NavSat conversion component, and the optional local `ntrip_client` node for RTCM correction streaming.
 
-### Notes
+## External Dependencies
+- `ublox_dgnss`: vendored in this workspace under `src/dependencies/ublox_dgnss`
+  GitHub: `https://github.com/aussierobots/ublox_dgnss`
+- `rtcm_msgs`: installed from the ROS Jazzy packages and used by both the
+  NTRIP client and the u-blox driver
+
+Example install:
+
+```bash
+git clone https://github.com/aussierobots/ublox_dgnss
+sudo apt install ros-jazzy-rtcm-msgs
+```
+
+## Notes
 - This package is normally launched through layer 1 bringup rather than by itself.
 - Layer 3 localization depends on the GNSS topics produced by this package.
 - No GNSS driver source code or custom UBX messages are implemented in this package anymore.
@@ -68,18 +64,11 @@ This launch starts the standard AMR Sweeper GNSS stack:
   node subscribes to the configured `fix_topic` with best-effort QoS and sends
   GGA messages to the caster. The default `fix_topic` is `navsat`, and the
   default `use_nmea_to_caster` value is `true`.
+- `ntrip_client.launch.py` starts only the NTRIP client node for RTCM correction streaming.
+- `ublox_dgnss.launch.py` starts the rover driver plus NavSat conversion without the package-level GNSS wrapper.
+- The package keeps only the AMR-specific launch entrypoints used by this workspace. For moving-base, ECEF, or satellite-diagnostic variants, launch the upstream `ublox_dgnss` package directly.
 
-## Package Launch Options
-- `ntrip_client.launch.py`: starts only the NTRIP client node for RTCM
-  correction streaming
-- `ublox_dgnss.launch.py`: starts the rover driver plus NavSat conversion without the package-level GNSS wrapper
-
-The package keeps only the AMR-specific launch entrypoints used by this workspace.
-For moving-base, ECEF, or satellite-diagnostic variants, launch the upstream
-`ublox_dgnss` package directly.
-
-
-## NTRIP Caster Configuration
+## Configuration Files
 The NTRIP client launch supports a YAML parameter file for caster details.
 
 Installed default config:
