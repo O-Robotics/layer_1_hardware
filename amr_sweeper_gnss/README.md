@@ -108,14 +108,12 @@ Useful u-blox parameters in `config/ublox_dgnss.yaml`:
 - published UBX message rates
 - NavSatFix quality thresholds and QoS overrides for `ublox_nav_sat_fix_hp`
 
-Example standalone NTRIP launch with optional caster GGA uplink:
+Example standalone NTRIP launch:
 
 ```bash
 ros2 launch amr_sweeper_gnss ntrip_client.launch.py \
   gnss_namespace:=amr_sweeper/gnss \
-  params_file:=$(realpath config/ntrip_client.yaml) \
-  fix_topic:=navsat \
-  use_nmea_to_caster:=true
+  params_file:=$(realpath src/layer_1_hardware/amr_sweeper_gnss/config/ntrip_client.yaml) 
 ```
 
 Useful NTRIP parameters in `config/ntrip_client.yaml`:
