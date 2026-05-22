@@ -41,6 +41,9 @@ private:
   bool looks_like_sourcetable(
     const std::string & header,
     const std::vector<std::uint8_t> & payload) const;
+  bool is_chunked_transfer(const std::string & header) const;
+  std::vector<std::uint8_t> decode_transport_bytes(const std::vector<std::uint8_t> & chunk);
+  std::vector<std::uint8_t> decode_chunked_transport_bytes(const std::vector<std::uint8_t> & chunk);
   bool wait_for_latest_fix_before_connect();
   void handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
   bool send_latest_gga_to_caster();
@@ -105,6 +108,10 @@ private:
   std::atomic<bool> stream_ready_{false};
   std::thread worker_thread_;
   std::vector<std::uint8_t> parser_buffer_;
+  bool use_chunked_transfer_{false};
+  std::vector<std::uint8_t> transport_decode_buffer_;
+  std::size_t current_chunk_bytes_remaining_{0};
+  bool chunked_stream_finished_{false};
   std::optional<std::chrono::steady_clock::time_point> last_valid_rtcm_time_;
   std::optional<std::chrono::steady_clock::time_point> connected_at_;
   int connection_issue_count_{0};

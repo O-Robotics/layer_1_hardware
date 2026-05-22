@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -289,6 +290,10 @@ void NtripClientNode::connect_and_stream()
   }
 
   parser_buffer_.clear();
+  transport_decode_buffer_.clear();
+  use_chunked_transfer_ = is_chunked_transfer(header);
+  current_chunk_bytes_remaining_ = 0;
+  chunked_stream_finished_ = false;
   last_valid_rtcm_time_.reset();
   connected_at_ = std::chrono::steady_clock::now();
   stream_ready_.store(true);
@@ -306,7 +311,7 @@ void NtripClientNode::connect_and_stream()
   }
 
   if (!payload.empty()) {
-    handle_rtcm_bytes(payload);
+    handle_rtcm_bytes(decode_transport_bytes(payload));
   }
 
   while (!stop_requested_.load()) {
@@ -328,7 +333,7 @@ void NtripClientNode::connect_and_stream()
 
     std::vector<std::uint8_t> chunk(
       chunk_buffer.begin(), chunk_buffer.begin() + bytes_read);
-    handle_rtcm_bytes(chunk);
+    handle_rtcm_bytes(decode_transport_bytes(chunk));
   }
 }
 
@@ -610,6 +615,107 @@ bool NtripClientNode::looks_like_sourcetable(
   std::string payload_text(payload.begin(), payload.end());
   return payload_text.find("SOURCETABLE") != std::string::npos ||
          payload_text.find("STR;") != std::string::npos;
+}
+
+bool NtripClientNode::is_chunked_transfer(const std::string & header) const
+{
+  auto lower_header = header;
+  std::transform(lower_header.begin(), lower_header.end(), lower_header.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return lower_header.find("transfer-encoding: chunked") != std::string::npos;
+}
+
+std::vector<std::uint8_t> NtripClientNode::decode_transport_bytes(const std::vector<std::uint8_t> & chunk)
+{
+  if (!use_chunked_transfer_) {
+    return chunk;
+  }
+  return decode_chunked_transport_bytes(chunk);
+}
+
+std::vector<std::uint8_t> NtripClientNode::decode_chunked_transport_bytes(
+  const std::vector<std::uint8_t> & chunk)
+{
+  if (chunked_stream_finished_) {
+    return {};
+  }
+
+  transport_decode_buffer_.insert(
+    transport_decode_buffer_.end(), chunk.begin(), chunk.end());
+
+  std::vector<std::uint8_t> decoded;
+  while (true) {
+    if (current_chunk_bytes_remaining_ == 0U) {
+      static constexpr std::array<std::uint8_t, 2> marker{{'\r', '\n'}};
+      auto marker_it = std::search(
+        transport_decode_buffer_.begin(),
+        transport_decode_buffer_.end(),
+        marker.begin(),
+        marker.end());
+      if (marker_it == transport_decode_buffer_.end()) {
+        break;
+      }
+
+      std::string chunk_size_text(transport_decode_buffer_.begin(), marker_it);
+      const auto extension_pos = chunk_size_text.find(';');
+      if (extension_pos != std::string::npos) {
+        chunk_size_text = chunk_size_text.substr(0, extension_pos);
+      }
+
+      unsigned long chunk_size = 0;
+      const auto parse_result = std::from_chars(
+        chunk_size_text.data(),
+        chunk_size_text.data() + chunk_size_text.size(),
+        chunk_size,
+        16);
+      if (parse_result.ec != std::errc{}) {
+        report_bad_rtcm_issue("Discarding malformed HTTP chunk header in NTRIP stream");
+        transport_decode_buffer_.clear();
+        break;
+      }
+
+      transport_decode_buffer_.erase(
+        transport_decode_buffer_.begin(),
+        marker_it + static_cast<std::ptrdiff_t>(marker.size()));
+
+      current_chunk_bytes_remaining_ = static_cast<std::size_t>(chunk_size);
+      if (current_chunk_bytes_remaining_ == 0U) {
+        chunked_stream_finished_ = true;
+        transport_decode_buffer_.clear();
+        break;
+      }
+    }
+
+    if (transport_decode_buffer_.size() < current_chunk_bytes_remaining_ + 2U) {
+      break;
+    }
+
+    decoded.insert(
+      decoded.end(),
+      transport_decode_buffer_.begin(),
+      transport_decode_buffer_.begin() +
+      static_cast<std::ptrdiff_t>(current_chunk_bytes_remaining_));
+
+    const std::size_t trailer_index = current_chunk_bytes_remaining_;
+    if (
+      transport_decode_buffer_[trailer_index] != '\r' ||
+      transport_decode_buffer_[trailer_index + 1U] != '\n')
+    {
+      report_bad_rtcm_issue("Discarding malformed HTTP chunk trailer in NTRIP stream");
+      transport_decode_buffer_.clear();
+      current_chunk_bytes_remaining_ = 0U;
+      break;
+    }
+
+    transport_decode_buffer_.erase(
+      transport_decode_buffer_.begin(),
+      transport_decode_buffer_.begin() +
+      static_cast<std::ptrdiff_t>(current_chunk_bytes_remaining_ + 2U));
+    current_chunk_bytes_remaining_ = 0U;
+  }
+
+  return decoded;
 }
 
 void NtripClientNode::handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg)
