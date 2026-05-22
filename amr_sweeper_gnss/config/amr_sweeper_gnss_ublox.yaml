@@ -1,4 +1,4 @@
-amr_sweeper_gnss_ublox_node:
+/**:
   ros__parameters:
     # -- Device connection ----------------------------------------------------
     device_path: /dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00  # Stable by-id path for the rover receiver on the robot.
