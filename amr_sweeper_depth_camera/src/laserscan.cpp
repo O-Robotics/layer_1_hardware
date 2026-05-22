@@ -104,8 +104,8 @@ sensor_msgs::msg::LaserScan::UniquePtr LaserScanNode::convertMsg(
   scan_msg->scan_time = scan_time_;
   scan_msg->range_min = range_min_;
   scan_msg->range_max = range_max_;
-  // Use +inf for empty bins so visualization tools treat them as "no return"
-  // instead of flagging the scan as invalid due to NaN-filled ranges.
+  // Use +inf for empty bins to represent "no return within range". Nav2 can
+  // raytrace these correctly when obstacle_layer.<source>.inf_is_valid is true.
   scan_msg->ranges.assign(depth_msg->width, std::numeric_limits<float>::infinity());
 
   const double tilt_angle_rad = scan_tilt_angle_deg_ * M_PI / 180.0;
