@@ -37,8 +37,6 @@
  
     # -- Software mounting correcti on ------------------------------------------
     yaw_offset_deg:                 180.0         # Extra yaw rotation applied before publishing orientation, gyro, and accel outputs.
-    invert_roll:                    true          # Negate the published roll axis and matching X-axis gyro/accel outputs.
-    invert_pitch:                   true          # Negate the published pitch axis and matching Y-axis gyro/accel outputs.
 
     # -- Output covariances ----------------------------------------------------
     orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.01]    # Row-major 3x3 covariance for the driver-provided orientation.

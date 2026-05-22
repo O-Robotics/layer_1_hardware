@@ -155,8 +155,6 @@ JY901ImuNode::JY901ImuNode()
   output_quaternion_ = declare_parameter<bool>("output_quaternion", false);
   output_satellite_accuracy_ = declare_parameter<bool>("output_satellite_accuracy", false);
   yaw_offset_deg_ = declare_parameter<double>("yaw_offset_deg", 0.0);
-  invert_roll_ = declare_parameter<bool>("invert_roll", false);
-  invert_pitch_ = declare_parameter<bool>("invert_pitch", false);
   orientation_covariance_ = declare_parameter<std::vector<double>>(
     "orientation_covariance",
     std::vector<double>{0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.05});
@@ -696,12 +694,6 @@ sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & s
   }
 
   if (orientation_valid) {
-    if (invert_roll_) {
-      roll = -roll;
-    }
-    if (invert_pitch_) {
-      pitch = -pitch;
-    }
     yaw += yaw_offset_rad_;
 
     rpy_to_quaternion(
@@ -718,8 +710,8 @@ sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & s
     msg.orientation_covariance[0] = -1.0;
   }
 
-  msg.angular_velocity.x = invert_roll_ ? -gyro_[0] : gyro_[0];
-  msg.angular_velocity.y = invert_pitch_ ? -gyro_[1] : gyro_[1];
+  msg.angular_velocity.x = gyro_[0];
+  msg.angular_velocity.y = gyro_[1];
   msg.angular_velocity.z = gyro_[2];
   rotate_xy(yaw_offset_rad_, msg.angular_velocity.x, msg.angular_velocity.y);
   std::copy(
@@ -727,8 +719,8 @@ sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & s
     angular_velocity_covariance_.end(),
     msg.angular_velocity_covariance.begin());
 
-  msg.linear_acceleration.x = invert_roll_ ? -accel_[0] : accel_[0];
-  msg.linear_acceleration.y = invert_pitch_ ? -accel_[1] : accel_[1];
+  msg.linear_acceleration.x = accel_[0];
+  msg.linear_acceleration.y = accel_[1];
   msg.linear_acceleration.z = accel_[2];
   rotate_xy(yaw_offset_rad_, msg.linear_acceleration.x, msg.linear_acceleration.y);
   std::copy(
