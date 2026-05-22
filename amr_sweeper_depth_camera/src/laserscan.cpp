@@ -1,6 +1,6 @@
 // Copyright (c) 2026 O-Robotics
 
-#include "amr_sweeper_depth_camera/laserscan.hpp"
+#include "laserscan.hpp"
 
 #include <algorithm>
 #include <cmath>

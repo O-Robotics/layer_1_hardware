@@ -91,7 +91,12 @@ private:
           range = std::sqrt((x * x) + (z * z));
         }
 
-        if (usePoint(range, scan_msg->ranges[static_cast<size_t>(index)], scan_msg->range_min, scan_msg->range_max)) {
+        if (usePoint(
+            range,
+            scan_msg->ranges[static_cast<size_t>(index)],
+            scan_msg->range_min,
+            scan_msg->range_max))
+        {
           scan_msg->ranges[static_cast<size_t>(index)] = static_cast<float>(range);
         }
       }
