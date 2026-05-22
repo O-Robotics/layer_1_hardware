@@ -18,7 +18,7 @@
 
     # -- Depth stream ---------------------------------------------------------
     enable_depth:              true
-    depth_module.depth_profile: 640x360x15  # Requested D555 depth profile for depthimage_to_laserscan.
+    depth_module.depth_profile: 640x360x15  # Requested D555 depth profile for laserscan conversion.
     depth_module.depth_format: Z16
     depth_module.enable_auto_exposure: true
 
@@ -43,7 +43,7 @@
 
     # -- Processing -----------------------------------------------------------
     enable_sync:               true          # Time-synchronize depth and color streams inside the driver.
-    align_depth.enable:        false         # Keep raw depth as the source for depthimage_to_laserscan.
+    align_depth.enable:        false         # Keep raw depth as the source for laserscan conversion.
     pointcloud.enable:         false         # The sweeper stack currently consumes LaserScan rather than PointCloud2.
     colorizer.enable:          false
     decimation_filter.enable:  false
