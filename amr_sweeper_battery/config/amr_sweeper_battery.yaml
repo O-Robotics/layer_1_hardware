@@ -1,0 +1,7 @@
+/**:
+  ros__parameters:
+    can_interface: can0    # SocketCAN interface that carries Daly BMS frames.
+    timer_period: 15.0     # Polling period in seconds for periodic BMS requests and status publication.
+    priority: 24           # 29-bit CAN arbitration priority byte used for PC-to-BMS requests.
+    bms_address: 1         # Daly BMS node address byte used in request IDs.
+    pc_address: 64         # Host/controller node address byte used in request IDs.

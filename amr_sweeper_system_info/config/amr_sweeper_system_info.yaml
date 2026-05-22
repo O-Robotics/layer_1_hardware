@@ -1,0 +1,10 @@
+/**:
+  ros__parameters:
+    publish_period_sec: 15.0    # Polling period in seconds for the system snapshot message.
+    monitored_files:
+      - /opt/robot_config/robot_config.global.env
+      - /opt/robot_config/monitoring/temperature.txt
+      - /opt/robot_config/monitoring/cpu.txt
+      - /opt/robot_config/monitoring/memory.txt
+      - /opt/robot_config/monitoring/disk.txt
+      - /opt/robot_config/monitoring/network.txt

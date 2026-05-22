@@ -23,8 +23,8 @@ This package wraps the AMR Sweeper GNSS stack around the upstream `ublox_dgnss` 
 - `use_ublox_nav_sat_fix_hp`: default `true`
 - `use_ntrip_client`: default `true`
 - `use_nmea_to_caster`: default `true`
-- `ublox_params_file`: default `config/ublox_dgnss.yaml`
-- `ntrip_params_file`: default `config/ntrip_client.yaml`
+- `ublox_params_file`: default `config/amr_sweeper_gnss_ublox_dgnss.yaml`
+- `ntrip_params_file`: default `config/amr_sweeper_gnss_ntrip_client.yaml`
 - `fix_topic`: default `navsat`
 - `gnss_namespace`: default `amr_sweeper/gnss`
 - `gnss_frame_id`: default `gnss_link`
@@ -72,12 +72,12 @@ sudo apt install ros-jazzy-rtcm-msgs
 The NTRIP client launch supports a YAML parameter file for caster details.
 
 Installed default config:
-- `share/amr_sweeper_gnss/config/ublox_dgnss.yaml`
-- `share/amr_sweeper_gnss/config/ntrip_client.yaml`
+- `share/amr_sweeper_gnss/config/amr_sweeper_gnss_ublox_dgnss.yaml`
+- `share/amr_sweeper_gnss/config/amr_sweeper_gnss_ntrip_client.yaml`
 
 Source config in the repo:
-- `config/ublox_dgnss.yaml`
-- `config/ntrip_client.yaml`
+- `config/amr_sweeper_gnss_ublox_dgnss.yaml`
+- `config/amr_sweeper_gnss_ntrip_client.yaml`
 
 Example standalone launch:
 
@@ -86,11 +86,11 @@ ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py \
   gnss_namespace:=amr_sweeper/gnss \
   use_nmea_to_caster:=true \
   fix_topic:=navsat \
-  ublox_params_file:=$(realpath config/ublox_dgnss.yaml) \
-  ntrip_params_file:=$(realpath config/ntrip_client.yaml)
+  ublox_params_file:=$(realpath config/amr_sweeper_gnss_ublox_dgnss.yaml) \
+  ntrip_params_file:=$(realpath config/amr_sweeper_gnss_ntrip_client.yaml)
 ```
 
-Useful u-blox parameters in `config/ublox_dgnss.yaml`:
+Useful u-blox parameters in `config/amr_sweeper_gnss_ublox_dgnss.yaml`:
 - receiver protocol enablement for USB RTCM/NMEA
 - measurement and navigation rates
 - enabled GNSS constellations and signals
@@ -102,12 +102,12 @@ Example standalone NTRIP launch:
 ```bash
 ros2 launch amr_sweeper_gnss ntrip_client.launch.py \
   gnss_namespace:=amr_sweeper/gnss \
-  params_file:=$(realpath config/ntrip_client.yaml) \
+  params_file:=$(realpath config/amr_sweeper_gnss_ntrip_client.yaml) \
   fix_topic:=navsat \
   use_nmea_to_caster:=true
 ```
 
-Useful NTRIP parameters in `config/ntrip_client.yaml`:
+Useful NTRIP parameters in `config/amr_sweeper_gnss_ntrip_client.yaml`:
 - `alternate_mountpoint`: optional backup mountpoint the node will try after a failed connection or dropped RTCM stream
 - `mountpoint_failover_threshold`: number of consecutive failures on the active mountpoint before the node switches to the backup mountpoint
 - `startup_retry_seconds`: wait time before retrying node startup after a startup/config failure

@@ -44,6 +44,8 @@ def generate_launch_description():
     use_amr_sweeper_gnss = LaunchConfiguration("use_amr_sweeper_gnss")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
     battery_can_interface = LaunchConfiguration("battery_can_interface")
+    battery_params_file = LaunchConfiguration("battery_params_file")
+    system_info_params_file = LaunchConfiguration("system_info_params_file")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
     imu_params_file = LaunchConfiguration("imu_params_file")
@@ -82,6 +84,16 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
+    ld.add_action(DeclareLaunchArgument("battery_params_file", default_value=PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_battery"),
+        "config",
+        "amr_sweeper_battery.yaml",
+    ])))
+    ld.add_action(DeclareLaunchArgument("system_info_params_file", default_value=PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_system_info"),
+        "config",
+        "amr_sweeper_system_info.yaml",
+    ])))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
     ld.add_action(DeclareLaunchArgument("imu_params_file", default_value=PathJoinSubstitution([
@@ -93,7 +105,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("ntrip_params_file", default_value=PathJoinSubstitution([
         FindPackageShare("amr_sweeper_gnss"),
         "config",
-        "ntrip_client.yaml",
+        "amr_sweeper_gnss_ntrip_client.yaml",
     ])))
     ld.add_action(DeclareLaunchArgument("ros2_control_config_file", default_value=PathJoinSubstitution([
         FindPackageShare("amr_sweeper_description"),
@@ -130,9 +142,12 @@ def generate_launch_description():
         name="amr_sweeper_battery_node",
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],
-        parameters=[{
-            "can_interface": battery_can_interface,
-        }],
+        parameters=[
+            battery_params_file,
+            {
+                "can_interface": battery_can_interface,
+            },
+        ],
         condition=IfCondition(use_amr_sweeper_battery),
     ))
 
@@ -143,6 +158,7 @@ def generate_launch_description():
         name="amr_sweeper_system_info_node",
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],
+        parameters=[system_info_params_file],
         condition=IfCondition(use_amr_sweeper_system_info),
     ))
 

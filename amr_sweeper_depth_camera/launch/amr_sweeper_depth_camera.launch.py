@@ -161,12 +161,12 @@ def generate_launch_description():
     default_realsense_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
-        "realsense-ros.yaml",
+        "amr_sweeper_depth_camera_realsense.yaml",
     ])
     default_laserscan_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
-        "laserscan.yaml",
+        "amr_sweeper_depth_camera_laserscan_node.yaml",
     ])
 
     return LaunchDescription([

@@ -7,31 +7,24 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
-    can_interface = LaunchConfiguration("can_interface")
     params_file = LaunchConfiguration("params_file")
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper"),
-        DeclareLaunchArgument("can_interface", default_value="can0"),
         DeclareLaunchArgument(
             "params_file",
             default_value=PathJoinSubstitution([
-                FindPackageShare("amr_sweeper_battery"),
+                FindPackageShare("amr_sweeper_system_info"),
                 "config",
-                "amr_sweeper_battery.yaml",
+                "amr_sweeper_system_info.yaml",
             ]),
         ),
         Node(
-            package="amr_sweeper_battery",
-            executable="amr_sweeper_battery_node",
+            package="amr_sweeper_system_info",
+            executable="amr_sweeper_system_info_node",
             namespace=namespace,
-            name="amr_sweeper_battery_node",
+            name="amr_sweeper_system_info_node",
             output="screen",
-            parameters=[
-                params_file,
-                {
-                    "can_interface": can_interface,
-                },
-            ],
+            parameters=[params_file],
         ),
     ])

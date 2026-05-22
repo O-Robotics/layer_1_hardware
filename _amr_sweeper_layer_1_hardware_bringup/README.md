@@ -39,11 +39,13 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `use_amr_sweeper_gnss`: default `true`
 - `use_ntrip_client`: default `true`
 - `battery_can_interface`: default `can0`
+- `battery_params_file`: default `amr_sweeper_battery/config/amr_sweeper_battery.yaml`
+- `system_info_params_file`: default `amr_sweeper_system_info/config/amr_sweeper_system_info.yaml`
 - `imu_port`: default `/dev/imu_usb`
 - `imu_baud`: default `9600`
 - `imu_params_file`: default `amr_sweeper_imu/config/amr_sweeper_imu.yaml`
 - `gnss_frame_id`: default `gnss_link`
-- `ntrip_params_file`: default `amr_sweeper_gnss/config/ntrip_client.yaml`
+- `ntrip_params_file`: default `amr_sweeper_gnss/config/amr_sweeper_gnss_ntrip_client.yaml`
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
@@ -57,6 +59,7 @@ The main bringup launch starts the core hardware stack under the default robot r
 - The ros2_control controller spawners load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml` with `--param-file`.
 - The `namespace` argument becomes the robot root, while package-owned sensor namespaces are nested below it, such as `imu`, `gnss`, `usb_cameras`, and `depth_camera`.
 - The depth camera bringup passes `namespace:=/amr_sweeper/depth_camera` into the package launch, and that launch derives the RealSense node placement so the driver topics stay flattened under `/amr_sweeper/depth_camera/...`.
+- The battery and system-info nodes load defaults from `config/amr_sweeper_battery.yaml` and `config/amr_sweeper_system_info.yaml` before any bringup-level overrides are applied.
 - The IMU bringup loads defaults from `amr_sweeper_imu/config/amr_sweeper_imu.yaml`, and `imu_params_file` can swap that file without changing the package launch file.
 - When `use_amr_sweeper_gnss:=true` and `use_ntrip_client:=true`, the GNSS wrapper launches the package-local
   NTRIP node under `/amr_sweeper/gnss` and keeps RTCM on

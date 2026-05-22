@@ -80,7 +80,7 @@ def generate_launch_description():
             default_value=PathJoinSubstitution([
                 FindPackageShare("amr_sweeper_gnss"),
                 "config",
-                "ntrip_client.yaml",
+                "amr_sweeper_gnss_ntrip_client.yaml",
             ]),
         ),
         DeclareLaunchArgument(
@@ -88,7 +88,7 @@ def generate_launch_description():
             default_value=PathJoinSubstitution([
                 FindPackageShare("amr_sweeper_gnss"),
                 "config",
-                "ublox_dgnss.yaml",
+                "amr_sweeper_gnss_ublox_dgnss.yaml",
             ]),
         ),
         IncludeLaunchDescription(

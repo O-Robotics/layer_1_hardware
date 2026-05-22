@@ -18,7 +18,7 @@ find_package(yaml-cpp REQUIRED)
 add_library(
   odrive_ros2_control_plugin
   SHARED
-  src/odrive_hardware_interface.cpp
+  src/amr_sweeper_odrive_hardware_interface.cpp
 )
 
 target_include_directories(

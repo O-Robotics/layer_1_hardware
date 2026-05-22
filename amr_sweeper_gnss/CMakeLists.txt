@@ -13,7 +13,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 add_executable(ntrip_client
-  src/ntrip_client.cpp
+  src/amr_sweeper_gnss_ntrip_client_node.cpp
 )
 
 target_compile_features(ntrip_client PUBLIC cxx_std_17)

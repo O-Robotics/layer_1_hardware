@@ -11,6 +11,8 @@ Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_description`
 - `amr_sweeper_gnss`
 - `amr_sweeper_imu`
+- `amr_sweeper_msgs/amr_sweeper_safety_msgs`
+- `amr_sweeper_msgs/amr_sweeper_system_info_msgs`
 - `amr_sweeper_odrive`
 - `amr_sweeper_steadydrive`
 - `amr_sweeper_system_info`

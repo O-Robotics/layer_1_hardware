@@ -131,7 +131,7 @@ def generate_launch_description():
         default_value=PathJoinSubstitution([
             FindPackageShare('amr_sweeper_gnss'),
             'config',
-            'ublox_dgnss.yaml',
+            'amr_sweeper_gnss_ublox_dgnss.yaml',
         ]),
         description='Parameter file for ublox_dgnss and ublox_nav_sat_fix_hp nodes',
     )

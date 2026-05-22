@@ -9,7 +9,7 @@ Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_system_info_msgs`
 
 ## Purpose
-This directory groups the AMR Sweeper system-information runtime package and its interface package.
+This directory groups the AMR Sweeper system-information runtime package together with its nested interface package under `amr_sweeper_msgs/`.
 
 ## Launch Arguments
 - `namespace`: default `amr_sweeper`
@@ -19,4 +19,4 @@ The runtime package `amr_sweeper_system_info` publishes the robot system state, 
 
 ## Notes
 - The actual runtime launch belongs to the package `amr_sweeper_system_info` under `system_info/`.
-- The message package under `system_info_msgs/` is required by the runtime node but does not launch a robot process itself.
+- The interface package now lives at `src/layer_1_hardware/amr_sweeper_msgs/amr_sweeper_system_info_msgs/`.

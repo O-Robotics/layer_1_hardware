@@ -25,7 +25,7 @@ def generate_launch_description():
         default_value=PathJoinSubstitution([
             FindPackageShare('amr_sweeper_gnss'),
             'config',
-            'ntrip_client.yaml',
+            'amr_sweeper_gnss_ntrip_client.yaml',
         ]),
     )
     gnss_namespace_arg = DeclareLaunchArgument(
