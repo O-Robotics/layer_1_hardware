@@ -3,11 +3,11 @@
     # -- Scan geometry --------------------------------------------------------
     output_frame:    depth_camera_link  # Publish the LaserScan in the camera body frame instead of the optical frame.
     scan_height:     5                  # Number of image rows sampled for each scan update.
-    scan_row_offset: 0                  # Vertical pixel offset from the optical center line; positive values move downward.
+    scan_row_offset: -25                # Vertical pixel offset from the optical center line; positive values move downward.
 
     # -- Range filtering ------------------------------------------------------
     range_min:       0.20               # Ignore returns closer than the camera's reliable near field.
-    range_max:       1.5                # Ignore returns beyond the useful obstacle-detection range.
+    range_max:       5.0                # Ignore returns beyond the useful obstacle-detection range.
 
     # -- Timing ---------------------------------------------------------------
     scan_time:       0.050              # Approximate scan period in seconds for a 20 Hz depth stream.

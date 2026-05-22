@@ -104,7 +104,9 @@ sensor_msgs::msg::LaserScan::UniquePtr LaserScanNode::convertMsg(
   scan_msg->scan_time = scan_time_;
   scan_msg->range_min = range_min_;
   scan_msg->range_max = range_max_;
-  scan_msg->ranges.assign(depth_msg->width, std::numeric_limits<float>::quiet_NaN());
+  // Use +inf for empty bins so visualization tools treat them as "no return"
+  // instead of flagging the scan as invalid due to NaN-filled ranges.
+  scan_msg->ranges.assign(depth_msg->width, std::numeric_limits<float>::infinity());
 
   const int center_row = static_cast<int>(std::lround(cam_model_.cy())) + scan_row_offset_;
   const int row_start = center_row - (scan_height_ / 2);
