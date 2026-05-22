@@ -1,7 +1,7 @@
 amr_sweeper_gnss_ublox_node:
   ros__parameters:
     # -- Device connection ----------------------------------------------------
-    device_path: /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0  # Stable by-id path for the rover receiver on the robot.
+    device_path: /dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00  # Stable by-id path for the rover receiver on the robot.
     baud_rate: 115200                # Serial line speed for the USB CDC device.
     frame_id: gnss_link              # Frame stamped on published NavSatFix messages.
     navsat_topic: navsat             # NavSatFix output topic inside the GNSS namespace.
