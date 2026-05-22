@@ -183,8 +183,7 @@ NtripClientNode::NtripClientNode()
   publisher_ = create_publisher<rtcm_msgs::msg::Message>("rtcm", 10);
 
   if (send_nmea_) {
-    rclcpp::QoS qos(rclcpp::KeepLast(10));
-    qos.reliable();
+    auto qos = rclcpp::SensorDataQoS();
     fix_subscription_ = create_subscription<sensor_msgs::msg::NavSatFix>(
       "fix",
       qos,
