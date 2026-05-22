@@ -7,9 +7,9 @@
 #    alternate_mountpoint:          SDS_RTK             # Backup mountpoint tried after repeated primary-stream failures. Default: empty string
 #    mountpoint_failover_threshold: 2                   # Consecutive failures on one mountpoint before switching to the alternate. Default: 2
 #    ntrip_version:                 Ntrip/2.0           # NTRIP version header sent in the request. Default: Ntrip/2.0
-#    authenticate:                  true                # Enable HTTP basic auth for the caster. Default: false
+#    authenticate:                  false               # Enable HTTP basic auth for the caster. Default: false
 #    username:                      info@o-robotics.com # No username for RTK2go. Default: empty string
-#    password:                      ""                  # No password for RTK2go. Default: empty string
+#    password:                      none                # No password for RTK2go. Default: empty string
 #    send_nmea:                     false               # Send GGA/NMEA uplink from the fix topic to the caster when enabled by launch. Default: false
 
     # -- NTRIP Caster - GPSnet -------------------------------------------------
@@ -26,9 +26,9 @@
 
     # -- TLS / SSL -------------------------------------------------------------
     ssl:                             false             # Enable TLS/SSL for the socket connection. Default: false
-    cert:                            None              # Optional client certificate path for SSL auth. Default: None
-    key:                             None              # Optional client private key path for SSL auth. Default: None
-    ca_cert:                         None              # Optional CA certificate bundle path for SSL verification. Default: None
+    cert:                            none              # Optional client certificate path for SSL auth. Default: None
+    key:                             none              # Optional client private key path for SSL auth. Default: None
+    ca_cert:                         none              # Optional CA certificate bundle path for SSL verification. Default: None
 
     # -- RTCM output -----------------------------------------------------------
     rtcm_frame_id:                   gnss_link         # Frame ID stamped on published RTCM messages. Default: gnss_link

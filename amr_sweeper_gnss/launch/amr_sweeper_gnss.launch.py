@@ -45,7 +45,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "use_nmea_to_caster",
-            default_value=TextSubstitution(text="false"),
+            default_value=TextSubstitution(text="true"),
         ),
         DeclareLaunchArgument(
             "fix_topic",

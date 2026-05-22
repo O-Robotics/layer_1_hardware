@@ -12,7 +12,7 @@ def generate_launch_description():
     """Generate launch description for the AMR-local NTRIP client node."""
 
     use_nmea_to_caster_arg = DeclareLaunchArgument(
-        'use_nmea_to_caster', default_value=TextSubstitution(text='false')
+        'use_nmea_to_caster', default_value=TextSubstitution(text='true')
     )
     fix_topic_arg = DeclareLaunchArgument(
         'fix_topic', default_value=TextSubstitution(text='navsat')

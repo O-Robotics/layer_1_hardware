@@ -42,6 +42,7 @@ private:
     const std::string & header,
     const std::vector<std::uint8_t> & payload) const;
   void handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+  bool send_latest_gga_to_caster();
   std::string build_gga_sentence(const sensor_msgs::msg::NavSatFix & fix) const;
   std::string build_request() const;
   std::pair<std::string, std::vector<std::uint8_t>> split_response(
@@ -91,6 +92,8 @@ private:
   rclcpp::Publisher<rtcm_msgs::msg::Message>::SharedPtr publisher_;
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr fix_subscription_;
 
+  mutable std::mutex latest_fix_mutex_;
+  std::optional<sensor_msgs::msg::NavSatFix> latest_fix_;
   mutable std::mutex socket_mutex_;
   int socket_fd_{-1};
   SSL_CTX * ssl_context_{nullptr};

@@ -36,7 +36,7 @@ sudo apt install ros-jazzy-rtcm-msgs
 - `use_ublox_dgnss_node`: default `true`
 - `use_ublox_nav_sat_fix_hp`: default `true`
 - `use_ntrip_client`: default `true`
-- `use_nmea_to_caster`: default `false`
+- `use_nmea_to_caster`: default `true`
 - `ublox_params_file`: default `config/ublox_dgnss.yaml`
 - `ntrip_params_file`: default `config/ntrip_client.yaml`
 - `fix_topic`: default `navsat`
@@ -67,7 +67,7 @@ This launch starts the standard AMR Sweeper GNSS stack:
 - When `use_nmea_to_caster:=true` in `ntrip_client.launch.py`, the local NTRIP
   node subscribes to the configured `fix_topic` with best-effort QoS and sends
   GGA messages to the caster. The default `fix_topic` is `navsat`, and the
-  default `use_nmea_to_caster` value is `false`.
+  default `use_nmea_to_caster` value is `true`.
 
 ## Package Launch Options
 - `ntrip_client.launch.py`: starts only the NTRIP client node for RTCM
@@ -116,6 +116,11 @@ ros2 launch amr_sweeper_gnss ntrip_client.launch.py \
   params_file:=$(realpath config/ntrip_client.yaml) \
   fix_topic:=navsat \
   use_nmea_to_caster:=true
+
+This standalone NTRIP launch still needs a live `NavSatFix` publisher on the
+selected `fix_topic`. For GPSnet/GEOnet-style VRS services, the caster may drop
+the session if no GGA arrives shortly after login or stops arriving during the
+stream.
 ```
 
 Useful NTRIP parameters in `config/ntrip_client.yaml`:

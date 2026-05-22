@@ -184,7 +184,7 @@ NtripClientNode::NtripClientNode()
 
   if (send_nmea_) {
     rclcpp::QoS qos(rclcpp::KeepLast(10));
-    qos.best_effort();
+    qos.reliable();
     fix_subscription_ = create_subscription<sensor_msgs::msg::NavSatFix>(
       "fix",
       qos,
@@ -288,7 +288,6 @@ void NtripClientNode::connect_and_stream()
   parser_buffer_.clear();
   last_valid_rtcm_time_.reset();
   connected_at_ = std::chrono::steady_clock::now();
-  current_mountpoint_failure_count_ = 0;
   stream_ready_.store(true);
   RCLCPP_INFO(
     get_logger(),
@@ -296,6 +295,12 @@ void NtripClientNode::connect_and_stream()
     host_.c_str(),
     port_,
     active_mountpoint().c_str());
+
+  if (send_nmea_ && !send_latest_gga_to_caster()) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Connected to caster without a cached NavSatFix yet; VRS/GGA uplink will start after the first fix message");
+  }
 
   if (!payload.empty()) {
     handle_rtcm_bytes(payload);
@@ -489,6 +494,7 @@ void NtripClientNode::handle_rtcm_bytes(const std::vector<std::uint8_t> & chunk)
     msg.message = *packet;
     publisher_->publish(msg);
     last_valid_rtcm_time_ = std::chrono::steady_clock::now();
+    current_mountpoint_failure_count_ = 0;
     reset_issue_counters();
   }
 }
@@ -580,23 +586,70 @@ bool NtripClientNode::looks_like_sourcetable(
 
 void NtripClientNode::handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr msg)
 {
+  {
+    std::lock_guard<std::mutex> lock(latest_fix_mutex_);
+    latest_fix_ = *msg;
+  }
+
+  RCLCPP_INFO_THROTTLE(
+    get_logger(),
+    *get_clock(),
+    10000,
+    "Received NavSatFix for NMEA uplink: lat=%.7f lon=%.7f alt=%.2f status=%d",
+    msg->latitude,
+    msg->longitude,
+    msg->altitude,
+    msg->status.status);
+
   if (!stream_ready_.load()) {
     return;
   }
 
-  const std::string sentence = build_gga_sentence(*msg);
+  send_latest_gga_to_caster();
+}
 
-  std::lock_guard<std::mutex> lock(socket_mutex_);
-  if (socket_fd_ < 0 || !stream_ready_.load()) {
-    return;
+bool NtripClientNode::send_latest_gga_to_caster()
+{
+  std::optional<sensor_msgs::msg::NavSatFix> latest_fix_copy;
+  {
+    std::lock_guard<std::mutex> lock(latest_fix_mutex_);
+    latest_fix_copy = latest_fix_;
   }
 
-  try {
-    send_bytes(reinterpret_cast<const std::uint8_t *>(sentence.data()), sentence.size());
-  } catch (const std::exception & exc) {
-    RCLCPP_WARN(get_logger(), "Unable to send NMEA sentence to server: %s", exc.what());
+  if (!latest_fix_copy.has_value()) {
+    return false;
+  }
+
+  const std::string sentence = build_gga_sentence(*latest_fix_copy);
+  std::string send_error;
+
+  {
+    std::lock_guard<std::mutex> lock(socket_mutex_);
+    if (socket_fd_ < 0 || !stream_ready_.load()) {
+      return false;
+    }
+
+    try {
+      send_bytes(reinterpret_cast<const std::uint8_t *>(sentence.data()), sentence.size());
+    } catch (const std::exception & exc) {
+      send_error = exc.what();
+    }
+  }
+
+  if (!send_error.empty()) {
+    RCLCPP_WARN(get_logger(), "Unable to send NMEA sentence to server: %s", send_error.c_str());
     close_socket();
+    return false;
   }
+
+  RCLCPP_INFO_THROTTLE(
+    get_logger(),
+    *get_clock(),
+    10000,
+    "Sent GGA uplink to caster: %s",
+    sentence.c_str());
+
+  return true;
 }
 
 std::string NtripClientNode::build_gga_sentence(const sensor_msgs::msg::NavSatFix & fix) const
@@ -645,11 +698,14 @@ std::string NtripClientNode::build_gga_sentence(const sensor_msgs::msg::NavSatFi
 std::string NtripClientNode::build_request() const
 {
   std::ostringstream request;
-  request << "GET /" << active_mountpoint() << " HTTP/1.0\r\n";
+  request << "GET /" << active_mountpoint() << " HTTP/1.1\r\n";
+  request << "Host: " << host_ << ":" << port_ << "\r\n";
   if (!ntrip_version_.empty() && ntrip_version_ != "None") {
     request << "Ntrip-Version: " << ntrip_version_ << "\r\n";
   }
   request << "User-Agent: NTRIP amr_sweeper_gnss\r\n";
+  request << "Accept: */*\r\n";
+  request << "Connection: close\r\n";
   if (authenticate_) {
     const std::string credentials = username_ + ":" + password_;
     const int encoded_length = 4 * ((credentials.size() + 2) / 3);
