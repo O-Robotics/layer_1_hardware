@@ -80,6 +80,26 @@ YAML::Node load_hardware_config(const std::string & package_name, const std::str
     if (!root || !root.IsMap()) {
       throw std::runtime_error("config root must be a YAML map");
     }
+
+    if (root["/**"] && root["/**"].IsMap() &&
+      root["/**"]["ros__parameters"] && root["/**"]["ros__parameters"].IsMap())
+    {
+      return root["/**"]["ros__parameters"];
+    }
+
+    if (root["ros__parameters"] && root["ros__parameters"].IsMap()) {
+      return root["ros__parameters"];
+    }
+
+    if (root.size() == 1) {
+      const YAML::Node nested_root = root.begin()->second;
+      if (nested_root && nested_root.IsMap() &&
+        nested_root["ros__parameters"] && nested_root["ros__parameters"].IsMap())
+      {
+        return nested_root["ros__parameters"];
+      }
+    }
+
     return root;
   } catch (const YAML::ParserException & error) {
     throw std::runtime_error("Failed to parse YAML in " + config_path + ": " + error.what());
@@ -97,6 +117,22 @@ std::string load_required_string(
     throw std::runtime_error(config_label + " is missing required key '" + key + "'");
   }
   return root[key].as<std::string>();
+}
+
+std::string load_required_string_with_alias(
+  const YAML::Node & root, const std::string & key, const std::string & alias,
+  const std::string & config_label)
+{
+  if (root[key]) {
+    return root[key].as<std::string>();
+  }
+  if (root[alias]) {
+    return root[alias].as<std::string>();
+  }
+
+  throw std::runtime_error(
+          config_label + " is missing required key '" + key + "'"
+          " (legacy alias '" + alias + "' is also absent)");
 }
 
 double load_required_positive_double(
@@ -162,10 +198,12 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
     can_interface_ = load_required_string(
       hardware_config, "can_interface", "amr_sweeper_steadydrive.yaml");
     const std::array<std::string, 2> config_directions = {
-      load_required_string(
-        hardware_config, "left_positive_motor_direction", "amr_sweeper_steadydrive.yaml"),
-      load_required_string(
-        hardware_config, "right_positive_motor_direction", "amr_sweeper_steadydrive.yaml"),
+      load_required_string_with_alias(
+        hardware_config, "left_motor_positive_direction", "left_positive_motor_direction",
+        "amr_sweeper_steadydrive.yaml"),
+      load_required_string_with_alias(
+        hardware_config, "right_motor_positive_direction", "right_positive_motor_direction",
+        "amr_sweeper_steadydrive.yaml"),
     };
     const std::array<std::string, 2> config_can_ids = {
       load_required_string(

@@ -1,6 +1,46 @@
-can_interface:                  can0   # SocketCAN interface used by the Steadydrive tool motors. Default: can0
-left_motor_id:                  0x141  # CAN ID for the left Steadydrive motor. Default: 0x141
-right_motor_id:                 0x142  # CAN ID for the right Steadydrive motor. Default: 0x142
-left_positive_motor_direction:  CCW    # Positive motor rotation direction for the left brush joint. Default: CCW
-right_positive_motor_direction: CW     # Positive motor rotation direction for the right brush joint. Default: CW
-gear_ratio:                     10.0   # Shared gearbox ratio from brush joint to motor shaft. Default: 10.0
+/**:
+  ros__parameters:
+    # -- Motor interface -------------------------------------------------------
+    can_interface:                    can0     # SocketCAN interface used by the Steadydrive tool motors.
+    left_motor_id:                    "0x141"  # CAN ID for the left Steadydrive motor.
+    right_motor_id:                   "0x142"  # CAN ID for the right Steadydrive motor.
+    left_motor_positive_direction:    CCW      # Positive motor rotation direction for the left brush joint.
+    right_motor_positive_direction:   CW       # Positive motor rotation direction for the right brush joint.
+    gear_ratio:                       10.0     # Shared gearbox ratio from brush joint to motor shaft.
+
+    # -- Protection configuration ----------------------------------------------
+    protection:
+      enabled:                        false    # Master enable for software motor protection and fault latching.
+      clear_faults_on_activate:       true     # Clears latched faults when the hardware interface is activated.
+      latch_faults:                   true     # Keeps a tripped protection active until an explicit recovery step.
+      startup_ignore_ms:              500      # Grace period before protection checks begin after startup.
+      command_deadband_for_checks:    0.0      # Optional minimum commanded speed before motion-based checks apply.
+
+      defaults:
+        over_torque:
+          enabled:                    false    # Uses iq/torque current as a proxy until calibrated torque is available.
+          threshold:                  3.0      # Default Steadydrive torque-proxy threshold.
+          units:                      "A"      # Steadydrive torque proxy units; update if calibrated Nm is added.
+          trip_duration_ms:           100      # Time above threshold required before latching.
+        over_speed:
+          enabled:                    false    # Uses Steadydrive speed feedback when protection support is implemented.
+          threshold:                  20.0     # Default brush speed threshold.
+          units:                      "rad/s"  # Speed units for Steadydrive protection thresholds.
+          trip_duration_ms:           100      # Time above threshold required before latching.
+        over_temperature:
+          enabled:                    false    # Uses Steadydrive temperature telemetry when protection support is implemented.
+          threshold:                  80.0     # Default motor temperature threshold.
+          units:                      "degC"   # Temperature units for Steadydrive protection thresholds.
+          trip_duration_ms:           500      # Longer debounce for temperature faults.
+        over_current:
+          enabled:                    false    # Uses iq/current telemetry when protection support is implemented.
+          threshold:                  5.0      # Default current threshold.
+          units:                      "A"      # Current units for Steadydrive protection thresholds.
+          trip_duration_ms:           100      # Time above threshold required before latching.
+        over_voltage:
+          enabled:                    false    # Enable only if the CAN protocol exposes shared bus voltage telemetry.
+          threshold:                  50.0     # Default shared bus voltage threshold.
+          units:                      "V"      # Voltage units for Steadydrive protection thresholds.
+          trip_duration_ms:           100      # Time above threshold required before latching.
+
+      joint_overrides:                {}       # Optional per-joint overrides keyed by ros2_control joint name.
