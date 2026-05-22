@@ -7,8 +7,8 @@
 #    alternate_mountpoint:          SDS_RTK             # Backup mountpoint tried after repeated primary-stream failures. Default: empty string
 #    mountpoint_failover_threshold: 2                   # Consecutive failures on one mountpoint before switching to the alternate. Default: 2
 #    ntrip_version:                 Ntrip/2.0           # NTRIP version header sent in the request. Default: Ntrip/2.0
-#    authenticate:                  false               # Enable HTTP basic auth for the caster. Default: false
-#    username:                      ""                  # No username for RTK2go. Default: empty string
+#    authenticate:                  true                # Enable HTTP basic auth for the caster. Default: false
+#    username:                      info@o-robotics.com # No username for RTK2go. Default: empty string
 #    password:                      ""                  # No password for RTK2go. Default: empty string
 #    send_nmea:                     false               # Send GGA/NMEA uplink from the fix topic to the caster when enabled by launch. Default: false
 
@@ -17,7 +17,7 @@
     port:                            9000              # Geoteam GPSnet caster TCP port from ORobotics-01.pdf. Default: 2101
     mountpoint:                      SU-4SAT-RTCM      # Geoteam RTCM 3.4 VRS mountpoint from ORobotics-01.pdf. Default: mount
     alternate_mountpoint:            SU-GNSS           # Fallback RTCM 3.1 VRS mountpoint to test if SU-4SAT-RTCM stays silent. Default: empty string
-    mountpoint_failover_threshold:   1                 # Switch to the alternate mountpoint after the first failed stream attempt. Default: 2
+    mountpoint_failover_threshold:   2                 # Switch to the alternate mountpoint after the first failed stream attempt. Default: 2
     ntrip_version:                   Ntrip/2.0         # NTRIP version header sent in the request. Default: Ntrip/2.0
     authenticate:                    true              # Enable HTTP basic auth for the caster. Default: false
     username:                        ORobotics-01      # Geoteam GPSnet login from ORobotics-01.pdf. Default: empty string
