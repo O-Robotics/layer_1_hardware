@@ -1,30 +1,63 @@
 ublox_dgnss:
   ros__parameters:
-    CFG_USBOUTPROT_NMEA:  false  # Enable NMEA output over USB. Default: false
-    CFG_USBINPROT_RTCM3X: true   # Accept RTCM3 corrections over USB. Default: true
-    CFG_USBOUTPROT_RTCM3X: false  # Enable RTCM3 output over USB. Default: false
+    # -- USB protocols --------------------------------------------------------
+    CFG_USBOUTPROT_NMEA:   false  # Keep NMEA chatter disabled on USB.
+    CFG_USBINPROT_RTCM3X:  true   # Accept RTCM3 corrections from the local NTRIP path.
+    CFG_USBOUTPROT_RTCM3X: false  # Do not mirror RTCM back out over USB.
 
-    CFG_RATE_MEAS: 200  # Measurement interval in milliseconds. Default: 200
-    CFG_RATE_NAV:  1    # Navigation solutions per measurement cycle. Default: 1
+    # -- Navigation timing ----------------------------------------------------
+    CFG_RATE_MEAS: 200  # Run the receiver measurement cycle at 5 Hz.
+    CFG_RATE_NAV:  1    # Publish one navigation solution per measurement cycle.
 
-    CFG_NAVSPG_FIXMODE:  2     # Fix mode, where 2 requests 3D-only solutions. Default: 2
-    CFG_NAVSPG_INIFIX3D: true  # Require a 3D fix during initialization. Default: true
-    CFG_NAVSPG_DYNMODEL: 4     # Dynamic model, where 4 is automotive/ground vehicle. Default: 4
+    # -- Fix behavior ---------------------------------------------------------
+    CFG_NAVSPG_FIXMODE:  2     # Force 3D solutions.
+    CFG_NAVSPG_INIFIX3D: true  # Require a 3D fix during initialization.
+    CFG_NAVSPG_DYNMODEL: 4     # Ground-vehicle dynamics model.
 
-    CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB: 1  # Publish high-precision LLH position over USB. Default: 1
-    CFG_MSGOUT_UBX_NAV_STATUS_USB:   5  # Publish UBX NAV-STATUS every 5 cycles over USB. Default: 5
-    CFG_MSGOUT_UBX_NAV_COV_USB:      1  # Publish UBX NAV-COV over USB. Default: 1
-    CFG_MSGOUT_UBX_RXM_RTCM_USB:     0  # Disable UBX RXM-RTCM debug output over USB. Default: 0
-    CFG_MSGOUT_UBX_NAV_PVT_USB:      0  # Disable UBX NAV-PVT output over USB. Default: 0
+    # -- Required UBX outputs -------------------------------------------------
+    # Keep only the messages needed by ublox_nav_sat_fix_hp to derive /gnss/navsat.
+    CFG_MSGOUT_UBX_NAV_HPPOSLLH_USB: 1  # High-precision latitude/longitude/height.
+    CFG_MSGOUT_UBX_NAV_STATUS_USB:   5  # Lower-rate fix-status updates are enough here.
+    CFG_MSGOUT_UBX_NAV_COV_USB:      1  # Position covariance for NavSatFix output.
+
+    # -- Disabled UBX outputs -------------------------------------------------
+    # These topics are not consumed elsewhere in this workspace, so request a zero output rate.
+    CFG_MSGOUT_UBX_NAV_CLOCK_USB:      0
+    CFG_MSGOUT_UBX_NAV_DOP_USB:        0
+    CFG_MSGOUT_UBX_NAV_EOE_USB:        0
+    CFG_MSGOUT_UBX_NAV_HPPOSECEF_USB:  0
+    CFG_MSGOUT_UBX_NAV_ODO_USB:        0
+    CFG_MSGOUT_UBX_NAV_ORB_USB:        0
+    CFG_MSGOUT_UBX_NAV_SAT_USB:        0
+    CFG_MSGOUT_UBX_NAV_SIG_USB:        0
+    CFG_MSGOUT_UBX_NAV_POSECEF_USB:    0
+    CFG_MSGOUT_UBX_NAV_POSLLH_USB:     0
+    CFG_MSGOUT_UBX_NAV_PVT_USB:        0
+    CFG_MSGOUT_UBX_NAV_RELPOSNED_USB:  0
+    CFG_MSGOUT_UBX_NAV_TIMEUTC_USB:    0
+    CFG_MSGOUT_UBX_NAV_VELECEF_USB:    0
+    CFG_MSGOUT_UBX_NAV_VELNED_USB:     0
+    CFG_MSGOUT_UBX_RXM_COR_USB:        0
+    CFG_MSGOUT_UBX_RXM_RTCM_USB:       0
+    CFG_MSGOUT_UBX_RXM_MEASX_USB:      0
+    CFG_MSGOUT_UBX_RXM_RAWX_USB:       0
+    CFG_MSGOUT_UBX_RXM_SPARTN_USB:     0
+    CFG_MSGOUT_UBX_MON_COMMS_USB:      0
+    CFG_MSGOUT_UBX_ESF_MEAS_USB:       0
+    CFG_MSGOUT_UBX_ESF_STATUS_USB:     0
+    CFG_MSGOUT_UBX_SEC_SIG_USB:        0
+    CFG_MSGOUT_UBX_SEC_SIGLOG_USB:     0
 
 ublox_nav_sat_fix_hp:
   ros__parameters:
-    min_fix_type:                3         # Minimum UBX fix type accepted for NavSat output. Default: 3
-    min_horizontal_stddev_m:     1.5       # Reject fixes worse than this horizontal standard deviation. Default: 1.5
-    min_vertical_stddev_m:       3.0       # Reject fixes worse than this vertical standard deviation. Default: 3.0
-    horizontal_covariance_scale: 4.0       # Scale factor applied to horizontal covariance. Default: 4.0
-    vertical_covariance_scale:   4.0       # Scale factor applied to vertical covariance. Default: 4.0
-    use_hacc_vacc_covariance_floor: true   # Use hAcc/vAcc values as the minimum covariance floor. Default: true
+    # -- Fix acceptance -------------------------------------------------------
+    min_fix_type:                    3     # Require at least a 3D-quality fix before publishing NavSat output.
+    min_horizontal_stddev_m:         1.5   # Reject solutions with worse horizontal uncertainty than this.
+    min_vertical_stddev_m:           3.0   # Reject solutions with worse vertical uncertainty than this.
+    horizontal_covariance_scale:     4.0   # Inflate horizontal covariance before handing it downstream.
+    vertical_covariance_scale:       4.0   # Inflate vertical covariance before handing it downstream.
+    use_hacc_vacc_covariance_floor:  true  # Never report covariance smaller than the receiver accuracy estimate.
 
-    qos_overrides.fix.publisher.reliability:    reliable  # Publish fix with reliable QoS. Default: reliable
-    qos_overrides.navsat.publisher.reliability: reliable  # Publish navsat with reliable QoS. Default: reliable
+    # -- QoS ------------------------------------------------------------------
+    qos_overrides.fix.publisher.reliability:    reliable  # Keep the raw fix publisher reliable.
+    qos_overrides.navsat.publisher.reliability: reliable  # Keep the remapped navsat publisher reliable.
