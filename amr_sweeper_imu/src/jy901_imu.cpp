@@ -201,6 +201,8 @@ JY901ImuNode::JY901ImuNode()
   }
 
   imu_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_raw", 10);
+  imu_acc_gyro_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_acc_gyro", 10);
+  imu_heading_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_heading", 10);
 
   if (!open_serial()) {
     report_connection_issue(
@@ -657,8 +659,16 @@ void JY901ImuNode::maybe_publish()
   }
   last_pub_time_ = now;
 
+  const sensor_msgs::msg::Imu raw_msg = build_raw_imu_message(now);
+  imu_pub_->publish(raw_msg);
+  imu_acc_gyro_pub_->publish(build_accel_gyro_message(raw_msg));
+  imu_heading_pub_->publish(build_heading_message(raw_msg));
+}
+
+sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & stamp) const
+{
   sensor_msgs::msg::Imu msg;
-  msg.header.stamp = now;
+  msg.header.stamp = stamp;
   msg.header.frame_id = frame_id_;
   bool orientation_valid = true;
   double roll = euler_deg_[0] * kDegToRad;
@@ -726,7 +736,53 @@ void JY901ImuNode::maybe_publish()
     linear_acceleration_covariance_.end(),
     msg.linear_acceleration_covariance.begin());
 
-  imu_pub_->publish(msg);
+  return msg;
+}
+
+sensor_msgs::msg::Imu JY901ImuNode::build_accel_gyro_message(
+  const sensor_msgs::msg::Imu & raw_msg) const
+{
+  sensor_msgs::msg::Imu msg = raw_msg;
+  msg.orientation.x = 0.0;
+  msg.orientation.y = 0.0;
+  msg.orientation.z = 0.0;
+  msg.orientation.w = 1.0;
+  msg.orientation_covariance = {-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  return msg;
+}
+
+sensor_msgs::msg::Imu JY901ImuNode::build_heading_message(
+  const sensor_msgs::msg::Imu & raw_msg) const
+{
+  sensor_msgs::msg::Imu msg = raw_msg;
+  if (raw_msg.orientation_covariance[0] < 0.0) {
+    msg.orientation_covariance = {-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    return msg;
+  }
+
+  double roll = 0.0;
+  double pitch = 0.0;
+  double yaw = 0.0;
+  quaternion_to_rpy(
+    raw_msg.orientation.w,
+    raw_msg.orientation.x,
+    raw_msg.orientation.y,
+    raw_msg.orientation.z,
+    roll,
+    pitch,
+    yaw);
+  rpy_to_quaternion(
+    0.0,
+    0.0,
+    yaw,
+    msg.orientation.w,
+    msg.orientation.x,
+    msg.orientation.y,
+    msg.orientation.z);
+  const double yaw_variance = raw_msg.orientation_covariance[8] > 0.0 ?
+    raw_msg.orientation_covariance[8] : 0.01;
+  msg.orientation_covariance = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, yaw_variance};
+  return msg;
 }
 
 }  // namespace amr_sweeper_imu

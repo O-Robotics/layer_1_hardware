@@ -36,7 +36,10 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - Main node: `imu_node`.
 - Layer 3 localization relies on this package for IMU data.
 - Default tunable parameters live in `config/amr_sweeper_imu.yaml`.
-- The node publishes `data_raw` under the selected namespace. With the default standalone namespace this resolves to `/amr_sweeper/imu/data_raw`, and Layer 1 bringup also launches it under that same final topic.
+- The node publishes three IMU topics under the selected namespace:
+- `data_raw`: full corrected IMU message with orientation, gyro, and acceleration. With the default namespace this resolves to `/amr_sweeper/imu/data_raw`.
+- `data_acc_gyro`: acceleration and gyro only, with orientation marked unavailable. With the default namespace this resolves to `/amr_sweeper/imu/data_acc_gyro`.
+- `data_heading`: yaw-only orientation derived from the same IMU, with roll and pitch removed. With the default namespace this resolves to `/amr_sweeper/imu/data_heading`.
 - The launch file passes that wildcard YAML directly into the node, then launch arguments such as `port`, `baud`, `imu_frame_id`, and `publish_hz` can override individual values.
 - On startup the node can also program JY901 registers for return content, return rate, installation direction, algorithm mode, gyro auto-calibration, LED state, and baud according to the YAML.
 - The driver can parse the IMU's native `0x59` quaternion packet and use it as the primary ROS orientation source when `output_quaternion` is enabled.

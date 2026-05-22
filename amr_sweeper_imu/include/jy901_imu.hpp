@@ -45,6 +45,9 @@ private:
   void read_serial();
   void parse_byte(uint8_t byte);
   void maybe_publish();
+  sensor_msgs::msg::Imu build_raw_imu_message(const rclcpp::Time & stamp) const;
+  sensor_msgs::msg::Imu build_accel_gyro_message(const sensor_msgs::msg::Imu & raw_msg) const;
+  sensor_msgs::msg::Imu build_heading_message(const sensor_msgs::msg::Imu & raw_msg) const;
 
   std::string port_;
   int baud_{9600};
@@ -93,6 +96,8 @@ private:
   std::string last_serial_error_message_;
 
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_acc_gyro_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_heading_pub_;
   rclcpp::TimerBase::SharedPtr read_timer_;
   rclcpp::Time last_pub_time_{0, 0, RCL_ROS_TIME};
 
