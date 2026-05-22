@@ -26,12 +26,13 @@ This package runs the RealSense depth camera driver together with the local dept
 - `laserscan_params_file`: default `config/laserscan.yaml`
 - `depth_image_topic`: default derived from `namespace`, e.g. `/amr_sweeper/depth_camera/depth/image_rect_raw`
 - `depth_camera_info_topic`: default derived from `namespace`, e.g. `/amr_sweeper/depth_camera/depth/camera_info`
+- `depth_camera_frame`: default `depth_camera_link`
 - `scan_topic`: default `scan`
-- `output_frame`: default `depth_camera_link`
+- `output_frame`: default from `config/laserscan.yaml` (`laserscan_link`)
 - `range_min`: default from `config/laserscan.yaml` (`0.20`)
-- `range_max`: default from `config/laserscan.yaml` (`1.5`)
+- `range_max`: default from `config/laserscan.yaml` (`5.0`)
 - `scan_height`: default from `config/laserscan.yaml` (`5`)
-- `scan_row_offset`: default from `config/laserscan.yaml` (`0`)
+- `scan_tilt_angle_deg`: default from `config/laserscan.yaml` (`4.5`)
 - `scan_time`: default from `config/laserscan.yaml` (`0.050`)
 
 ## Overview
@@ -39,9 +40,10 @@ This package runs the RealSense depth camera driver together with the local dept
 
 ## Notes
 - Main nodes: `realsense2_camera_node` and `laserscan_node`.
+- A `tf2_ros` static transform publisher creates `laserscan_link` under `depth_camera_link`.
 - The default input topics follow the flattened workspace namespace style under `/amr_sweeper/depth_camera/...`.
 - The default output topic resolves to `/amr_sweeper/depth_camera/scan`.
-- The default `output_frame` uses the non-optical camera body frame so the generated LaserScan stays in the expected robot-horizontal plane.
-- `scan_row_offset` shifts the sampled scan band vertically relative to the calibrated optical center line.
+- The default `output_frame` is `laserscan_link`, a frame pitched upward to match the selected scan row.
+- `scan_tilt_angle_deg` is resolution-independent and shifts the sampled scan band by angle instead of raw pixels.
 - The RealSense driver namespace is derived automatically from the parent of `namespace`, and the node name is the leaf of `namespace`.
 - Override the topic launch arguments if the RealSense node should publish under a different input topic path.

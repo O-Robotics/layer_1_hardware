@@ -117,7 +117,7 @@ private:
   float range_min_;
   float range_max_;
   int scan_height_;
-  int scan_row_offset_;
+  double scan_tilt_angle_deg_;
   std::string output_frame_id_;
 };
 

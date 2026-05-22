@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 import yaml
@@ -69,13 +70,17 @@ def _launch_setup(context, *args, **kwargs):
     if scan_height_value:
         laserscan_params["scan_height"] = int(scan_height_value)
 
-    scan_row_offset_value = LaunchConfiguration("scan_row_offset").perform(context)
-    if scan_row_offset_value:
-        laserscan_params["scan_row_offset"] = int(scan_row_offset_value)
+    scan_tilt_angle_deg_value = LaunchConfiguration("scan_tilt_angle_deg").perform(context)
+    if scan_tilt_angle_deg_value:
+        laserscan_params["scan_tilt_angle_deg"] = float(scan_tilt_angle_deg_value)
 
     scan_time_value = LaunchConfiguration("scan_time").perform(context)
     if scan_time_value:
         laserscan_params["scan_time"] = float(scan_time_value)
+
+    depth_camera_frame_value = LaunchConfiguration("depth_camera_frame").perform(context)
+    laserscan_frame_value = str(laserscan_params.get("output_frame", depth_camera_frame_value))
+    scan_tilt_angle_rad = math.radians(float(laserscan_params.get("scan_tilt_angle_deg", 0.0)))
 
     default_depth_image_topic = f"{namespace_value}/depth/image_rect_raw"
     default_depth_camera_info_topic = f"{namespace_value}/depth/camera_info"
@@ -134,7 +139,22 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    return [launch_summary, realsense_ros_node, laserscan_node]
+    laserscan_tf_node = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="laserscan_tf",
+        namespace=namespace_value,
+        output="screen",
+        arguments=[
+            "0", "0", "0",
+            "0", str(scan_tilt_angle_rad), "0",
+            depth_camera_frame_value,
+            laserscan_frame_value,
+        ],
+        condition=IfCondition(LaunchConfiguration("use_laserscan")),
+    )
+
+    return [launch_summary, realsense_ros_node, laserscan_tf_node, laserscan_node]
 
 
 def generate_launch_description():
@@ -162,12 +182,13 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument("depth_image_topic", default_value=""),
         DeclareLaunchArgument("depth_camera_info_topic", default_value=""),
+        DeclareLaunchArgument("depth_camera_frame", default_value="depth_camera_link"),
         DeclareLaunchArgument("scan_topic", default_value="scan"),
         DeclareLaunchArgument("output_frame", default_value=""),
         DeclareLaunchArgument("range_min", default_value=""),
         DeclareLaunchArgument("range_max", default_value=""),
         DeclareLaunchArgument("scan_height", default_value=""),
-        DeclareLaunchArgument("scan_row_offset", default_value=""),
+        DeclareLaunchArgument("scan_tilt_angle_deg", default_value=""),
         DeclareLaunchArgument("scan_time", default_value=""),
         OpaqueFunction(function=_launch_setup),
     ])

@@ -1,13 +1,13 @@
 /**:
   ros__parameters:
     # -- Scan geometry --------------------------------------------------------
-    output_frame:    depth_camera_link  # Publish the LaserScan in the camera body frame instead of the optical frame.
-    scan_height:     5                  # Number of image rows sampled for each scan update.
-    scan_row_offset: -25                # Vertical pixel offset from the optical center line; positive values move downward.
+    output_frame:         laserscan_link  # Publish the LaserScan in a frame pitched to match the selected scan row.
+    scan_height:          5               # Number of image rows sampled for each scan update.
+    scan_tilt_angle_deg:  4.5             # Positive values sample rays above the optical center line and pitch laserscan_link upward by the same angle.
 
     # -- Range filtering ------------------------------------------------------
-    range_min:       0.20               # Ignore returns closer than the camera's reliable near field.
-    range_max:       5.0                # Ignore returns beyond the useful obstacle-detection range.
+    range_min:            0.20           # Ignore returns closer than the camera's reliable near field.
+    range_max:            5.0            # Ignore returns beyond the useful obstacle-detection range.
 
     # -- Timing ---------------------------------------------------------------
-    scan_time:       0.050              # Approximate scan period in seconds for a 20 Hz depth stream.
+    scan_time:            0.050          # Approximate scan period in seconds for a 20 Hz depth stream.
