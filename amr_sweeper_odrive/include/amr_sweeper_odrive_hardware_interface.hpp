@@ -1,6 +1,7 @@
 #ifndef AMR_SWEEPER_ODRIVE__AMR_SWEEPER_ODRIVE_HARDWARE_INTERFACE_HPP_
 #define AMR_SWEEPER_ODRIVE__AMR_SWEEPER_ODRIVE_HARDWARE_INTERFACE_HPP_
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -48,9 +49,13 @@ protected:
   virtual hardware_interface::CallbackReturn validateJoints();
   bool initializeCanInterface();
   void closeCanInterface();
+  bool ensureCanInterface();
+  void reportConnectionIssue(const std::string & message);
+  void logEscalatingIssue(int count, const std::string & message);
+  void resetIssueCounters();
   void configureAxisForVelocity(size_t joint_index);
   void requestAxisIdle(size_t joint_index);
-  void sendVelocityCommand(size_t joint_index, double joint_velocity_rad_s);
+  bool sendVelocityCommand(size_t joint_index, double joint_velocity_rad_s);
   void on_can_msg(const can_frame & frame);
   void processAxisFrame(size_t joint_index, const can_frame & frame);
 
@@ -65,6 +70,16 @@ protected:
   std::string hw_name_;
   std::string can_interface_;
   uint8_t num_joints_ = 0;
+  int reconnect_attempt_interval_ms_ {1000};
+  int retry_attempts_before_error_ {3};
+  int fatal_after_consecutive_errors_ {10};
+  int max_reconnect_attempts_ {10};
+  int reconnect_attempt_count_ {0};
+  int connection_issue_count_ {0};
+  bool fatal_error_ {false};
+  bool lifecycle_active_ {false};
+  std::string last_connection_error_message_;
+  std::chrono::steady_clock::time_point last_reconnect_attempt_time_{};
 
   struct Impl;
   std::unique_ptr<Impl> impl_;

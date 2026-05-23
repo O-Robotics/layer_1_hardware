@@ -1,6 +1,7 @@
 #ifndef AMR_SWEEPER_STEADYDRIVE__AMR_SWEEPER_STEADYDRIVE_HARDWARE_INTERFACE_HPP_
 #define AMR_SWEEPER_STEADYDRIVE__AMR_SWEEPER_STEADYDRIVE_HARDWARE_INTERFACE_HPP_
 
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -43,6 +44,10 @@ protected:
   bool initializeCanSockets();
   bool initializeMotorSocket(size_t motor_index);
   void closeCanSockets();
+  bool ensureCanSockets();
+  void reportConnectionIssue(const std::string & message);
+  void logEscalatingIssue(int count, const std::string & message);
+  void resetIssueCounters();
   bool sendMotorCommand(
     size_t motor_index, uint8_t command_byte,
     uint8_t byte1 = 0x00, uint8_t byte2 = 0x00, uint8_t byte3 = 0x00,
@@ -68,6 +73,16 @@ protected:
   std::string hw_name_;
   std::string can_interface_;
   uint8_t num_joints_;
+  int reconnect_attempt_interval_ms_ {1000};
+  int retry_attempts_before_error_ {3};
+  int fatal_after_consecutive_errors_ {10};
+  int max_reconnect_attempts_ {10};
+  int reconnect_attempt_count_ {0};
+  int connection_issue_count_ {0};
+  bool fatal_error_ {false};
+  bool lifecycle_active_ {false};
+  std::string last_connection_error_message_;
+  std::chrono::steady_clock::time_point last_reconnect_attempt_time_{};
 };
 
 

@@ -287,6 +287,14 @@ uint32_t load_required_uint32(
   return root[key].as<uint32_t>();
 }
 
+int load_optional_int(const YAML::Node & root, const std::string & key, int fallback)
+{
+  if (!root[key]) {
+    return fallback;
+  }
+  return root[key].as<int>();
+}
+
 double load_required_positive_double(
   const YAML::Node & root, const std::string & key, const std::string & config_label)
 {
@@ -389,9 +397,12 @@ public:
     event_loop_ = event_loop;
     frame_processor_ = std::move(frame_processor);
     broken_ = false;
+    last_error_message_.clear();
 
     socket_fd_ = socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
     if (socket_fd_ == -1) {
+      last_error_message_ =
+        "Failed to create SocketCAN socket on '" + interface_name_ + "': " + std::strerror(errno);
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "Failed to create SocketCAN socket on '%s': %s",
@@ -402,6 +413,8 @@ public:
     struct ifreq ifr {};
     std::strncpy(ifr.ifr_name, interface_name_.c_str(), IFNAMSIZ - 1);
     if (ioctl(socket_fd_, SIOCGIFINDEX, &ifr) == -1) {
+      last_error_message_ =
+        "Failed to resolve SocketCAN interface '" + interface_name_ + "': " + std::strerror(errno);
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "Failed to resolve SocketCAN interface '%s': %s",
@@ -415,6 +428,8 @@ public:
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
     if (bind(socket_fd_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) == -1) {
+      last_error_message_ =
+        "Failed to bind SocketCAN interface '" + interface_name_ + "': " + std::strerror(errno);
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "Failed to bind SocketCAN interface '%s': %s",
@@ -428,6 +443,8 @@ public:
         &socket_event_id_, socket_fd_, EPOLLIN,
         [this](uint32_t mask) { on_socket_event(mask); }))
     {
+      last_error_message_ =
+        "Failed to register SocketCAN fd for interface '" + interface_name_ + "' with event loop";
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "Failed to register SocketCAN fd for interface '%s' with event loop",
@@ -438,6 +455,16 @@ public:
     }
 
     return true;
+  }
+
+  bool is_ready() const
+  {
+    return socket_fd_ >= 0 && !broken_;
+  }
+
+  std::string last_error() const
+  {
+    return last_error_message_;
   }
 
   void deinit()
@@ -458,14 +485,18 @@ public:
   bool send_can_frame(const can_frame & frame)
   {
     if (socket_fd_ < 0) {
+      last_error_message_ = "SocketCAN interface '" + interface_name_ + "' is not connected";
       return false;
     }
 
     if (write(socket_fd_, &frame, sizeof(frame)) == -1) {
+      last_error_message_ =
+        "Failed to send CAN frame on '" + interface_name_ + "': " + std::strerror(errno);
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "Failed to send CAN frame on '%s': %s",
         interface_name_.c_str(), std::strerror(errno));
+      deinit();
       return false;
     }
 
@@ -497,14 +528,19 @@ public:
         return false;
       }
 
+      last_error_message_ =
+        "SocketCAN read failed on '" + interface_name_ + "': " + std::strerror(errno);
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "SocketCAN read failed on '%s': %s",
         interface_name_.c_str(), std::strerror(errno));
+      deinit();
       return false;
     }
 
     if (bytes_received < static_cast<ssize_t>(sizeof(struct can_frame))) {
+      last_error_message_ =
+        "Invalid CAN frame length on '" + interface_name_ + "': " + std::to_string(bytes_received);
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "Invalid CAN frame length on '%s': %zd",
@@ -525,6 +561,7 @@ private:
     }
 
     if (mask & EPOLLERR) {
+      last_error_message_ = "SocketCAN interface '" + interface_name_ + "' disappeared";
       RCLCPP_ERROR(
         rclcpp::get_logger("ODriveHardwareInterface"),
         "SocketCAN interface '%s' disappeared",
@@ -540,16 +577,17 @@ private:
   EpollEventLoop::EventId socket_event_id_ = nullptr;
   FrameProcessor frame_processor_;
   bool broken_ = false;
+  std::string last_error_message_;
 };
 
 template<typename TMessage>
-void send_axis_message(SocketCanInterface & can_intf, uint32_t node_id, const TMessage & msg)
+bool send_axis_message(SocketCanInterface & can_intf, uint32_t node_id, const TMessage & msg)
 {
   struct can_frame frame {};
   frame.can_id = (node_id << 5) | TMessage::cmd_id;
   frame.can_dlc = TMessage::msg_length;
   msg.encode_buf(frame.data);
-  can_intf.send_can_frame(frame);
+  return can_intf.send_can_frame(frame);
 }
 
 }  // namespace
@@ -628,9 +666,30 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
       gear_ratios_[i] = shared_gear_ratio;
       node_ids_[i] = config_node_ids[i];
     }
+    reconnect_attempt_interval_ms_ =
+      load_optional_int(hardware_config, "reconnect_attempt_interval_ms", reconnect_attempt_interval_ms_);
+    retry_attempts_before_error_ =
+      load_optional_int(hardware_config, "retry_attempts_before_error", retry_attempts_before_error_);
+    fatal_after_consecutive_errors_ = load_optional_int(
+      hardware_config, "fatal_after_consecutive_errors", fatal_after_consecutive_errors_);
+    max_reconnect_attempts_ =
+      load_optional_int(hardware_config, "max_reconnect_attempts", max_reconnect_attempts_);
   } catch (const std::exception & error) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "Error parsing parameter: %s", error.what());
     return CallbackReturn::ERROR;
+  }
+
+  if (reconnect_attempt_interval_ms_ < 1) {
+    reconnect_attempt_interval_ms_ = 1;
+  }
+  if (retry_attempts_before_error_ < 1) {
+    retry_attempts_before_error_ = 1;
+  }
+  if (fatal_after_consecutive_errors_ < 1) {
+    fatal_after_consecutive_errors_ = 1;
+  }
+  if (max_reconnect_attempts_ < 0) {
+    max_reconnect_attempts_ = 0;
   }
 
   return CallbackReturn::SUCCESS;
@@ -639,12 +698,19 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
 hardware_interface::CallbackReturn ODriveHardwareInterface::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  return initializeCanInterface() ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
+  if (!initializeCanInterface()) {
+    reportConnectionIssue(
+      last_connection_error_message_.empty() ?
+      "Failed to initialize SocketCAN on " + can_interface_ :
+      last_connection_error_message_);
+  }
+  return CallbackReturn::SUCCESS;
 }
 
 hardware_interface::CallbackReturn ODriveHardwareInterface::on_cleanup(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
+  lifecycle_active_ = false;
   closeCanInterface();
   return CallbackReturn::SUCCESS;
 }
@@ -657,6 +723,9 @@ bool ODriveHardwareInterface::initializeCanInterface()
       can_interface_, &impl_->event_loop,
       [this](const can_frame & frame) { on_can_msg(frame); }))
   {
+    last_connection_error_message_ = impl_->can_intf.last_error().empty() ?
+      "Failed to initialize SocketCAN on " + can_interface_ :
+      impl_->can_intf.last_error();
     RCLCPP_ERROR(
       rclcpp::get_logger(hw_name_), "Failed to initialize SocketCAN on %s",
       can_interface_.c_str());
@@ -665,6 +734,9 @@ bool ODriveHardwareInterface::initializeCanInterface()
 
   RCLCPP_INFO(
     rclcpp::get_logger(hw_name_), "Initialized SocketCAN on %s", can_interface_.c_str());
+  last_connection_error_message_.clear();
+  last_reconnect_attempt_time_ = std::chrono::steady_clock::now();
+  resetIssueCounters();
   return true;
 }
 
@@ -675,10 +747,101 @@ void ODriveHardwareInterface::closeCanInterface()
   }
 }
 
+bool ODriveHardwareInterface::ensureCanInterface()
+{
+  if (fatal_error_) {
+    return false;
+  }
+
+  if (impl_->can_intf.is_ready()) {
+    return true;
+  }
+
+  const auto now = std::chrono::steady_clock::now();
+  if (last_reconnect_attempt_time_.time_since_epoch().count() != 0) {
+    const auto elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(now - last_reconnect_attempt_time_).count();
+    if (elapsed_ms < reconnect_attempt_interval_ms_) {
+      return false;
+    }
+  }
+  last_reconnect_attempt_time_ = now;
+
+  if (!initializeCanInterface()) {
+    reportConnectionIssue(
+      last_connection_error_message_.empty() ?
+      "Failed to initialize SocketCAN on " + can_interface_ :
+      last_connection_error_message_);
+    return false;
+  }
+
+  if (lifecycle_active_) {
+    for (size_t i = 0; i < num_joints_; ++i) {
+      configureAxisForVelocity(i);
+      (void)sendVelocityCommand(i, 0.0);
+    }
+  }
+  return true;
+}
+
+void ODriveHardwareInterface::reportConnectionIssue(const std::string & message)
+{
+  ++connection_issue_count_;
+  ++reconnect_attempt_count_;
+
+  if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
+    fatal_error_ = true;
+    RCLCPP_FATAL(
+      rclcpp::get_logger(hw_name_),
+      "%s. Reached reconnect limit after %d attempts",
+      message.c_str(),
+      reconnect_attempt_count_);
+    return;
+  }
+
+  logEscalatingIssue(connection_issue_count_, message);
+}
+
+void ODriveHardwareInterface::logEscalatingIssue(int count, const std::string & message)
+{
+  if (count < retry_attempts_before_error_) {
+    RCLCPP_WARN(rclcpp::get_logger(hw_name_), "%s", message.c_str());
+    return;
+  }
+
+  if (count < fatal_after_consecutive_errors_) {
+    if (count == retry_attempts_before_error_) {
+      RCLCPP_ERROR(
+        rclcpp::get_logger(hw_name_),
+        "%s. Escalating after %d consecutive failures",
+        message.c_str(),
+        count);
+      return;
+    }
+    RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", message.c_str());
+    return;
+  }
+
+  fatal_error_ = true;
+  RCLCPP_FATAL(
+    rclcpp::get_logger(hw_name_),
+    "%s. Reached fatal threshold after %d consecutive connection failures",
+    message.c_str(),
+    count);
+}
+
+void ODriveHardwareInterface::resetIssueCounters()
+{
+  reconnect_attempt_count_ = 0;
+  connection_issue_count_ = 0;
+  fatal_error_ = false;
+}
+
 hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Starting ...please wait...");
+  lifecycle_active_ = true;
 
   for (size_t i = 0; i < num_joints_; ++i) {
     velocity_commands_[i] = 0.0;
@@ -686,8 +849,10 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
     position_states_[i] = 0.0;
     velocity_states_[i] = 0.0;
 
-    configureAxisForVelocity(i);
-    sendVelocityCommand(i, 0.0);
+    if (ensureCanInterface()) {
+      configureAxisForVelocity(i);
+      (void)sendVelocityCommand(i, 0.0);
+    }
   }
 
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System Successfully started!");
@@ -698,10 +863,13 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_deactivate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Stopping ...please wait...");
+  lifecycle_active_ = false;
 
-  for (size_t i = 0; i < num_joints_; ++i) {
-    sendVelocityCommand(i, 0.0);
-    requestAxisIdle(i);
+  if (impl_->can_intf.is_ready()) {
+    for (size_t i = 0; i < num_joints_; ++i) {
+      (void)sendVelocityCommand(i, 0.0);
+      requestAxisIdle(i);
+    }
   }
 
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System successfully stopped!");
@@ -793,11 +961,11 @@ hardware_interface::return_type ODriveHardwareInterface::perform_command_mode_sw
 
     if (std::find(start_interfaces.begin(), start_interfaces.end(), velocity_key) != start_interfaces.end()) {
       configureAxisForVelocity(i);
-      sendVelocityCommand(i, velocity_commands_[i]);
+      (void)sendVelocityCommand(i, velocity_commands_[i]);
     }
 
     if (std::find(stop_interfaces.begin(), stop_interfaces.end(), velocity_key) != stop_interfaces.end()) {
-      sendVelocityCommand(i, 0.0);
+      (void)sendVelocityCommand(i, 0.0);
       requestAxisIdle(i);
     }
   }
@@ -810,25 +978,25 @@ void ODriveHardwareInterface::configureAxisForVelocity(size_t joint_index)
   SetControllerModeMessage control_mode_msg;
   control_mode_msg.control_mode = CONTROL_MODE_VELOCITY_CONTROL;
   control_mode_msg.input_mode = INPUT_MODE_PASSTHROUGH;
-  send_axis_message(impl_->can_intf, node_ids_[joint_index], control_mode_msg);
+  (void)send_axis_message(impl_->can_intf, node_ids_[joint_index], control_mode_msg);
 
   ClearErrorsMessage clear_errors_msg;
   clear_errors_msg.identify = 0;
-  send_axis_message(impl_->can_intf, node_ids_[joint_index], clear_errors_msg);
+  (void)send_axis_message(impl_->can_intf, node_ids_[joint_index], clear_errors_msg);
 
   SetAxisStateMessage axis_state_msg;
   axis_state_msg.axis_requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL;
-  send_axis_message(impl_->can_intf, node_ids_[joint_index], axis_state_msg);
+  (void)send_axis_message(impl_->can_intf, node_ids_[joint_index], axis_state_msg);
 }
 
 void ODriveHardwareInterface::requestAxisIdle(size_t joint_index)
 {
   SetAxisStateMessage axis_state_msg;
   axis_state_msg.axis_requested_state = AXIS_STATE_IDLE;
-  send_axis_message(impl_->can_intf, node_ids_[joint_index], axis_state_msg);
+  (void)send_axis_message(impl_->can_intf, node_ids_[joint_index], axis_state_msg);
 }
 
-void ODriveHardwareInterface::sendVelocityCommand(size_t joint_index, double joint_velocity_rad_s)
+bool ODriveHardwareInterface::sendVelocityCommand(size_t joint_index, double joint_velocity_rad_s)
 {
   const double motor_velocity_rad_s =
     joint_velocity_rad_s * gear_ratios_[joint_index] * positive_motor_direction_signs_[joint_index];
@@ -836,36 +1004,58 @@ void ODriveHardwareInterface::sendVelocityCommand(size_t joint_index, double joi
   SetInputVelMessage velocity_msg;
   velocity_msg.input_vel = static_cast<float>(motor_velocity_rad_s / TWO_PI);
   velocity_msg.input_torque_ff = 0.0f;
-  send_axis_message(impl_->can_intf, node_ids_[joint_index], velocity_msg);
+  return send_axis_message(impl_->can_intf, node_ids_[joint_index], velocity_msg);
 }
 
 void ODriveHardwareInterface::writeCommandsToHardware()
 {
   for (size_t i = 0; i < num_joints_; ++i) {
-    sendVelocityCommand(i, velocity_commands_[i]);
+    if (!sendVelocityCommand(i, velocity_commands_[i])) {
+      last_connection_error_message_ = impl_->can_intf.last_error().empty() ?
+        "Failed to send ODrive velocity command on " + can_interface_ :
+        impl_->can_intf.last_error();
+      reportConnectionIssue(last_connection_error_message_);
+      return;
+    }
     prev_velocity_commands_[i] = velocity_commands_[i];
   }
+  resetIssueCounters();
 }
 
 void ODriveHardwareInterface::updateJointsFromHardware()
 {
+  if (!impl_->can_intf.is_ready()) {
+    return;
+  }
   while (impl_->can_intf.read_nonblocking()) {
+  }
+  if (!impl_->can_intf.is_ready()) {
+    last_connection_error_message_ = impl_->can_intf.last_error().empty() ?
+      "SocketCAN interface '" + can_interface_ + "' disconnected" :
+      impl_->can_intf.last_error();
+    reportConnectionIssue(last_connection_error_message_);
   }
 }
 
 hardware_interface::return_type ODriveHardwareInterface::read(
   const rclcpp::Time & time, const rclcpp::Duration & /*period*/)
 {
+  if (!ensureCanInterface()) {
+    return fatal_error_ ? return_type::ERROR : return_type::OK;
+  }
   impl_->timestamp = time;
   updateJointsFromHardware();
-  return return_type::OK;
+  return fatal_error_ ? return_type::ERROR : return_type::OK;
 }
 
 hardware_interface::return_type ODriveHardwareInterface::write(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
+  if (!ensureCanInterface()) {
+    return fatal_error_ ? return_type::ERROR : return_type::OK;
+  }
   writeCommandsToHardware();
-  return return_type::OK;
+  return fatal_error_ ? return_type::ERROR : return_type::OK;
 }
 
 void ODriveHardwareInterface::on_can_msg(const can_frame & frame)

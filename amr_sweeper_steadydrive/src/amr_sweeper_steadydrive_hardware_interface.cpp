@@ -148,6 +148,14 @@ double load_required_positive_double(
   }
   return value;
 }
+
+int load_optional_int(const YAML::Node & root, const std::string & key, int fallback)
+{
+  if (!root[key]) {
+    return fallback;
+  }
+  return root[key].as<int>();
+}
 }  // namespace
 
 using amr_sweeper_steadydrive::SteadydriveHardwareInterface;
@@ -220,6 +228,14 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
     }
     motor_can_ids_[LEFT_MOTOR_INDEX] = parse_can_id(config_can_ids[LEFT_MOTOR_INDEX], "left_motor_id");
     motor_can_ids_[RIGHT_MOTOR_INDEX] = parse_can_id(config_can_ids[RIGHT_MOTOR_INDEX], "right_motor_id");
+    reconnect_attempt_interval_ms_ =
+      load_optional_int(hardware_config, "reconnect_attempt_interval_ms", reconnect_attempt_interval_ms_);
+    retry_attempts_before_error_ =
+      load_optional_int(hardware_config, "retry_attempts_before_error", retry_attempts_before_error_);
+    fatal_after_consecutive_errors_ = load_optional_int(
+      hardware_config, "fatal_after_consecutive_errors", fatal_after_consecutive_errors_);
+    max_reconnect_attempts_ =
+      load_optional_int(hardware_config, "max_reconnect_attempts", max_reconnect_attempts_);
 
     RCLCPP_INFO(
       rclcpp::get_logger(hw_name_),
@@ -235,6 +251,19 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
     return hardware_interface::CallbackReturn::ERROR;
   }
 
+  if (reconnect_attempt_interval_ms_ < 1) {
+    reconnect_attempt_interval_ms_ = 1;
+  }
+  if (retry_attempts_before_error_ < 1) {
+    retry_attempts_before_error_ = 1;
+  }
+  if (fatal_after_consecutive_errors_ < 1) {
+    fatal_after_consecutive_errors_ = 1;
+  }
+  if (max_reconnect_attempts_ < 0) {
+    max_reconnect_attempts_ = 0;
+  }
+
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
@@ -242,15 +271,18 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
   if (!initializeCanSockets()) {
-    return hardware_interface::CallbackReturn::ERROR;
+    reportConnectionIssue(
+      last_connection_error_message_.empty() ?
+      "Failed to initialize SocketCAN on " + can_interface_ :
+      last_connection_error_message_);
   }
-
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_cleanup(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
+  lifecycle_active_ = false;
   closeCanSockets();
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -266,6 +298,9 @@ bool SteadydriveHardwareInterface::initializeCanSockets()
     }
   }
 
+  last_connection_error_message_.clear();
+  last_reconnect_attempt_time_ = std::chrono::steady_clock::now();
+  resetIssueCounters();
   return true;
 }
 
@@ -273,6 +308,8 @@ bool SteadydriveHardwareInterface::initializeMotorSocket(size_t motor_index)
 {
   const int socket_fd = ::socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
   if (socket_fd < 0) {
+    last_connection_error_message_ =
+      "SocketCAN socket creation failed on '" + can_interface_ + "': " + std::strerror(errno);
     RCLCPP_ERROR(
       rclcpp::get_logger(hw_name_), "SocketCAN socket creation failed on '%s': %s",
       can_interface_.c_str(), std::strerror(errno));
@@ -282,6 +319,8 @@ bool SteadydriveHardwareInterface::initializeMotorSocket(size_t motor_index)
   struct ifreq ifr {};
   std::strncpy(ifr.ifr_name, can_interface_.c_str(), IFNAMSIZ - 1);
   if (ioctl(socket_fd, SIOCGIFINDEX, &ifr) < 0) {
+    last_connection_error_message_ =
+      "SocketCAN ioctl(SIOCGIFINDEX) failed on '" + can_interface_ + "': " + std::strerror(errno);
     RCLCPP_ERROR(
       rclcpp::get_logger(hw_name_), "SocketCAN ioctl(SIOCGIFINDEX) failed on '%s': %s",
       can_interface_.c_str(), std::strerror(errno));
@@ -293,6 +332,12 @@ bool SteadydriveHardwareInterface::initializeMotorSocket(size_t motor_index)
   filter.can_id = motor_can_ids_[motor_index];
   filter.can_mask = CAN_SFF_MASK;
   if (setsockopt(socket_fd, SOL_CAN_RAW, CAN_RAW_FILTER, &filter, sizeof(filter)) < 0) {
+    last_connection_error_message_ =
+      "SocketCAN filter setup failed for motor 0x" + [&]() {
+        std::ostringstream stream;
+        stream << std::hex << std::uppercase << motor_can_ids_[motor_index];
+        return stream.str();
+      }() + " on '" + can_interface_ + "': " + std::strerror(errno);
     RCLCPP_ERROR(
       rclcpp::get_logger(hw_name_), "SocketCAN filter setup failed for 0x%03X on '%s': %s",
       motor_can_ids_[motor_index], can_interface_.c_str(), std::strerror(errno));
@@ -302,6 +347,8 @@ bool SteadydriveHardwareInterface::initializeMotorSocket(size_t motor_index)
 
   const int recv_own_msgs = 0;
   if (setsockopt(socket_fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own_msgs, sizeof(recv_own_msgs)) < 0) {
+    last_connection_error_message_ =
+      "SocketCAN own-message suppression failed on '" + can_interface_ + "': " + std::strerror(errno);
     RCLCPP_ERROR(
       rclcpp::get_logger(hw_name_), "SocketCAN own-message suppression failed on '%s': %s",
       can_interface_.c_str(), std::strerror(errno));
@@ -313,6 +360,8 @@ bool SteadydriveHardwareInterface::initializeMotorSocket(size_t motor_index)
   addr.can_family = AF_CAN;
   addr.can_ifindex = ifr.ifr_ifindex;
   if (bind(socket_fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
+    last_connection_error_message_ =
+      "SocketCAN bind failed on '" + can_interface_ + "': " + std::strerror(errno);
     RCLCPP_ERROR(
       rclcpp::get_logger(hw_name_), "SocketCAN bind failed on '%s': %s",
       can_interface_.c_str(), std::strerror(errno));
@@ -332,6 +381,97 @@ void SteadydriveHardwareInterface::closeCanSockets()
       socket_fd = -1;
     }
   }
+}
+
+bool SteadydriveHardwareInterface::ensureCanSockets()
+{
+  if (fatal_error_) {
+    return false;
+  }
+
+  const bool all_connected = std::all_of(
+    can_sockets_.begin(), can_sockets_.end(), [](int socket_fd) { return socket_fd >= 0; });
+  if (all_connected) {
+    return true;
+  }
+
+  const auto now = std::chrono::steady_clock::now();
+  if (last_reconnect_attempt_time_.time_since_epoch().count() != 0) {
+    const auto elapsed_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(now - last_reconnect_attempt_time_).count();
+    if (elapsed_ms < reconnect_attempt_interval_ms_) {
+      return false;
+    }
+  }
+  last_reconnect_attempt_time_ = now;
+
+  if (!initializeCanSockets()) {
+    reportConnectionIssue(
+      last_connection_error_message_.empty() ?
+      "Failed to initialize SocketCAN on " + can_interface_ :
+      last_connection_error_message_);
+    return false;
+  }
+
+  if (lifecycle_active_) {
+    for (size_t i = 0; i < num_joints_; ++i) {
+      (void)sendMotorCommand(i, 0x88);
+    }
+  }
+  return true;
+}
+
+void SteadydriveHardwareInterface::reportConnectionIssue(const std::string & message)
+{
+  ++connection_issue_count_;
+  ++reconnect_attempt_count_;
+
+  if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
+    fatal_error_ = true;
+    RCLCPP_FATAL(
+      rclcpp::get_logger(hw_name_),
+      "%s. Reached reconnect limit after %d attempts",
+      message.c_str(),
+      reconnect_attempt_count_);
+    return;
+  }
+
+  logEscalatingIssue(connection_issue_count_, message);
+}
+
+void SteadydriveHardwareInterface::logEscalatingIssue(int count, const std::string & message)
+{
+  if (count < retry_attempts_before_error_) {
+    RCLCPP_WARN(rclcpp::get_logger(hw_name_), "%s", message.c_str());
+    return;
+  }
+
+  if (count < fatal_after_consecutive_errors_) {
+    if (count == retry_attempts_before_error_) {
+      RCLCPP_ERROR(
+        rclcpp::get_logger(hw_name_),
+        "%s. Escalating after %d consecutive failures",
+        message.c_str(),
+        count);
+      return;
+    }
+    RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", message.c_str());
+    return;
+  }
+
+  fatal_error_ = true;
+  RCLCPP_FATAL(
+    rclcpp::get_logger(hw_name_),
+    "%s. Reached fatal threshold after %d consecutive connection failures",
+    message.c_str(),
+    count);
+}
+
+void SteadydriveHardwareInterface::resetIssueCounters()
+{
+  reconnect_attempt_count_ = 0;
+  connection_issue_count_ = 0;
+  fatal_error_ = false;
 }
 
 bool SteadydriveHardwareInterface::sendMotorCommand(
@@ -356,7 +496,19 @@ bool SteadydriveHardwareInterface::sendMotorCommand(
   frame.data[6] = byte6;
   frame.data[7] = byte7;
 
-  return ::write(can_sockets_[motor_index], &frame, sizeof(frame)) == static_cast<ssize_t>(sizeof(frame));
+  if (::write(can_sockets_[motor_index], &frame, sizeof(frame)) != static_cast<ssize_t>(sizeof(frame))) {
+    last_connection_error_message_ =
+      "SocketCAN write failed on '" + can_interface_ + "' for motor 0x" + [&]() {
+        std::ostringstream stream;
+        stream << std::hex << std::uppercase << motor_can_ids_[motor_index];
+        return stream.str();
+      }() + ": " + std::strerror(errno);
+    if (errno == ENETDOWN || errno == ENODEV || errno == EBADF) {
+      closeCanSockets();
+    }
+    return false;
+  }
+  return true;
 }
 
 
@@ -378,8 +530,15 @@ void SteadydriveHardwareInterface::writeCommandsToHardware()
     const uint8_t byte6 = static_cast<uint8_t>((speed_control_value >> 16) & 0xFF);
     const uint8_t byte7 = static_cast<uint8_t>((speed_control_value >> 24) & 0xFF);
 
-    (void)sendMotorCommand(motor_index, 0xA2, 0x00, 0x00, 0x00, byte4, byte5, byte6, byte7);
+    if (!sendMotorCommand(motor_index, 0xA2, 0x00, 0x00, 0x00, byte4, byte5, byte6, byte7)) {
+      reportConnectionIssue(
+        last_connection_error_message_.empty() ?
+        "Failed to send Steadydrive command on " + can_interface_ :
+        last_connection_error_message_);
+      return;
+    }
   }
+  resetIssueCounters();
 }
 
 void SteadydriveHardwareInterface::readAvailableMotorFrames(size_t motor_index)
@@ -393,9 +552,17 @@ void SteadydriveHardwareInterface::readAvailableMotorFrames(size_t motor_index)
     const ssize_t bytes_read = ::read(can_sockets_[motor_index], &response, sizeof(response));
     if (bytes_read < 0) {
       if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        last_connection_error_message_ =
+          "SocketCAN read failed on '" + can_interface_ + "' for motor 0x" + [&]() {
+            std::ostringstream stream;
+            stream << std::hex << std::uppercase << motor_can_ids_[motor_index];
+            return stream.str();
+          }() + ": " + std::strerror(errno);
         RCLCPP_WARN(
           rclcpp::get_logger(hw_name_), "SocketCAN read failed on '%s' for motor 0x%03X: %s",
           can_interface_.c_str(), motor_can_ids_[motor_index], std::strerror(errno));
+        closeCanSockets();
+        reportConnectionIssue(last_connection_error_message_);
       }
       return;
     }
@@ -461,7 +628,13 @@ void SteadydriveHardwareInterface::updateJointsFromHardware()
 {
   for (size_t motor_index = 0; motor_index < can_sockets_.size(); ++motor_index) {
     readAvailableMotorFrames(motor_index);
-    (void)sendMotorCommand(motor_index, 0x9C);
+    if (!sendMotorCommand(motor_index, 0x9C)) {
+      reportConnectionIssue(
+        last_connection_error_message_.empty() ?
+        "Failed to query Steadydrive state on " + can_interface_ :
+        last_connection_error_message_);
+      return;
+    }
   }
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), 
     "Reading joint states (L: %f, R: %f)",
@@ -560,6 +733,7 @@ std::vector<hardware_interface::CommandInterface> SteadydriveHardwareInterface::
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Starting ...please wait...");
+  lifecycle_active_ = true;
   // set some default values
   for (auto i = 0u; i < num_joints_; i++) {
     velocity_commands_[i] = 0.0;
@@ -568,7 +742,9 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
     velocity_states_[i] = 0.0;
     last_encoder_position_raw_[i].reset();
     accumulated_motor_position_rad_[i] = 0.0;
-    (void)sendMotorCommand(i, 0x88);
+    if (ensureCanSockets()) {
+      (void)sendMotorCommand(i, 0x88);
+    }
   }
 
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System Successfully started!");
@@ -578,9 +754,12 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Stopping ...please wait...");
-  for (auto i = 0u; i < num_joints_; i++) {
-    (void)sendMotorCommand(i, 0xA2);
-    (void)sendMotorCommand(i, 0x81);
+  lifecycle_active_ = false;
+  if (std::all_of(can_sockets_.begin(), can_sockets_.end(), [](int socket_fd) { return socket_fd >= 0; })) {
+    for (auto i = 0u; i < num_joints_; i++) {
+      (void)sendMotorCommand(i, 0xA2);
+      (void)sendMotorCommand(i, 0x81);
+    }
   }
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System successfully stopped!");
   return hardware_interface::CallbackReturn::SUCCESS;
@@ -588,18 +767,24 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_deactivate(c
 
 hardware_interface::return_type SteadydriveHardwareInterface::read(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
+  if (!ensureCanSockets()) {
+    return fatal_error_ ? hardware_interface::return_type::ERROR : hardware_interface::return_type::OK;
+  }
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Reading from hardware");
   updateJointsFromHardware();
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Joints successfully read!");
-  return hardware_interface::return_type::OK;
+  return fatal_error_ ? hardware_interface::return_type::ERROR : hardware_interface::return_type::OK;
 }
 
 hardware_interface::return_type SteadydriveHardwareInterface::write(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
+  if (!ensureCanSockets()) {
+    return fatal_error_ ? hardware_interface::return_type::ERROR : hardware_interface::return_type::OK;
+  }
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Writing to hardware");
   writeCommandsToHardware();
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Joints successfully written!");
-  return hardware_interface::return_type::OK;
+  return fatal_error_ ? hardware_interface::return_type::ERROR : hardware_interface::return_type::OK;
 }
 
 #include <pluginlib/class_list_macros.hpp>

@@ -7,6 +7,10 @@
     left_motor_positive_direction:    CCW      # Positive motor rotation direction for the left brush joint.
     right_motor_positive_direction:   CW       # Positive motor rotation direction for the right brush joint.
     gear_ratio:                       10.0     # Shared gearbox ratio from brush joint to motor shaft.
+    reconnect_attempt_interval_ms:   1000     # Delay between SocketCAN reopen attempts after a disconnect.
+    retry_attempts_before_error:     3        # Consecutive CAN failures before warnings escalate to errors.
+    fatal_after_consecutive_errors:  10       # Consecutive CAN failures before the hardware interface goes fatal.
+    max_reconnect_attempts:          10       # Hard cap on reconnect attempts. Set to 0 for unlimited retries.
 
     # -- Protection configuration ----------------------------------------------
     protection:
