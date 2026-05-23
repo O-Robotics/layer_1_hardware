@@ -13,7 +13,7 @@ def _camera_node(camera_key: str, namespace, log_level):
     camera_namespace = PathJoinSubstitution([namespace, camera_key])
     return Node(
         package="amr_sweeper_usb_cameras",
-        executable="amr_sweeper_usb_cameras_node",
+        executable="usb_cameras_node",
         namespace=camera_namespace,
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],

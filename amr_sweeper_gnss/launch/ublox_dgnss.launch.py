@@ -48,7 +48,7 @@ def generate_launch_description():
         ),
         Node(
             package="amr_sweeper_gnss",
-            executable="amr_sweeper_gnss_ublox_node",
+            executable="gnss_ublox_node",
             namespace=gnss_namespace,
             name="amr_sweeper_gnss_ublox_node",
             output="screen",

@@ -137,7 +137,7 @@ def generate_launch_description():
 
     ld.add_action(Node(
         package="amr_sweeper_battery",
-        executable="amr_sweeper_battery_node",
+        executable="battery_node",
         namespace=namespace,
         name="amr_sweeper_battery_node",
         output="screen",
@@ -153,7 +153,7 @@ def generate_launch_description():
 
     ld.add_action(Node(
         package="amr_sweeper_system_info",
-        executable="amr_sweeper_system_info_node",
+        executable="system_info_node",
         namespace=namespace,
         name="amr_sweeper_system_info_node",
         output="screen",

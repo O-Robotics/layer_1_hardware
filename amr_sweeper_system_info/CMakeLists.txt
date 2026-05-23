@@ -20,6 +20,7 @@ target_include_directories(amr_sweeper_system_info_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_compile_features(amr_sweeper_system_info_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+set_target_properties(amr_sweeper_system_info_node PROPERTIES OUTPUT_NAME system_info_node)
 
 install(TARGETS amr_sweeper_system_info_node
   DESTINATION lib/${PROJECT_NAME})

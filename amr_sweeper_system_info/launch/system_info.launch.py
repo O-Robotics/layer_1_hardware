@@ -21,7 +21,7 @@ def generate_launch_description():
         ),
         Node(
             package="amr_sweeper_system_info",
-            executable="amr_sweeper_system_info_node",
+            executable="system_info_node",
             namespace=namespace,
             name="amr_sweeper_system_info_node",
             output="screen",

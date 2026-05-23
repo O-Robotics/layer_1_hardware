@@ -47,11 +47,11 @@ target_link_libraries(${PROJECT_NAME}_component
 
 rclcpp_components_register_node(${PROJECT_NAME}_component
   PLUGIN "amr_sweeper_usb_cameras::UsbCameraNode"
-  EXECUTABLE amr_sweeper_usb_cameras_node
+  EXECUTABLE usb_cameras_node
 )
 
 # The generated executable target needs the C++ standard library explicitly linked here.
-target_link_libraries(amr_sweeper_usb_cameras_node stdc++)
+target_link_libraries(usb_cameras_node stdc++)
 
 install(TARGETS
   ${PROJECT_NAME}

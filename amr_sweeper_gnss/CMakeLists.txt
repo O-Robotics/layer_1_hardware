@@ -15,6 +15,7 @@ find_package(yaml-cpp REQUIRED)
 add_executable(amr_sweeper_gnss_ublox_node
   src/amr_sweeper_gnss_ublox_node.cpp
 )
+set_target_properties(amr_sweeper_gnss_ublox_node PROPERTIES OUTPUT_NAME gnss_ublox_node)
 
 target_compile_features(amr_sweeper_gnss_ublox_node PUBLIC cxx_std_17)
 target_include_directories(amr_sweeper_gnss_ublox_node PUBLIC
