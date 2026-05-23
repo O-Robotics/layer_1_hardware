@@ -43,8 +43,8 @@
 
     # -- Processing -----------------------------------------------------------
     enable_sync:               true          # Time-synchronize depth and color streams inside the driver.
-    align_depth.enable:        false         # Keep raw depth as the source for laserscan conversion.
-    pointcloud.enable:         false         # The sweeper stack currently consumes LaserScan rather than PointCloud2.
+    align_depth.enable:        true          # Align depth to color so mapping can fuse colored 3D observations consistently.
+    pointcloud.enable:         true          # Publish colored PointCloud2 for the gaussian world accumulator.
     colorizer.enable:          false
     decimation_filter.enable:  false
     spatial_filter.enable:     true
