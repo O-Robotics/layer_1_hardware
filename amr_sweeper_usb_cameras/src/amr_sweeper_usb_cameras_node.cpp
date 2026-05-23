@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -49,6 +50,10 @@ UsbCameraNode::UsbCameraNode(const rclcpp::NodeOptions & options)
   declare_parameter("image_height", 240);
   declare_parameter("image_width", 320);
   declare_parameter("video_device", "/dev/video0");
+  declare_parameter("reconnect_attempt_interval_ms", 1000);
+  declare_parameter("retry_attempts_before_error", 3);
+  declare_parameter("fatal_after_consecutive_errors", 10);
+  declare_parameter("max_reconnect_attempts", 10);
 
   // Parameters are loaded once during startup. This lean node keeps its runtime
   // behavior fixed after construction instead of supporting live reconfiguration.
@@ -65,11 +70,11 @@ UsbCameraNode::~UsbCameraNode()
 
 void UsbCameraNode::init()
 {
-  // Each camera instance publishes into its own namespace so multiple cameras
-  // can run side by side without topic collisions.
-  const std::string image_topic = "image_raw";
+  // Each camera instance keeps a short node name while publishing into a
+  // dedicated camera topic prefix such as `rear_left_camera/image_raw`.
+  const std::string image_topic = m_parameters.camera_name + "/image_raw";
   const std::string compressed_topic = image_topic + "/compressed";
-  const std::string camera_info_topic = m_parameters.camera_name + "_info";
+  const std::string camera_info_topic = m_parameters.camera_name + "/" + m_parameters.camera_name + "_info";
 
   m_image_publisher =
     create_publisher<sensor_msgs::msg::Image>(image_topic, rclcpp::QoS(1));
@@ -91,39 +96,68 @@ void UsbCameraNode::init()
     m_camera_info->setCameraInfo(*m_camera_info_msg);
   }
 
-  const auto available_devices = utils::available_devices();
-  if (available_devices.find(m_parameters.device_name) == available_devices.end()) {
-    RCLCPP_ERROR_STREAM(get_logger(), "Camera device is not available: " << m_parameters.device_name);
-    rclcpp::shutdown();
-    return;
-  }
-
-  // The low-level driver owns the V4L2 stream. The node focuses on parameter
-  // handling, topic naming, and message publication.
-  m_camera->configure(m_parameters);
-  m_camera->start();
-
-  if (std::abs(m_camera->get_configured_framerate() - m_parameters.framerate) > 0.01) {
-    RCLCPP_INFO(
-      get_logger(),
-      "Camera driver accepted %.3f fps; publishing %s at requested %.3f fps",
-      m_camera->get_configured_framerate(),
-      m_parameters.camera_name.c_str(),
-      m_parameters.framerate);
-  }
-
-  RCLCPP_INFO(
-    get_logger(),
-    "Configured %s to %dx%d at %.3f fps",
-    m_parameters.camera_name.c_str(),
-    m_parameters.image_width,
-    m_parameters.image_height,
-    m_parameters.framerate);
+  connect_camera();
 
   const auto period = std::chrono::duration<double>(1.0 / m_parameters.framerate);
   m_timer = create_wall_timer(
     std::chrono::duration_cast<std::chrono::nanoseconds>(period),
     std::bind(&UsbCameraNode::update, this));
+}
+
+bool UsbCameraNode::connect_camera()
+{
+  if (m_fatal_error || m_camera_connected) {
+    return m_camera_connected;
+  }
+
+  try {
+    const auto available_devices = utils::available_devices();
+    if (available_devices.find(m_parameters.device_name) == available_devices.end()) {
+      throw std::runtime_error("Camera device is not available: " + m_parameters.device_name);
+    }
+
+    // The low-level driver owns the V4L2 stream. The node focuses on parameter
+    // handling, topic naming, and publication plus reconnect policy.
+    m_camera->configure(m_parameters);
+    m_camera->start();
+    m_camera_connected = true;
+    m_retry_elapsed_ms = 0;
+    reset_connection_issue_counters();
+
+    if (std::abs(m_camera->get_configured_framerate() - m_parameters.framerate) > 0.01) {
+      RCLCPP_INFO(
+        get_logger(),
+        "Camera driver accepted %.3f fps; publishing %s at requested %.3f fps",
+        m_camera->get_configured_framerate(),
+        m_parameters.camera_name.c_str(),
+        m_parameters.framerate);
+    }
+
+    RCLCPP_INFO(
+      get_logger(),
+      "Configured %s to %dx%d at %.3f fps on %s",
+      m_parameters.camera_name.c_str(),
+      m_parameters.image_width,
+      m_parameters.image_height,
+      m_parameters.framerate,
+      m_parameters.device_name.c_str());
+    return true;
+  } catch (const std::exception & error) {
+    disconnect_camera();
+    report_connection_issue(error.what());
+    return false;
+  }
+}
+
+void UsbCameraNode::disconnect_camera()
+{
+  try {
+    m_camera->shutdown();
+  } catch (const std::exception & error) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000, "Camera shutdown encountered an error: %s", error.what());
+  }
+  m_camera_connected = false;
 }
 
 void UsbCameraNode::get_params()
@@ -138,6 +172,10 @@ void UsbCameraNode::get_params()
       get_parameter("image_height"),
       get_parameter("image_width"),
       get_parameter("video_device"),
+      get_parameter("reconnect_attempt_interval_ms"),
+      get_parameter("retry_attempts_before_error"),
+      get_parameter("fatal_after_consecutive_errors"),
+      get_parameter("max_reconnect_attempts"),
     });
 }
 
@@ -159,8 +197,88 @@ void UsbCameraNode::assign_params(const std::vector<rclcpp::Parameter> & paramet
       m_parameters.image_width = parameter.as_int();
     } else if (name == "video_device") {
       m_parameters.device_name = resolve_device_path(parameter.as_string());
+    } else if (name == "reconnect_attempt_interval_ms") {
+      m_reconnect_attempt_interval_ms = parameter.as_int();
+    } else if (name == "retry_attempts_before_error") {
+      m_retry_attempts_before_error = parameter.as_int();
+    } else if (name == "fatal_after_consecutive_errors") {
+      m_fatal_after_consecutive_errors = parameter.as_int();
+    } else if (name == "max_reconnect_attempts") {
+      m_max_reconnect_attempts = parameter.as_int();
     }
   }
+
+  if (m_reconnect_attempt_interval_ms < 1) {
+    m_reconnect_attempt_interval_ms = 1;
+  }
+  if (m_retry_attempts_before_error < 1) {
+    m_retry_attempts_before_error = 1;
+  }
+  if (m_fatal_after_consecutive_errors < 1) {
+    m_fatal_after_consecutive_errors = 1;
+  }
+  if (m_max_reconnect_attempts < 0) {
+    m_max_reconnect_attempts = 0;
+  }
+}
+
+void UsbCameraNode::report_connection_issue(const std::string & message)
+{
+  ++m_connection_issue_count;
+  ++m_reconnect_attempt_count;
+
+  if (m_max_reconnect_attempts > 0 && m_reconnect_attempt_count >= m_max_reconnect_attempts) {
+    m_fatal_error = true;
+    RCLCPP_FATAL(
+      get_logger(),
+      "%s. Reached reconnect limit after %d attempts",
+      message.c_str(),
+      m_reconnect_attempt_count);
+    if (m_timer) {
+      m_timer->cancel();
+    }
+    return;
+  }
+
+  log_escalating_issue(m_connection_issue_count, message);
+}
+
+void UsbCameraNode::log_escalating_issue(int count, const std::string & message)
+{
+  if (count < m_retry_attempts_before_error) {
+    RCLCPP_WARN(get_logger(), "%s", message.c_str());
+    return;
+  }
+
+  if (count < m_fatal_after_consecutive_errors) {
+    if (count == m_retry_attempts_before_error) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "%s. Escalating after %d consecutive failures",
+        message.c_str(),
+        count);
+      return;
+    }
+    RCLCPP_ERROR(get_logger(), "%s", message.c_str());
+    return;
+  }
+
+  m_fatal_error = true;
+  RCLCPP_FATAL(
+    get_logger(),
+    "%s. Reached fatal threshold after %d consecutive connection failures",
+    message.c_str(),
+    count);
+  if (m_timer) {
+    m_timer->cancel();
+  }
+}
+
+void UsbCameraNode::reset_connection_issue_counters()
+{
+  m_reconnect_attempt_count = 0;
+  m_connection_issue_count = 0;
+  m_fatal_error = false;
 }
 
 bool UsbCameraNode::take_and_send_image()
@@ -211,12 +329,26 @@ bool UsbCameraNode::take_and_send_image()
 
 void UsbCameraNode::update()
 {
+  if (m_fatal_error) {
+    return;
+  }
+
+  if (!m_camera_connected) {
+    const auto period_ms = std::max(
+      1, static_cast<int>(std::lround(1000.0 / m_parameters.framerate)));
+    m_retry_elapsed_ms += period_ms;
+    if (m_retry_elapsed_ms >= m_reconnect_attempt_interval_ms) {
+      m_retry_elapsed_ms = 0;
+      connect_camera();
+    }
+    return;
+  }
+
   try {
     take_and_send_image();
   } catch (const std::exception & error) {
-    // Camera failures are throttled to keep logs readable if a device is disconnected
-    // or temporarily stops delivering frames.
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "Frame capture failed: %s", error.what());
+    disconnect_camera();
+    report_connection_issue("Frame capture failed on '" + m_parameters.device_name + "': " + error.what());
   }
 }
 

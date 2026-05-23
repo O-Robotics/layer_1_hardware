@@ -5,3 +5,6 @@
     priority: 24           # 29-bit CAN arbitration priority byte used for PC-to-BMS requests.
     bms_address: 1         # Daly BMS node address byte used in request IDs.
     pc_address: 64         # Host/controller node address byte used in request IDs.
+    retry_attempts_before_error: 3    # Consecutive CAN failures before warnings escalate to errors.
+    fatal_after_consecutive_errors: 10  # Consecutive CAN failures before the node stops retrying.
+    max_reconnect_attempts: 10        # Hard cap on reconnect attempts. Set to 0 for unlimited retries.

@@ -37,6 +37,9 @@ private:
   bool setup_can_socket(bool log_failure);
   void close_can_socket();
   int current_socket() const;
+  void report_connection_issue(const std::string & message);
+  void log_escalating_issue(int count, const std::string & message);
+  void reset_issue_counters();
   uint32_t make_pc_to_bms_id(uint8_t data_id) const;
   static ParsedId parse_bms_to_pc_id(uint32_t arb_id);
   void on_timer();
@@ -64,12 +67,20 @@ private:
   uint8_t priority_ {};
   uint8_t bms_addr_ {};
   uint8_t pc_addr_ {};
+  int retry_attempts_before_error_ {3};
+  int fatal_after_consecutive_errors_ {10};
+  int max_reconnect_attempts_ {10};
 
   mutable std::mutex socket_mutex_;
   int can_socket_ {-1};
   std::atomic<bool> rx_running_ {false};
   std::thread rx_thread_;
   bool missing_can_warned_ {false};
+  mutable std::mutex issue_mutex_;
+  int reconnect_attempt_count_ {0};
+  int connection_issue_count_ {0};
+  std::atomic<bool> fatal_error_ {false};
+  std::string last_connection_error_message_;
 
   mutable std::mutex state_mutex_;
   std::optional<double> pack_voltage_;

@@ -31,12 +31,28 @@ DalyBmsCanNode::DalyBmsCanNode()
   declare_parameter<int64_t>("priority", 0x18);
   declare_parameter<int64_t>("bms_address", 0x01);
   declare_parameter<int64_t>("pc_address", 0x40);
+  declare_parameter<int>("retry_attempts_before_error", 3);
+  declare_parameter<int>("fatal_after_consecutive_errors", 10);
+  declare_parameter<int>("max_reconnect_attempts", 10);
 
   can_interface_ = get_parameter("can_interface").as_string();
   const auto timer_period = get_parameter("timer_period").as_double();
   priority_ = static_cast<uint8_t>(get_parameter("priority").as_int());
   bms_addr_ = static_cast<uint8_t>(get_parameter("bms_address").as_int());
   pc_addr_ = static_cast<uint8_t>(get_parameter("pc_address").as_int());
+  retry_attempts_before_error_ = get_parameter("retry_attempts_before_error").as_int();
+  fatal_after_consecutive_errors_ = get_parameter("fatal_after_consecutive_errors").as_int();
+  max_reconnect_attempts_ = get_parameter("max_reconnect_attempts").as_int();
+
+  if (retry_attempts_before_error_ < 1) {
+    retry_attempts_before_error_ = 1;
+  }
+  if (fatal_after_consecutive_errors_ < 1) {
+    fatal_after_consecutive_errors_ = 1;
+  }
+  if (max_reconnect_attempts_ < 0) {
+    max_reconnect_attempts_ = 0;
+  }
 
   RCLCPP_INFO(
     get_logger(),
@@ -47,10 +63,7 @@ DalyBmsCanNode::DalyBmsCanNode()
   health_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>("battery_health", 10);
 
   if (!setup_can_socket(true)) {
-    RCLCPP_WARN(
-      get_logger(),
-      "CAN interface '%s' is not available at startup; will keep retrying in the background.",
-      can_interface_.c_str());
+    report_connection_issue(last_connection_error_message_);
   }
 
   const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -74,24 +87,17 @@ bool DalyBmsCanNode::setup_can_socket(bool log_failure)
 
   const int fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   if (fd < 0) {
-    if (log_failure) {
-      RCLCPP_WARN(
-        get_logger(),
-        "Failed to create CAN socket for '%s': %s. Will retry periodically.",
-        can_interface_.c_str(), std::strerror(errno));
-    }
+    (void)log_failure;
+    last_connection_error_message_ =
+      "Failed to create CAN socket for '" + can_interface_ + "': " + std::strerror(errno);
     return false;
   }
 
   ifreq ifr {};
   std::snprintf(ifr.ifr_name, IFNAMSIZ, "%s", can_interface_.c_str());
   if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
-    if (log_failure) {
-      RCLCPP_WARN(
-        get_logger(),
-        "Failed to resolve CAN interface '%s': %s. Will retry periodically.",
-        can_interface_.c_str(), std::strerror(errno));
-    }
+    last_connection_error_message_ =
+      "Failed to resolve CAN interface '" + can_interface_ + "': " + std::strerror(errno);
     ::close(fd);
     return false;
   }
@@ -101,20 +107,21 @@ bool DalyBmsCanNode::setup_can_socket(bool log_failure)
   addr.can_ifindex = ifr.ifr_ifindex;
 
   if (bind(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
-    if (log_failure) {
-      RCLCPP_WARN(
-        get_logger(),
-        "Failed to bind CAN interface '%s': %s. Will retry periodically.",
-        can_interface_.c_str(), std::strerror(errno));
-    }
+    last_connection_error_message_ =
+      "Failed to bind CAN interface '" + can_interface_ + "': " + std::strerror(errno);
     ::close(fd);
     return false;
   }
 
   can_socket_ = fd;
   rx_running_.store(true);
+  if (rx_thread_.joinable()) {
+    rx_thread_.join();
+  }
   rx_thread_ = std::thread(&DalyBmsCanNode::rx_loop, this);
   missing_can_warned_ = false;
+  last_connection_error_message_.clear();
+  reset_issue_counters();
 
   RCLCPP_INFO(get_logger(), "Connected to CAN interface '%s'.", can_interface_.c_str());
   return true;
@@ -134,7 +141,7 @@ void DalyBmsCanNode::close_can_socket()
     ::close(socket_to_close);
   }
 
-  if (rx_thread_.joinable()) {
+  if (rx_thread_.joinable() && rx_thread_.get_id() != std::this_thread::get_id()) {
     rx_thread_.join();
   }
 }
@@ -143,6 +150,67 @@ int DalyBmsCanNode::current_socket() const
 {
   std::lock_guard<std::mutex> socket_lock(socket_mutex_);
   return can_socket_;
+}
+
+void DalyBmsCanNode::report_connection_issue(const std::string & message)
+{
+  std::lock_guard<std::mutex> issue_lock(issue_mutex_);
+  ++connection_issue_count_;
+  ++reconnect_attempt_count_;
+
+  if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
+    fatal_error_.store(true);
+    RCLCPP_FATAL(
+      get_logger(),
+      "%s. Reached reconnect limit after %d attempts",
+      message.c_str(),
+      reconnect_attempt_count_);
+    if (timer_) {
+      timer_->cancel();
+    }
+    return;
+  }
+
+  log_escalating_issue(connection_issue_count_, message);
+}
+
+void DalyBmsCanNode::log_escalating_issue(int count, const std::string & message)
+{
+  if (count < retry_attempts_before_error_) {
+    RCLCPP_WARN(get_logger(), "%s", message.c_str());
+    return;
+  }
+
+  if (count < fatal_after_consecutive_errors_) {
+    if (count == retry_attempts_before_error_) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "%s. Escalating after %d consecutive failures",
+        message.c_str(),
+        count);
+      return;
+    }
+    RCLCPP_ERROR(get_logger(), "%s", message.c_str());
+    return;
+  }
+
+  fatal_error_.store(true);
+  RCLCPP_FATAL(
+    get_logger(),
+    "%s. Reached fatal threshold after %d consecutive connection failures",
+    message.c_str(),
+    count);
+  if (timer_) {
+    timer_->cancel();
+  }
+}
+
+void DalyBmsCanNode::reset_issue_counters()
+{
+  std::lock_guard<std::mutex> issue_lock(issue_mutex_);
+  reconnect_attempt_count_ = 0;
+  connection_issue_count_ = 0;
+  fatal_error_.store(false);
 }
 
 uint32_t DalyBmsCanNode::make_pc_to_bms_id(uint8_t data_id) const
@@ -166,15 +234,11 @@ DalyBmsCanNode::ParsedId DalyBmsCanNode::parse_bms_to_pc_id(uint32_t arb_id)
 
 void DalyBmsCanNode::on_timer()
 {
-  if (current_socket() < 0) {
-    if (!missing_can_warned_) {
-      RCLCPP_WARN(
-        get_logger(),
-        "No CAN interface '%s' detected yet; battery data will not be updated until it appears.",
-        can_interface_.c_str());
-      missing_can_warned_ = true;
-    }
+  if (fatal_error_.load()) {
+    return;
+  }
 
+  if (current_socket() < 0) {
     diagnostic_msgs::msg::DiagnosticArray diag_array;
     diag_array.header.stamp = now();
 
@@ -188,15 +252,33 @@ void DalyBmsCanNode::on_timer()
     diag_array.status.push_back(status);
     health_pub_->publish(diag_array);
 
-    setup_can_socket(false);
+    if (!setup_can_socket(false)) {
+      report_connection_issue(
+        last_connection_error_message_.empty() ?
+        "No CAN interface '" + can_interface_ + "' detected; battery data is unavailable." :
+        last_connection_error_message_);
+      missing_can_warned_ = true;
+    }
     return;
   }
 
+  bool had_tx_failure = false;
   for (const auto data_id : kDataIds) {
     if (!send_request(data_id)) {
-      RCLCPP_WARN(get_logger(), "CAN TX failed for 0x%02X", data_id);
+      had_tx_failure = true;
+      break;
     }
   }
+
+  if (had_tx_failure) {
+    report_connection_issue(
+      last_connection_error_message_.empty() ?
+      "CAN TX failed on interface '" + can_interface_ + "'" :
+      last_connection_error_message_);
+    return;
+  }
+
+  reset_issue_counters();
 
   publish_battery_state();
   publish_battery_health();
@@ -216,6 +298,14 @@ bool DalyBmsCanNode::send_request(uint8_t data_id)
 
   const auto written = write(fd, &frame, sizeof(frame));
   if (written != static_cast<ssize_t>(sizeof(frame))) {
+    last_connection_error_message_ =
+      "CAN TX failed on interface '" + can_interface_ + "' for request 0x" +
+      [&data_id]() {
+        std::ostringstream stream;
+        stream << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+               << static_cast<int>(data_id);
+        return stream.str();
+      }() + ": " + std::strerror(errno);
     if (errno == ENETDOWN || errno == ENODEV || errno == EBADF) {
       close_can_socket();
     }
@@ -244,13 +334,30 @@ void DalyBmsCanNode::rx_loop()
     if (!rx_running_.load()) {
       break;
     }
-    if (ready <= 0) {
+    if (ready < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      last_connection_error_message_ =
+        "SocketCAN select failed on '" + can_interface_ + "': " + std::strerror(errno);
+      close_can_socket();
+      report_connection_issue(last_connection_error_message_);
+      break;
+    }
+    if (ready == 0) {
       continue;
     }
 
     can_frame frame {};
     const auto bytes = read(fd, &frame, sizeof(frame));
     if (bytes != static_cast<ssize_t>(sizeof(frame))) {
+      if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+        last_connection_error_message_ =
+          "SocketCAN read failed on '" + can_interface_ + "': " + std::strerror(errno);
+        close_can_socket();
+        report_connection_issue(last_connection_error_message_);
+        break;
+      }
       continue;
     }
 

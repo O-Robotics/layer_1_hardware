@@ -10,11 +10,11 @@ def _camera_node(camera_key: str, namespace, log_level):
     pkg_share = FindPackageShare("amr_sweeper_usb_cameras")
     params_file = PathJoinSubstitution([pkg_share, "config", f"{camera_key}_params.yaml"])
     enabled = LaunchConfiguration(f"{camera_key}_enabled")
-    camera_namespace = PathJoinSubstitution([namespace, camera_key])
     return Node(
         package="amr_sweeper_usb_cameras",
         executable="usb_cameras_node",
-        namespace=camera_namespace,
+        namespace=namespace,
+        name=f"{camera_key}_node",
         output="screen",
         arguments=["--ros-args", "--log-level", log_level],
         parameters=[params_file],
