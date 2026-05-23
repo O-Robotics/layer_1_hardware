@@ -1,6 +1,7 @@
 /**:
   ros__parameters:
-    port:                           /dev/imu_usb  # Stable symlink created by the local udev rule.
+    device_path:                    /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0  # Stable by-id path for the JY901 IMU on the robot.
+    port:                           /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0  # Deprecated alias kept for compatibility with older launch files.
     baud:                           9600          # Serial baud rate. Supported: 9600/19200/38400/57600/115200.
     imu_frame_id:                   imu_link      # Frame ID stamped on published IMU messages.
     publish_hz:                     10.0          # Maximum ROS publish rate in Hz after parsing incoming angle frames.

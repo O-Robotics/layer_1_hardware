@@ -1,4 +1,4 @@
-#include "amr_sweeper_gnss_ntrip_client_node.hpp"
+#include "ntrip_client_node.hpp"
 
 #include <openssl/err.h>
 #include <yaml-cpp/yaml.h>

@@ -13,7 +13,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 add_executable(amr_sweeper_gnss_ublox_node
-  src/amr_sweeper_gnss_ublox_node.cpp
+  src/amr_sweeper_gnss_node.cpp
 )
 set_target_properties(amr_sweeper_gnss_ublox_node PROPERTIES OUTPUT_NAME gnss_ublox_node)
 
@@ -29,7 +29,7 @@ ament_target_dependencies(amr_sweeper_gnss_ublox_node
 )
 
 add_executable(ntrip_client
-  src/amr_sweeper_gnss_ntrip_client_node.cpp
+  src/ntrip_client_node.cpp
 )
 
 target_compile_features(ntrip_client PUBLIC cxx_std_17)

@@ -41,7 +41,8 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `battery_can_interface`: default `can0`
 - `battery_params_file`: default `amr_sweeper_battery/config/amr_sweeper_battery.yaml`
 - `system_info_params_file`: default `amr_sweeper_system_info/config/amr_sweeper_system_info.yaml`
-- `imu_port`: default `/dev/imu_usb`
+- `imu_device_path`: default `/dev/imu_usb`
+- `imu_port`: default `/dev/imu_usb` (deprecated compatibility alias)
 - `imu_baud`: default `9600`
 - `imu_params_file`: default `amr_sweeper_imu/config/amr_sweeper_imu.yaml`
 - `gnss_frame_id`: default `gnss_link`

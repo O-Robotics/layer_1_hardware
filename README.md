@@ -35,7 +35,8 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `use_amr_sweeper_gnss`: default `true`
 - `use_ntrip_client`: default `true`
 - `battery_can_interface`: default `can0`
-- `imu_port`: default `/dev/imu_usb`
+- `imu_device_path`: default `/dev/imu_usb`
+- `imu_port`: default `/dev/imu_usb` (deprecated compatibility alias)
 - `imu_baud`: default `9600`
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 

@@ -1,5 +1,5 @@
-#ifndef AMR_SWEEPER_USB_CAMERAS__NODE_HPP_
-#define AMR_SWEEPER_USB_CAMERAS__NODE_HPP_
+#ifndef AMR_SWEEPER_USB_CAMERAS__AMR_SWEEPER_USB_CAMERAS_NODE_HPP_
+#define AMR_SWEEPER_USB_CAMERAS__AMR_SWEEPER_USB_CAMERAS_NODE_HPP_
 
 #include <memory>
 #include <string>
@@ -61,4 +61,4 @@ private:
 
 }  // namespace amr_sweeper_usb_cameras
 
-#endif  // AMR_SWEEPER_USB_CAMERAS__NODE_HPP_
+#endif  // AMR_SWEEPER_USB_CAMERAS__AMR_SWEEPER_USB_CAMERAS_NODE_HPP_

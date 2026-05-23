@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-#include "amr_sweeper_usb_camera_node.hpp"
+#include "amr_sweeper_usb_cameras_node.hpp"
 
 namespace
 {

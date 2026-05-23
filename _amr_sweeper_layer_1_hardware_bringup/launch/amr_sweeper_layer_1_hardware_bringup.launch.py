@@ -46,6 +46,7 @@ def generate_launch_description():
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     battery_params_file = LaunchConfiguration("battery_params_file")
     system_info_params_file = LaunchConfiguration("system_info_params_file")
+    imu_device_path = LaunchConfiguration("imu_device_path")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
     imu_params_file = LaunchConfiguration("imu_params_file")
@@ -94,6 +95,7 @@ def generate_launch_description():
         "config",
         "amr_sweeper_system_info.yaml",
     ])))
+    ld.add_action(DeclareLaunchArgument("imu_device_path", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
     ld.add_action(DeclareLaunchArgument("imu_params_file", default_value=PathJoinSubstitution([
@@ -200,6 +202,7 @@ def generate_launch_description():
                     "namespace": imu_namespace,
                     "use_sim_time": use_sim_time,
                     "params_file": imu_params_file,
+                    "device_path": imu_device_path,
                     "port": imu_port,
                     "baud": imu_baud,
                     "use_imu_node": use_amr_sweeper_imu,

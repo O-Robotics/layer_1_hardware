@@ -39,7 +39,7 @@ ament_export_libraries(${PROJECT_NAME})
 
 # Build the ROS 2 component wrapper separately from the low-level driver library.
 ament_auto_add_library(${PROJECT_NAME}_component SHARED
-  src/amr_sweeper_usb_camera_node.cpp
+  src/amr_sweeper_usb_cameras_node.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}_component

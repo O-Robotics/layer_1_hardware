@@ -49,7 +49,7 @@ private:
   sensor_msgs::msg::Imu build_accel_gyro_message(const sensor_msgs::msg::Imu & raw_msg) const;
   sensor_msgs::msg::Imu build_heading_message(const sensor_msgs::msg::Imu & raw_msg) const;
 
-  std::string port_;
+  std::string device_path_;
   int baud_{9600};
   std::string frame_id_{"imu_link"};
   double publish_hz_{10.0};

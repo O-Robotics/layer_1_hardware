@@ -126,7 +126,9 @@ namespace amr_sweeper_imu
 JY901ImuNode::JY901ImuNode()
 : rclcpp::Node("imu_node")
 {
-  port_ = declare_parameter<std::string>("port", "/dev/imu_usb");
+  constexpr char kDefaultDevicePath[] = "/dev/imu_usb";
+  device_path_ = declare_parameter<std::string>("device_path", kDefaultDevicePath);
+  const auto legacy_port = declare_parameter<std::string>("port", kDefaultDevicePath);
   baud_ = declare_parameter<int>("baud", 9600);
   frame_id_ = declare_parameter<std::string>("imu_frame_id", "imu_link");
   publish_hz_ = declare_parameter<double>("publish_hz", 10.0);
@@ -164,6 +166,20 @@ JY901ImuNode::JY901ImuNode()
   linear_acceleration_covariance_ = declare_parameter<std::vector<double>>(
     "linear_acceleration_covariance",
     std::vector<double>{0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5});
+
+  if (device_path_ == kDefaultDevicePath && legacy_port != kDefaultDevicePath) {
+    device_path_ = legacy_port;
+    RCLCPP_WARN(
+      get_logger(),
+      "Parameter 'port' is deprecated; use 'device_path' instead. Using legacy value '%s'.",
+      device_path_.c_str());
+  } else if (legacy_port != kDefaultDevicePath && legacy_port != device_path_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Both 'device_path' ('%s') and deprecated 'port' ('%s') were set; using 'device_path'.",
+      device_path_.c_str(),
+      legacy_port.c_str());
+  }
 
   if (publish_hz_ < 1.0) {
     publish_hz_ = 1.0;
@@ -205,7 +221,7 @@ JY901ImuNode::JY901ImuNode()
   if (!open_serial()) {
     report_connection_issue(
       last_serial_error_message_.empty() ?
-      "Failed to open IMU serial port '" + port_ + "'" :
+      "Failed to open IMU serial device '" + device_path_ + "'" :
       last_serial_error_message_);
   } else if (!configure_device()) {
     report_configuration_issue("IMU opened, but device programming did not fully succeed");
@@ -232,16 +248,17 @@ bool JY901ImuNode::open_serial()
   close_serial();
   last_serial_error_message_.clear();
 
-  serial_fd_ = ::open(port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+  serial_fd_ = ::open(device_path_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (serial_fd_ < 0) {
-    last_serial_error_message_ = errno_message("Failed to open IMU serial port '" + port_ + "'");
+    last_serial_error_message_ = errno_message(
+      "Failed to open IMU serial device '" + device_path_ + "'");
     return false;
   }
 
   termios tty{};
   if (tcgetattr(serial_fd_, &tty) != 0) {
     last_serial_error_message_ = errno_message(
-      "Failed to read IMU serial attributes for '" + port_ + "'");
+      "Failed to read IMU serial attributes for '" + device_path_ + "'");
     close_serial();
     return false;
   }
@@ -266,14 +283,14 @@ bool JY901ImuNode::open_serial()
 
   if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
     last_serial_error_message_ = errno_message(
-      "Failed to configure IMU serial attributes for '" + port_ + "'");
+      "Failed to configure IMU serial attributes for '" + device_path_ + "'");
     close_serial();
     return false;
   }
 
   tcflush(serial_fd_, TCIOFLUSH);
 
-  RCLCPP_INFO(get_logger(), "Opened IMU serial: %s @ %d", port_.c_str(), active_baud_);
+  RCLCPP_INFO(get_logger(), "Opened IMU serial device: %s @ %d", device_path_.c_str(), active_baud_);
   return true;
 }
 
@@ -565,7 +582,7 @@ void JY901ImuNode::read_serial()
       } else {
         report_connection_issue(
           last_serial_error_message_.empty() ?
-          "Failed to reconnect IMU serial port '" + port_ + "'" :
+          "Failed to reconnect IMU serial device '" + device_path_ + "'" :
           last_serial_error_message_);
       }
     }
@@ -582,7 +599,7 @@ void JY901ImuNode::read_serial()
     if (read_timer_) {
       read_timer_->reset();
     }
-    report_connection_issue(errno_message("Serial read failure on '" + port_ + "'"));
+    report_connection_issue(errno_message("Serial read failure on '" + device_path_ + "'"));
     return;
   }
 

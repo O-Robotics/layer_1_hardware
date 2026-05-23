@@ -1,4 +1,4 @@
-#include "amr_sweeper_gnss_ublox_node.hpp"
+#include "amr_sweeper_gnss_node.hpp"
 
 #include <fcntl.h>
 #include <termios.h>

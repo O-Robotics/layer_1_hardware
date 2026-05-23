@@ -15,10 +15,14 @@ def generate_launch_description():
         name='use_sim_time',
         default_value='false',
         description='Use ROS time if true')
+    declare_device_path = DeclareLaunchArgument(
+        name='device_path',
+        default_value='/dev/imu_usb',
+        description='Serial device path for the JY901 IMU')
     declare_port = DeclareLaunchArgument(
         name='port',
         default_value='/dev/imu_usb',
-        description='Serial port for the JY901 IMU')
+        description='Deprecated compatibility alias for device_path')
     declare_baud = DeclareLaunchArgument(
         name='baud',
         default_value='9600',
@@ -48,6 +52,7 @@ def generate_launch_description():
     ns = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
     params_file = LaunchConfiguration('params_file')
+    device_path = LaunchConfiguration('device_path')
     port = LaunchConfiguration('port')
     baud = LaunchConfiguration('baud')
     imu_frame_id = LaunchConfiguration('imu_frame_id')
@@ -61,6 +66,7 @@ def generate_launch_description():
         namespace=ns,
         parameters=[
             params_file,
+            {'device_path': device_path},
             {'port': port},
             {'baud': baud},
             {'imu_frame_id': imu_frame_id},
@@ -75,6 +81,7 @@ def generate_launch_description():
         [
             declare_namespace,
             declare_use_sim_time,
+            declare_device_path,
             declare_port,
             declare_baud,
             declare_frame_id,

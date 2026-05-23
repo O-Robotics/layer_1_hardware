@@ -1,5 +1,5 @@
-#ifndef AMR_SWEEPER_GNSS__AMR_SWEEPER_GNSS_NTRIP_CLIENT_NODE_HPP_
-#define AMR_SWEEPER_GNSS__AMR_SWEEPER_GNSS_NTRIP_CLIENT_NODE_HPP_
+#ifndef AMR_SWEEPER_GNSS__NTRIP_CLIENT_NODE_HPP_
+#define AMR_SWEEPER_GNSS__NTRIP_CLIENT_NODE_HPP_
 
 #include <openssl/ssl.h>
 
@@ -124,4 +124,4 @@ int read_startup_fatal_threshold_from_params(int argc, char ** argv);
 
 }  // namespace amr_sweeper_gnss
 
-#endif  // AMR_SWEEPER_GNSS__AMR_SWEEPER_GNSS_NTRIP_CLIENT_NODE_HPP_
+#endif  // AMR_SWEEPER_GNSS__NTRIP_CLIENT_NODE_HPP_

@@ -12,7 +12,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
 add_executable(laserscan_node
-  src/amr_sweeper_depth_camera_laserscan_node.cpp
+  src/laserscan_node.cpp
 )
 
 target_include_directories(laserscan_node PUBLIC
