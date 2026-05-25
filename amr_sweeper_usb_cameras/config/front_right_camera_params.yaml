@@ -1,10 +1,15 @@
 # front_right_camera capture settings and calibration mapping.
 /**:
   ros__parameters:
-    video_device: "/dev/video8"
-    framerate: 2.5
-    frame_id: "front_right_camera_optical_frame"
-    image_width: 320
-    image_height: 240
-    camera_name: "front_right_camera"
-    camera_info_url: "package://amr_sweeper_usb_cameras/config/front_right_camera_info.yaml"
+    # -- Capture device -------------------------------------------------------
+    video_device: /dev/video8  # V4L2 device path for the front-right USB camera.
+    framerate:    2.5          # Requested capture rate in frames per second.
+
+    # -- Image identity -------------------------------------------------------
+    frame_id:      front_right_camera_optical_frame  # Optical frame stamped on published images.
+    image_width:   320                               # Captured image width in pixels.
+    image_height:  240                               # Captured image height in pixels.
+    camera_name:   front_right_camera                # Camera name embedded in CameraInfo output.
+
+    # -- Calibration ----------------------------------------------------------
+    camera_info_url: package://amr_sweeper_usb_cameras/config/front_right_camera_info.yaml  # Calibration file loaded by the driver.
