@@ -25,6 +25,13 @@ def _camera_node(camera_key: str, namespace, log_level):
 def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
     log_level = LaunchConfiguration("log_level")
+    default_enabled = {
+        "front_left_camera": "false",
+        "front_right_camera": "false",
+        "rear_left_camera": "true",
+        "rear_right_camera": "true",
+        "tools_camera": "true",
+    }
 
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper/usb_cameras"))
@@ -37,7 +44,12 @@ def generate_launch_description():
         "rear_right_camera",
         "tools_camera",
     ]:
-        ld.add_action(DeclareLaunchArgument(f"{camera_key}_enabled", default_value="true"))
+        ld.add_action(
+            DeclareLaunchArgument(
+                f"{camera_key}_enabled",
+                default_value=default_enabled[camera_key],
+            )
+        )
         ld.add_action(_camera_node(camera_key, namespace, log_level))
 
     return ld
