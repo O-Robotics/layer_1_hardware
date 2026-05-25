@@ -223,8 +223,8 @@ def generate_launch_description():
             ros2_control_config_file,
         ],
         remappings=[
-            ("robot_description", "/robot_description"),
-            ("~/robot_description", "/robot_description"),
+            ("robot_description", ["/", namespace, "/robot_description"]),
+            ("~/robot_description", ["/", namespace, "/robot_description"]),
         ],
         condition=IfCondition(use_ros2_control),
     )

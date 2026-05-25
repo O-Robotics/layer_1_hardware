@@ -47,9 +47,6 @@ def generate_launch_description():
             executable='robot_state_publisher',
             namespace=namespace,
             output='screen',
-            remappings=[
-                ('robot_description', '/robot_description'),
-            ],
             parameters=[{
                 'robot_description': robot_description,
                 'use_sim_time': use_sim_time,
