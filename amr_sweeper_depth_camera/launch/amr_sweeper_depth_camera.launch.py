@@ -146,10 +146,14 @@ def _launch_setup(context, *args, **kwargs):
         namespace=namespace_value,
         output="screen",
         arguments=[
-            "0", "0", "0",
-            "0", str(scan_tilt_angle_rad), "0",
-            depth_camera_frame_value,
-            laserscan_frame_value,
+            "--x", "0",
+            "--y", "0",
+            "--z", "0",
+            "--roll", "0",
+            "--pitch", str(scan_tilt_angle_rad),
+            "--yaw", "0",
+            "--frame-id", depth_camera_frame_value,
+            "--child-frame-id", laserscan_frame_value,
         ],
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
