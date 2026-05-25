@@ -80,7 +80,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_depth_camera", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_depth_camera", default_value="false"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
