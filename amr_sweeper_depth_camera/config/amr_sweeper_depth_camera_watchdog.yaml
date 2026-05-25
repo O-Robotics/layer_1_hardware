@@ -2,6 +2,7 @@
   ros__parameters:
     # -- Topic health ---------------------------------------------------------
     stale_data_timeout_sec:         8.0   # Consider the camera unhealthy if depth data stays silent longer than this.
+    startup_grace_sec:              12.0  # Allow the RealSense stack to boot before missing startup frames escalate into warnings.
     require_camera_info:            true  # Expect the RealSense driver to publish camera info alongside depth frames.
 
     # -- Escalation -----------------------------------------------------------

@@ -26,6 +26,7 @@ private:
   void logEscalatingIssue(int count, const std::string & message);
   void resetConnectionIssueCounters();
   bool isTopicStale(const rclcpp::Time & last_message_time) const;
+  bool startupGraceActive() const;
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_image_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
@@ -39,7 +40,9 @@ private:
   bool fatal_error_{false};
   bool was_healthy_{false};
 
+  rclcpp::Time startup_time_{0, 0, RCL_ROS_TIME};
   double stale_data_timeout_sec_{8.0};
+  double startup_grace_sec_{0.0};
   int reconnect_attempt_interval_ms_{1000};
   int retry_attempts_before_error_{3};
   int fatal_after_consecutive_errors_{10};

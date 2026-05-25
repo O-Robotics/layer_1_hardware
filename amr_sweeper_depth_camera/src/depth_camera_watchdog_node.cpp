@@ -13,7 +13,9 @@ namespace amr_sweeper_depth_camera
 DepthCameraWatchdogNode::DepthCameraWatchdogNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("depth_camera_watchdog", options)
 {
+  startup_time_ = now();
   stale_data_timeout_sec_ = declare_parameter("stale_data_timeout_sec", 8.0);
+  startup_grace_sec_ = declare_parameter("startup_grace_sec", 12.0);
   require_camera_info_ = declare_parameter("require_camera_info", true);
   reconnect_attempt_interval_ms_ = declare_parameter("reconnect_attempt_interval_ms", 1000);
   retry_attempts_before_error_ = declare_parameter("retry_attempts_before_error", 3);
@@ -21,6 +23,7 @@ DepthCameraWatchdogNode::DepthCameraWatchdogNode(const rclcpp::NodeOptions & opt
   max_reconnect_attempts_ = declare_parameter("max_reconnect_attempts", 10);
 
   stale_data_timeout_sec_ = std::max(stale_data_timeout_sec_, 0.1);
+  startup_grace_sec_ = std::max(startup_grace_sec_, 0.0);
   reconnect_attempt_interval_ms_ = std::max(reconnect_attempt_interval_ms_, 1);
   retry_attempts_before_error_ = std::max(retry_attempts_before_error_, 1);
   fatal_after_consecutive_errors_ = std::max(fatal_after_consecutive_errors_, 1);
@@ -72,9 +75,21 @@ bool DepthCameraWatchdogNode::isTopicStale(const rclcpp::Time & last_message_tim
   return (now() - last_message_time).seconds() > stale_data_timeout_sec_;
 }
 
+bool DepthCameraWatchdogNode::startupGraceActive() const
+{
+  if (startup_grace_sec_ <= 0.0) {
+    return false;
+  }
+  return (now() - startup_time_).seconds() < startup_grace_sec_;
+}
+
 void DepthCameraWatchdogNode::watchdogTimerCb()
 {
   if (fatal_error_) {
+    return;
+  }
+
+  if (startupGraceActive() && (!received_depth_message_ || (require_camera_info_ && !received_camera_info_message_))) {
     return;
   }
 

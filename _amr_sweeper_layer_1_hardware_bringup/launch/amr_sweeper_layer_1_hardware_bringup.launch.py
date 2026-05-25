@@ -232,7 +232,7 @@ def generate_launch_description():
     delayed_controller_manager = TimerAction(
         period=3.0,
         actions=[controller_manager],
-        condition=UnlessCondition(use_sim_time),
+        condition=IfCondition(use_ros2_control),
     )
 
     joint_broad_spawner = Node(
