@@ -1,0 +1,11 @@
+/**:
+  ros__parameters:
+    # -- Topic health ---------------------------------------------------------
+    stale_data_timeout_sec:         8.0   # Consider the camera unhealthy if depth data stays silent longer than this.
+    require_camera_info:            true  # Expect the RealSense driver to publish camera info alongside depth frames.
+
+    # -- Escalation -----------------------------------------------------------
+    reconnect_attempt_interval_ms:  1000  # Check for missing data once per second and count each failed check as one attempt.
+    retry_attempts_before_error:    3     # Log warnings first, then escalate to errors on the third consecutive failed check.
+    fatal_after_consecutive_errors: 10    # Escalate to fatal after ten consecutive failed checks without recovery.
+    max_reconnect_attempts:         10    # Mirror the USB camera package limit for repeated outages.

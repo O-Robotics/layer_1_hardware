@@ -15,7 +15,16 @@ add_executable(laserscan_node
   src/laserscan_node.cpp
 )
 
+add_executable(depth_camera_watchdog_node
+  src/depth_camera_watchdog_node.cpp
+)
+
 target_include_directories(laserscan_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_include_directories(depth_camera_watchdog_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
@@ -26,6 +35,11 @@ target_link_libraries(laserscan_node
 )
 
 ament_target_dependencies(laserscan_node
+  rclcpp
+  sensor_msgs
+)
+
+ament_target_dependencies(depth_camera_watchdog_node
   rclcpp
   sensor_msgs
 )
@@ -41,7 +55,7 @@ install(
 )
 
 install(
-  TARGETS laserscan_node
+  TARGETS laserscan_node depth_camera_watchdog_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

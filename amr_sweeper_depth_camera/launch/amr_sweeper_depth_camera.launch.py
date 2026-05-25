@@ -50,6 +50,9 @@ def _launch_setup(context, *args, **kwargs):
     realsense_params = _load_ros_parameter_file(
         LaunchConfiguration("realsense_params_file").perform(context)
     )
+    watchdog_params = _load_ros_parameter_file(
+        LaunchConfiguration("watchdog_params_file").perform(context)
+    )
     laserscan_params = _load_ros_parameter_file(
         LaunchConfiguration("laserscan_params_file").perform(context)
     )
@@ -139,6 +142,24 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
+    watchdog_node = Node(
+        package="amr_sweeper_depth_camera",
+        executable="depth_camera_watchdog_node",
+        name="depth_camera_watchdog",
+        namespace=namespace_value,
+        output="screen",
+        arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
+        parameters=[
+            watchdog_params,
+            {"use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)},
+        ],
+        remappings=[
+            ("depth", depth_image_topic_value),
+            ("depth_camera_info", depth_camera_info_topic_value),
+        ],
+        condition=IfCondition(LaunchConfiguration("use_watchdog")),
+    )
+
     laserscan_tf_node = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -158,7 +179,7 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    return [launch_summary, realsense_ros_node, laserscan_tf_node, laserscan_node]
+    return [launch_summary, realsense_ros_node, laserscan_tf_node, watchdog_node, laserscan_node]
 
 
 def generate_launch_description():
@@ -166,6 +187,11 @@ def generate_launch_description():
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
         "amr_sweeper_depth_camera_realsense.yaml",
+    ])
+    default_watchdog_params_file = PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_depth_camera"),
+        "config",
+        "amr_sweeper_depth_camera_watchdog.yaml",
     ])
     default_laserscan_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
@@ -179,6 +205,8 @@ def generate_launch_description():
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("use_realsense_ros", default_value="true"),
         DeclareLaunchArgument("realsense_params_file", default_value=default_realsense_params_file),
+        DeclareLaunchArgument("use_watchdog", default_value="true"),
+        DeclareLaunchArgument("watchdog_params_file", default_value=default_watchdog_params_file),
         DeclareLaunchArgument("use_laserscan", default_value="true"),
         DeclareLaunchArgument(
             "laserscan_params_file",
