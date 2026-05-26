@@ -45,6 +45,7 @@ private:
   void read_serial();
   void parse_byte(uint8_t byte);
   void maybe_publish();
+  void ensure_publishers_created();
   sensor_msgs::msg::Imu build_raw_imu_message(const rclcpp::Time & stamp) const;
   sensor_msgs::msg::Imu build_accel_gyro_message(const sensor_msgs::msg::Imu & raw_msg) const;
   sensor_msgs::msg::Imu build_heading_message(const sensor_msgs::msg::Imu & raw_msg) const;

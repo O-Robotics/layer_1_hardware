@@ -214,10 +214,6 @@ JY901ImuNode::JY901ImuNode()
     linear_acceleration_covariance_ = {0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5};
   }
 
-  imu_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_raw", 10);
-  imu_acc_gyro_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_acc_gyro", 10);
-  imu_heading_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_heading", 10);
-
   if (!open_serial()) {
     report_connection_issue(
       last_serial_error_message_.empty() ?
@@ -672,12 +668,27 @@ void JY901ImuNode::maybe_publish()
   if ((now - last_pub_time_).seconds() < period_s) {
     return;
   }
+
+  ensure_publishers_created();
   last_pub_time_ = now;
 
   const sensor_msgs::msg::Imu raw_msg = build_raw_imu_message(now);
   imu_pub_->publish(raw_msg);
   imu_acc_gyro_pub_->publish(build_accel_gyro_message(raw_msg));
   imu_heading_pub_->publish(build_heading_message(raw_msg));
+}
+
+void JY901ImuNode::ensure_publishers_created()
+{
+  if (!imu_pub_) {
+    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_raw", 10);
+  }
+  if (!imu_acc_gyro_pub_) {
+    imu_acc_gyro_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_acc_gyro", 10);
+  }
+  if (!imu_heading_pub_) {
+    imu_heading_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_heading", 10);
+  }
 }
 
 sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & stamp) const
