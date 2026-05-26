@@ -248,6 +248,7 @@ def generate_launch_description():
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
         output="screen",
+        additional_env={"RCUTILS_COLORIZED_OUTPUT": "0"},
     )
 
     diff_drive_spawner = Node(
@@ -267,6 +268,7 @@ def generate_launch_description():
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
         output="screen",
+        additional_env={"RCUTILS_COLORIZED_OUTPUT": "0"},
     )
 
     steadydrive_spawner = Node(
@@ -284,6 +286,7 @@ def generate_launch_description():
         namespace=namespace,
         condition=UnlessCondition(use_sim_time),
         output="screen",
+        additional_env={"RCUTILS_COLORIZED_OUTPUT": "0"},
     )
 
     delayed_joint_broad_spawner = RegisterEventHandler(
