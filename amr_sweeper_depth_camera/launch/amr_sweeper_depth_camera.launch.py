@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 
 import yaml
+from ament_index_python.packages import PackageNotFoundError, get_package_prefix
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
@@ -75,15 +76,30 @@ def _resolve_domain_bridge_config(
     source_domain_id: int,
     target_domain_id: int,
     source_camera_id: str,
-) -> str:
+) -> tuple[str, list[str]]:
     template = Path(template_path).read_text()
-    resolved = (
+    resolved_text = (
         template
         .replace("__FROM_DOMAIN__", str(source_domain_id))
         .replace("__TO_DOMAIN__", str(target_domain_id))
         .replace("__CAMERA_ID__", source_camera_id)
         .replace("__TARGET_NAMESPACE__", namespace_value.rstrip("/"))
     )
+    resolved = yaml.safe_load(resolved_text) or {}
+
+    skipped_topics: list[str] = []
+    filtered_topics = {}
+    for topic_name, topic_config in (resolved.get("topics") or {}).items():
+        type_name = str(topic_config.get("type", ""))
+        package_name = type_name.split("/", 1)[0]
+        try:
+            get_package_prefix(package_name)
+        except PackageNotFoundError:
+            skipped_topics.append(f"{topic_name} ({type_name})")
+            continue
+        filtered_topics[topic_name] = topic_config
+
+    resolved["topics"] = filtered_topics
 
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -91,8 +107,8 @@ def _resolve_domain_bridge_config(
         prefix="amr_sweeper_depth_camera_domain_bridge_",
         delete=False,
     ) as handle:
-        handle.write(resolved)
-        return handle.name
+        yaml.safe_dump(resolved, handle, sort_keys=False)
+        return handle.name, skipped_topics
 
 
 def _launch_setup(context, *args, **kwargs):
@@ -155,6 +171,7 @@ def _launch_setup(context, *args, **kwargs):
     target_domain_id_value = int(LaunchConfiguration("target_domain_id").perform(context))
     source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
     resolved_bridge_config = ""
+    skipped_bridge_topics: list[str] = []
     if use_domain_bridge_value:
         source_root_namespace_value = _normalize_namespace(
             LaunchConfiguration("source_root_namespace").perform(context)
@@ -168,7 +185,7 @@ def _launch_setup(context, *args, **kwargs):
                 source_camera_model_value,
             )
 
-        resolved_bridge_config = _resolve_domain_bridge_config(
+        resolved_bridge_config, skipped_bridge_topics = _resolve_domain_bridge_config(
             LaunchConfiguration("domain_bridge_config_file").perform(context),
             namespace_value,
             source_domain_id_value,
@@ -184,7 +201,14 @@ def _launch_setup(context, *args, **kwargs):
             f"source camera={source_camera_id_value or 'auto-discover'}, "
             f"depth topic={depth_image_topic_value}, "
             f"camera_info topic={depth_camera_info_topic_value}, "
-            f"pointcloud topic={pointcloud_topic_value}"
+            f"pointcloud topic={pointcloud_topic_value}, "
+            f"skipped optional bridge topics={len(skipped_bridge_topics)}"
+        )
+    )
+    skipped_topics_summary = LogInfo(
+        msg=(
+            "amr_sweeper_depth_camera: skipped bridge topics due to unavailable interfaces: "
+            + ", ".join(skipped_bridge_topics)
         )
     )
 
@@ -255,7 +279,11 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    return [launch_summary, domain_bridge_node, laserscan_tf_node, watchdog_node, laserscan_node]
+    actions = [launch_summary]
+    if skipped_bridge_topics:
+        actions.append(skipped_topics_summary)
+    actions.extend([domain_bridge_node, laserscan_tf_node, watchdog_node, laserscan_node])
+    return actions
 
 
 def generate_launch_description():
