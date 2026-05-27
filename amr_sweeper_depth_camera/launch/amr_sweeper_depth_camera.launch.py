@@ -111,6 +111,23 @@ def _resolve_domain_bridge_config(
         return handle.name, skipped_topics
 
 
+def _write_empty_domain_bridge_config(source_domain_id: int, target_domain_id: int) -> str:
+    empty_config = {
+        "name": "amr_sweeper_depth_camera_bridge",
+        "from_domain": source_domain_id,
+        "to_domain": target_domain_id,
+        "topics": {},
+    }
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".yaml",
+        prefix="amr_sweeper_depth_camera_domain_bridge_empty_",
+        delete=False,
+    ) as handle:
+        yaml.safe_dump(empty_config, handle, sort_keys=False)
+        return handle.name
+
+
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
     watchdog_params = _load_ros_parameter_file(
@@ -202,7 +219,10 @@ def _launch_setup(context, *args, **kwargs):
             )
         except RuntimeError as exc:
             unavailable_reason = str(exc)
-            use_domain_bridge_value = False
+            resolved_bridge_config = _write_empty_domain_bridge_config(
+                source_domain_id_value,
+                target_domain_id_value,
+            )
             use_watchdog_value = False
             use_laserscan_value = False
 
@@ -221,8 +241,8 @@ def _launch_setup(context, *args, **kwargs):
     unavailable_summary = LogInfo(
         msg=(
             "amr_sweeper_depth_camera: warning: "
-            f"{unavailable_reason} Starting in degraded mode without domain bridge, "
-            "laserscan, or watchdog nodes."
+            f"{unavailable_reason} Starting in degraded mode with an empty domain bridge config "
+            "and without laserscan or watchdog nodes."
         )
     )
     skipped_topics_summary = LogInfo(
