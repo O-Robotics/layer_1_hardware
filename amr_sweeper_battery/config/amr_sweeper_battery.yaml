@@ -18,19 +18,20 @@
       safety_stop_sender_name:       battery_node        # Sender label attached to published SafetyStop messages.
 
       over_voltage:
-        enabled:                     false               # Publishes a SafetyStop if pack voltage rises above the configured threshold.
-        threshold:                   60.0                # Maximum allowed pack voltage.
+        enabled:                     true                # Publishes a SafetyStop if pack voltage rises above the configured threshold.
+        threshold:                   46.0                # Maximum allowed pack voltage.
         units:                       "V"                 # Units for the over-voltage threshold.
 
       under_voltage:
-        enabled:                     false               # Publishes a SafetyStop if pack voltage drops below the configured threshold.
-        threshold:                   42.0                # Minimum allowed pack voltage.
+        enabled:                     true                # Publishes a SafetyStop if pack voltage drops below the configured threshold.
+        threshold:                   33.0                # Minimum allowed pack voltage.
         units:                       "V"                 # Units for the under-voltage threshold.
 
+      # -- Charging protection -----------------------------------------------
       charging:
         over_current:
-          enabled:                   false               # Publishes a SafetyStop if charging current rises above the configured limit.
-          threshold:                 80.0                # Maximum allowed charging current.
+          enabled:                   true                # Publishes a SafetyStop if charging current rises above the configured limit.
+          threshold:                 7.0                 # Maximum allowed charging current.
           units:                     "A"                 # Units for the charging over-current threshold.
 
         under_current:
@@ -39,19 +40,20 @@
           units:                     "A"                 # Units for the charging under-current threshold.
 
         over_temperature:
-          enabled:                   false               # Publishes a SafetyStop if the hottest reported battery temperature exceeds the charging limit.
+          enabled:                   true                # Publishes a SafetyStop if the hottest reported battery temperature exceeds the charging limit.
           threshold:                 45.0                # Maximum allowed battery temperature while charging.
           units:                     "degC"              # Units for the charging over-temperature threshold.
 
         under_temperature:
-          enabled:                   false               # Publishes a SafetyStop if the coldest reported battery temperature falls below the charging limit.
+          enabled:                   true                # Publishes a SafetyStop if the coldest reported battery temperature falls below the charging limit.
           threshold:                  0.0                # Minimum allowed battery temperature while charging.
           units:                     "degC"              # Units for the charging under-temperature threshold.
 
+      # -- Discharging protection --------------------------------------------
       discharging:
         over_current:
-          enabled:                   false               # Publishes a SafetyStop if discharge current becomes more negative than the configured threshold.
-          threshold:                -80.0                # Maximum allowed discharge current.
+          enabled:                   true                # Publishes a SafetyStop if discharge current becomes more negative than the configured threshold.
+          threshold:                -15.0                # Maximum allowed discharge current.
           units:                     "A"                 # Units for the discharging over-current threshold.
 
         under_current:
@@ -60,11 +62,11 @@
           units:                     "A"                 # Units for the discharging under-current threshold.
 
         over_temperature:
-          enabled:                   false               # Publishes a SafetyStop if the hottest reported battery temperature exceeds the discharging limit.
+          enabled:                   true                # Publishes a SafetyStop if the hottest reported battery temperature exceeds the discharging limit.
           threshold:                 60.0                # Maximum allowed battery temperature while discharging.
           units:                     "degC"              # Units for the discharging over-temperature threshold.
 
         under_temperature:
-          enabled:                   false               # Publishes a SafetyStop if the coldest reported battery temperature falls below the discharging limit.
-          threshold:                  0.0                # Minimum allowed battery temperature while discharging.
+          enabled:                   true                # Publishes a SafetyStop if the coldest reported battery temperature falls below the discharging limit.
+          threshold:                 -20.0               # Minimum allowed battery temperature while discharging.
           units:                     "degC"              # Units for the discharging under-temperature threshold.
