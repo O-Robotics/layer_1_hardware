@@ -1,4 +1,4 @@
-/**/controller_manager:
+controller_manager:
   ros__parameters:
     update_rate: 30
     use_sim_time: false
@@ -12,7 +12,7 @@
     joint_broad:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-/**/diff_cont:
+diff_cont:
   ros__parameters:
     type: diff_drive_controller/DiffDriveController
     publish_rate: 10.0
@@ -34,7 +34,7 @@
     enable_odom_tf: false
     use_stamped_vel: true
 
-/**/controller_steadydrive:
+controller_steadydrive:
   ros__parameters:
     joints:
       - LeftBrush_joint

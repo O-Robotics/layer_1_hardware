@@ -115,27 +115,18 @@ def generate_launch_description():
         "control",
         "ros2_control.yaml",
     ])))
-    ld.add_action(GroupAction(
-        scoped=True,
-        actions=[
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(
-                    _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
-                ),
-                launch_arguments={
-                    "namespace": namespace,
-                    "use_sim_time": use_sim_time,
-                    "use_ros2_control": use_ros2_control,
-                    "ros2_control_config_file": ros2_control_config_file,
-                    "enable_usb_cameras": use_amr_sweeper_usb_cameras,
-                    "enable_gnss": use_amr_sweeper_gnss,
-                    "enable_imu": use_amr_sweeper_imu,
-                    "enable_depth_camera": use_amr_sweeper_depth_camera,
-                }.items(),
-                condition=IfCondition(use_amr_sweeper_description),
-            ),
-        ],
-    ))
+    robot_state_publisher_node = Node(
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        namespace=namespace,
+        output="screen",
+        parameters=[{
+            "robot_description": robot_description,
+            "use_sim_time": use_sim_time,
+        }],
+        condition=IfCondition(use_amr_sweeper_description),
+    )
+    ld.add_action(robot_state_publisher_node)
 
     ld.add_action(Node(
         package="amr_sweeper_battery",
@@ -229,9 +220,16 @@ def generate_launch_description():
         condition=IfCondition(use_ros2_control),
     )
 
-    delayed_controller_manager = TimerAction(
-        period=3.0,
-        actions=[controller_manager],
+    delayed_controller_manager = RegisterEventHandler(
+        OnProcessStart(
+            target_action=robot_state_publisher_node,
+            on_start=[
+                TimerAction(
+                    period=2.0,
+                    actions=[controller_manager],
+                ),
+            ],
+        ),
         condition=IfCondition(use_ros2_control),
     )
 
