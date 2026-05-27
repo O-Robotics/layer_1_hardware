@@ -52,5 +52,5 @@ This package bridges the native ROS 2 topics from the RealSense D555 camera into
  - The default `output_frame` is `laserscan_link`, a frame pitched upward to match the selected scan row.
  - `scan_tilt_angle_deg` is resolution-independent and shifts the sampled scan band by angle instead of raw pixels.
  - If topic auto-discovery finds more than one D555 on the source domain, set `source_camera_id` explicitly.
- - The current bridge template covers the native topics supplied for the D555, including metadata, compressed color, motion, and object detection.
+ - The current bridge template covers the native topics supplied for the D555 that the stack currently cares about, including image, camera info, compressed color, motion, and object detection.
  - The watchdog now treats a missing `/depth/color/points` topic as a health failure by default because the mapping stack depends on it.

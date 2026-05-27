@@ -12,9 +12,6 @@ topics:
   /realsense/__CAMERA_ID___Color/camera_info:
     type: sensor_msgs/msg/CameraInfo
     remap: __TARGET_NAMESPACE__/color/camera_info
-  /realsense/__CAMERA_ID___Color/metadata:
-    type: realsense2_camera_msgs/msg/Metadata
-    remap: __TARGET_NAMESPACE__/color/metadata
 
   /realsense/__CAMERA_ID___CompressedColor:
     type: sensor_msgs/msg/CompressedImage
@@ -26,9 +23,6 @@ topics:
   /realsense/__CAMERA_ID___Depth/camera_info:
     type: sensor_msgs/msg/CameraInfo
     remap: __TARGET_NAMESPACE__/depth/camera_info
-  /realsense/__CAMERA_ID___Depth/metadata:
-    type: realsense2_camera_msgs/msg/Metadata
-    remap: __TARGET_NAMESPACE__/depth/metadata
 
   /realsense/__CAMERA_ID___Infrared_1:
     type: sensor_msgs/msg/Image
@@ -36,9 +30,6 @@ topics:
   /realsense/__CAMERA_ID___Infrared_1/camera_info:
     type: sensor_msgs/msg/CameraInfo
     remap: __TARGET_NAMESPACE__/infra1/camera_info
-  /realsense/__CAMERA_ID___Infrared_1/metadata:
-    type: realsense2_camera_msgs/msg/Metadata
-    remap: __TARGET_NAMESPACE__/infra1/metadata
 
   /realsense/__CAMERA_ID___Infrared_2:
     type: sensor_msgs/msg/Image
@@ -46,16 +37,10 @@ topics:
   /realsense/__CAMERA_ID___Infrared_2/camera_info:
     type: sensor_msgs/msg/CameraInfo
     remap: __TARGET_NAMESPACE__/infra2/camera_info
-  /realsense/__CAMERA_ID___Infrared_2/metadata:
-    type: realsense2_camera_msgs/msg/Metadata
-    remap: __TARGET_NAMESPACE__/infra2/metadata
 
   /realsense/__CAMERA_ID___Motion:
     type: sensor_msgs/msg/Imu
     remap: __TARGET_NAMESPACE__/motion/imu
-  /realsense/__CAMERA_ID___Motion/metadata:
-    type: realsense2_camera_msgs/msg/Metadata
-    remap: __TARGET_NAMESPACE__/motion/metadata
 
   /realsense/__CAMERA_ID___ObjectDetection:
     type: vision_msgs/msg/Detection2DArray
