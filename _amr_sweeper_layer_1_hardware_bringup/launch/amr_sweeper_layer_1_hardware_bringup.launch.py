@@ -231,7 +231,8 @@ def generate_launch_description():
             "-lc",
             [
                 "source /opt/ros/jazzy/setup.bash && "
-                "ros2 topic echo --once /", namespace, "/robot_description >/dev/null"
+                "ros2 topic echo --qos-durability transient_local --qos-reliability reliable "
+                "--once /", namespace, "/robot_description >/dev/null"
             ],
         ],
         output="screen",
