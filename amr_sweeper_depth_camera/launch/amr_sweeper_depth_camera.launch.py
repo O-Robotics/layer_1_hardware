@@ -20,18 +20,6 @@ def _normalize_namespace(namespace: str) -> str:
     return f"/{cleaned}" if cleaned else "/"
 
 
-def _parent_namespace(namespace: str) -> str:
-    parts = [part for part in _normalize_namespace(namespace).split("/") if part]
-    if len(parts) <= 1:
-        return "/"
-    return "/" + "/".join(parts[:-1])
-
-
-def _leaf_name(namespace: str) -> str:
-    parts = [part for part in _normalize_namespace(namespace).split("/") if part]
-    return parts[-1] if parts else "depth_camera"
-
-
 def _load_ros_parameter_file(path: str) -> dict:
     data = yaml.safe_load(Path(path).read_text()) or {}
     if "/**" in data:
@@ -146,6 +134,7 @@ def _launch_setup(context, *args, **kwargs):
 
     default_depth_image_topic = f"{namespace_value}/depth/image_rect_raw"
     default_depth_camera_info_topic = f"{namespace_value}/depth/camera_info"
+    default_pointcloud_topic = f"{namespace_value}/depth/color/points"
 
     depth_image_topic_value = LaunchConfiguration("depth_image_topic").perform(context)
     if not depth_image_topic_value:
@@ -155,36 +144,47 @@ def _launch_setup(context, *args, **kwargs):
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
 
+    pointcloud_topic_value = LaunchConfiguration("pointcloud_topic").perform(context)
+    if not pointcloud_topic_value:
+        pointcloud_topic_value = default_pointcloud_topic
+
+    use_domain_bridge_value = (
+        LaunchConfiguration("use_domain_bridge").perform(context).strip().lower() in ("1", "true", "yes", "on")
+    )
     source_domain_id_value = int(LaunchConfiguration("source_domain_id").perform(context))
     target_domain_id_value = int(LaunchConfiguration("target_domain_id").perform(context))
-    source_root_namespace_value = _normalize_namespace(
-        LaunchConfiguration("source_root_namespace").perform(context)
-    )
-    source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
     source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
-    if not source_camera_id_value:
-        source_topics = _list_topics_for_domain(source_domain_id_value)
-        source_camera_id_value = _discover_camera_id(
-            source_topics,
-            source_root_namespace_value,
-            source_camera_model_value,
+    resolved_bridge_config = ""
+    if use_domain_bridge_value:
+        source_root_namespace_value = _normalize_namespace(
+            LaunchConfiguration("source_root_namespace").perform(context)
         )
+        source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
+        if not source_camera_id_value:
+            source_topics = _list_topics_for_domain(source_domain_id_value)
+            source_camera_id_value = _discover_camera_id(
+                source_topics,
+                source_root_namespace_value,
+                source_camera_model_value,
+            )
 
-    resolved_bridge_config = _resolve_domain_bridge_config(
-        LaunchConfiguration("domain_bridge_config_file").perform(context),
-        namespace_value,
-        source_domain_id_value,
-        target_domain_id_value,
-        source_camera_id_value,
-    )
+        resolved_bridge_config = _resolve_domain_bridge_config(
+            LaunchConfiguration("domain_bridge_config_file").perform(context),
+            namespace_value,
+            source_domain_id_value,
+            target_domain_id_value,
+            source_camera_id_value,
+        )
 
     launch_summary = LogInfo(
         msg=(
             "amr_sweeper_depth_camera: "
-            f"bridge {source_domain_id_value}->{target_domain_id_value}, "
-            f"source camera={source_camera_id_value}, "
+            f"bridge={'enabled' if use_domain_bridge_value else 'disabled'}, "
+            f"bridge_path={source_domain_id_value}->{target_domain_id_value}, "
+            f"source camera={source_camera_id_value or 'auto-discover'}, "
             f"depth topic={depth_image_topic_value}, "
-            f"camera_info topic={depth_camera_info_topic_value}"
+            f"camera_info topic={depth_camera_info_topic_value}, "
+            f"pointcloud topic={pointcloud_topic_value}"
         )
     )
 
@@ -231,6 +231,7 @@ def _launch_setup(context, *args, **kwargs):
         remappings=[
             ("depth", depth_image_topic_value),
             ("depth_camera_info", depth_camera_info_topic_value),
+            ("pointcloud", pointcloud_topic_value),
         ],
         condition=IfCondition(LaunchConfiguration("use_watchdog")),
     )
@@ -297,6 +298,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument("depth_image_topic", default_value=""),
         DeclareLaunchArgument("depth_camera_info_topic", default_value=""),
+        DeclareLaunchArgument("pointcloud_topic", default_value=""),
         DeclareLaunchArgument("depth_camera_frame", default_value="depth_camera_link"),
         DeclareLaunchArgument("scan_topic", default_value="scan"),
         DeclareLaunchArgument("output_frame", default_value=""),
