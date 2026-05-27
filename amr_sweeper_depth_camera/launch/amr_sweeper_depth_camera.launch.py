@@ -167,31 +167,44 @@ def _launch_setup(context, *args, **kwargs):
     use_domain_bridge_value = (
         LaunchConfiguration("use_domain_bridge").perform(context).strip().lower() in ("1", "true", "yes", "on")
     )
+    use_watchdog_value = (
+        LaunchConfiguration("use_watchdog").perform(context).strip().lower() in ("1", "true", "yes", "on")
+    )
+    use_laserscan_value = (
+        LaunchConfiguration("use_laserscan").perform(context).strip().lower() in ("1", "true", "yes", "on")
+    )
     source_domain_id_value = int(LaunchConfiguration("source_domain_id").perform(context))
     target_domain_id_value = int(LaunchConfiguration("target_domain_id").perform(context))
     source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
     resolved_bridge_config = ""
     skipped_bridge_topics: list[str] = []
+    unavailable_reason = ""
     if use_domain_bridge_value:
         source_root_namespace_value = _normalize_namespace(
             LaunchConfiguration("source_root_namespace").perform(context)
         )
         source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
-        if not source_camera_id_value:
-            source_topics = _list_topics_for_domain(source_domain_id_value)
-            source_camera_id_value = _discover_camera_id(
-                source_topics,
-                source_root_namespace_value,
-                source_camera_model_value,
-            )
+        try:
+            if not source_camera_id_value:
+                source_topics = _list_topics_for_domain(source_domain_id_value)
+                source_camera_id_value = _discover_camera_id(
+                    source_topics,
+                    source_root_namespace_value,
+                    source_camera_model_value,
+                )
 
-        resolved_bridge_config, skipped_bridge_topics = _resolve_domain_bridge_config(
-            LaunchConfiguration("domain_bridge_config_file").perform(context),
-            namespace_value,
-            source_domain_id_value,
-            target_domain_id_value,
-            source_camera_id_value,
-        )
+            resolved_bridge_config, skipped_bridge_topics = _resolve_domain_bridge_config(
+                LaunchConfiguration("domain_bridge_config_file").perform(context),
+                namespace_value,
+                source_domain_id_value,
+                target_domain_id_value,
+                source_camera_id_value,
+            )
+        except RuntimeError as exc:
+            unavailable_reason = str(exc)
+            use_domain_bridge_value = False
+            use_watchdog_value = False
+            use_laserscan_value = False
 
     launch_summary = LogInfo(
         msg=(
@@ -203,6 +216,13 @@ def _launch_setup(context, *args, **kwargs):
             f"camera_info topic={depth_camera_info_topic_value}, "
             f"pointcloud topic={pointcloud_topic_value}, "
             f"skipped optional bridge topics={len(skipped_bridge_topics)}"
+        )
+    )
+    unavailable_summary = LogInfo(
+        msg=(
+            "amr_sweeper_depth_camera: warning: "
+            f"{unavailable_reason} Starting in degraded mode without domain bridge, "
+            "laserscan, or watchdog nodes."
         )
     )
     skipped_topics_summary = LogInfo(
@@ -280,9 +300,16 @@ def _launch_setup(context, *args, **kwargs):
     )
 
     actions = [launch_summary]
+    if unavailable_reason:
+        actions.append(unavailable_summary)
     if skipped_bridge_topics:
         actions.append(skipped_topics_summary)
-    actions.extend([domain_bridge_node, laserscan_tf_node, watchdog_node, laserscan_node])
+    if use_domain_bridge_value:
+        actions.append(domain_bridge_node)
+    if use_laserscan_value:
+        actions.extend([laserscan_tf_node, laserscan_node])
+    if use_watchdog_value:
+        actions.append(watchdog_node)
     return actions
 
 
