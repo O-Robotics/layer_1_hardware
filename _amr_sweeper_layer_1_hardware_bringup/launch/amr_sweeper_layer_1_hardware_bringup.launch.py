@@ -231,8 +231,13 @@ def generate_launch_description():
             "-lc",
             [
                 "source /opt/ros/jazzy/setup.bash && "
+                "for i in $(seq 1 30); do "
                 "ros2 topic echo --qos-durability transient_local --qos-reliability reliable "
-                "--once /", namespace, "/robot_description >/dev/null"
+                "--once /", namespace, "/robot_description >/dev/null 2>&1 && exit 0; "
+                "sleep 1; "
+                "done; "
+                "echo 'Timed out waiting for /", namespace, "/robot_description' >&2; "
+                "exit 1"
             ],
         ],
         output="screen",
