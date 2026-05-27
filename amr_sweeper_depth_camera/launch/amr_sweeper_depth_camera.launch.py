@@ -8,7 +8,8 @@ import tempfile
 import yaml
 from ament_index_python.packages import PackageNotFoundError, get_package_prefix
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, LogInfo, LogWarn, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
+import launch.logging
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -128,6 +129,15 @@ def _write_empty_domain_bridge_config(source_domain_id: int, target_domain_id: i
         return handle.name
 
 
+def _log_launch_warning(message: str):
+    def _emit_warning(context, *args, **kwargs):
+        del context, args, kwargs
+        launch.logging.get_logger("launch.user").warning(message)
+        return []
+
+    return OpaqueFunction(function=_emit_warning)
+
+
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
     watchdog_params = _load_ros_parameter_file(
@@ -238,12 +248,10 @@ def _launch_setup(context, *args, **kwargs):
             f"skipped optional bridge topics={len(skipped_bridge_topics)}"
         )
     )
-    unavailable_summary = LogWarn(
-        msg=(
-            "amr_sweeper_depth_camera: "
-            f"{unavailable_reason} Starting in degraded mode with an empty domain bridge config "
-            "and without laserscan or watchdog nodes."
-        )
+    unavailable_summary = _log_launch_warning(
+        "amr_sweeper_depth_camera: "
+        f"{unavailable_reason} Starting in degraded mode with an empty domain bridge config "
+        "and without laserscan or watchdog nodes."
     )
     skipped_topics_summary = LogInfo(
         msg=(
