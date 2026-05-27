@@ -44,6 +44,8 @@ def generate_launch_description():
     use_amr_sweeper_imu = LaunchConfiguration("use_amr_sweeper_imu")
     use_amr_sweeper_gnss = LaunchConfiguration("use_amr_sweeper_gnss")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
+    controller_manager_post_robot_description_delay_s = LaunchConfiguration(
+        "controller_manager_post_robot_description_delay_s")
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     battery_params_file = LaunchConfiguration("battery_params_file")
     system_info_params_file = LaunchConfiguration("system_info_params_file")
@@ -85,6 +87,8 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
+    ld.add_action(DeclareLaunchArgument(
+        "controller_manager_post_robot_description_delay_s", default_value="1.0"))
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("battery_params_file", default_value=PathJoinSubstitution([
         FindPackageShare("amr_sweeper_battery"),
@@ -247,7 +251,12 @@ def generate_launch_description():
     delayed_controller_manager = RegisterEventHandler(
         OnProcessExit(
             target_action=robot_description_waiter,
-            on_exit=[controller_manager],
+            on_exit=[
+                TimerAction(
+                    period=controller_manager_post_robot_description_delay_s,
+                    actions=[controller_manager],
+                ),
+            ],
         ),
         condition=IfCondition(use_ros2_control),
     )
