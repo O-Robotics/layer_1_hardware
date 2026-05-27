@@ -2,14 +2,13 @@
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     GroupAction,
     IncludeLaunchDescription,
     RegisterEventHandler,
     TimerAction,
 )
 from launch.conditions import IfCondition, UnlessCondition
-from launch.event_handlers import OnProcessExit, OnProcessStart
+from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -44,8 +43,6 @@ def generate_launch_description():
     use_amr_sweeper_imu = LaunchConfiguration("use_amr_sweeper_imu")
     use_amr_sweeper_gnss = LaunchConfiguration("use_amr_sweeper_gnss")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
-    controller_manager_post_robot_description_delay_s = LaunchConfiguration(
-        "controller_manager_post_robot_description_delay_s")
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     battery_params_file = LaunchConfiguration("battery_params_file")
     system_info_params_file = LaunchConfiguration("system_info_params_file")
@@ -87,8 +84,6 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
-    ld.add_action(DeclareLaunchArgument(
-        "controller_manager_post_robot_description_delay_s", default_value="1.0"))
     ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
     ld.add_action(DeclareLaunchArgument("battery_params_file", default_value=PathJoinSubstitution([
         FindPackageShare("amr_sweeper_battery"),
@@ -215,55 +210,11 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {"use_sim_time": use_sim_time},
-            {"robot_description": robot_description},
             ros2_control_config_file,
         ],
         remappings=[
-            ("robot_description", ["/", namespace, "/robot_description"]),
-            ("~/robot_description", ["/", namespace, "/robot_description"]),
+            ("/robot_description", ["/", namespace, "/robot_description"]),
         ],
-        condition=IfCondition(use_ros2_control),
-    )
-
-    robot_description_waiter = ExecuteProcess(
-        cmd=[
-            "bash",
-            "-lc",
-            [
-                "source /opt/ros/jazzy/setup.bash && "
-                "for i in $(seq 1 30); do "
-                "ros2 topic echo --qos-durability transient_local --qos-reliability reliable "
-                "--once /", namespace, "/robot_description >/dev/null 2>&1 && exit 0; "
-                "sleep 1; "
-                "done; "
-                "echo 'Timed out waiting for /", namespace, "/robot_description' >&2; "
-                "exit 1"
-            ],
-        ],
-        output="screen",
-        condition=IfCondition(use_ros2_control),
-    )
-
-    launch_robot_description_waiter = RegisterEventHandler(
-        OnProcessStart(
-            target_action=robot_state_publisher_node,
-            on_start=[
-                robot_description_waiter,
-            ],
-        ),
-        condition=IfCondition(use_ros2_control),
-    )
-
-    delayed_controller_manager = RegisterEventHandler(
-        OnProcessExit(
-            target_action=robot_description_waiter,
-            on_exit=[
-                TimerAction(
-                    period=controller_manager_post_robot_description_delay_s,
-                    actions=[controller_manager],
-                ),
-            ],
-        ),
         condition=IfCondition(use_ros2_control),
     )
 
@@ -360,8 +311,7 @@ def generate_launch_description():
         condition=IfCondition(use_ros2_control),
     )
 
-    ld.add_action(launch_robot_description_waiter)
-    ld.add_action(delayed_controller_manager)
+    ld.add_action(controller_manager)
     ld.add_action(delayed_joint_broad_spawner)
     ld.add_action(delayed_diff_drive_spawner)
     ld.add_action(delayed_steadydrive_spawner)
