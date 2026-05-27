@@ -2,13 +2,14 @@
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    ExecuteProcess,
     GroupAction,
     IncludeLaunchDescription,
     RegisterEventHandler,
     TimerAction,
 )
 from launch.conditions import IfCondition, UnlessCondition
-from launch.event_handlers import OnProcessStart
+from launch.event_handlers import OnProcessExit, OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -220,15 +221,33 @@ def generate_launch_description():
         condition=IfCondition(use_ros2_control),
     )
 
-    delayed_controller_manager = RegisterEventHandler(
+    robot_description_waiter = ExecuteProcess(
+        cmd=[
+            "bash",
+            "-lc",
+            [
+                "source /opt/ros/jazzy/setup.bash && "
+                "ros2 topic echo --once /", namespace, "/robot_description >/dev/null"
+            ],
+        ],
+        output="screen",
+        condition=IfCondition(use_ros2_control),
+    )
+
+    launch_robot_description_waiter = RegisterEventHandler(
         OnProcessStart(
             target_action=robot_state_publisher_node,
             on_start=[
-                TimerAction(
-                    period=2.0,
-                    actions=[controller_manager],
-                ),
+                robot_description_waiter,
             ],
+        ),
+        condition=IfCondition(use_ros2_control),
+    )
+
+    delayed_controller_manager = RegisterEventHandler(
+        OnProcessExit(
+            target_action=robot_description_waiter,
+            on_exit=[controller_manager],
         ),
         condition=IfCondition(use_ros2_control),
     )
@@ -326,6 +345,7 @@ def generate_launch_description():
         condition=IfCondition(use_ros2_control),
     )
 
+    ld.add_action(launch_robot_description_waiter)
     ld.add_action(delayed_controller_manager)
     ld.add_action(delayed_joint_broad_spawner)
     ld.add_action(delayed_diff_drive_spawner)
