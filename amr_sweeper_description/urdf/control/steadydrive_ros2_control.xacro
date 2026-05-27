@@ -9,12 +9,30 @@
       <command_interface name="velocity"/>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <state_interface name="torque"/>
+      <state_interface name="current"/>
+      <state_interface name="temperature"/>
+      <state_interface name="voltage"/>
+      <state_interface name="protection_fault_latched"/>
+      <state_interface name="protection_fault_type"/>
+      <state_interface name="protection_fault_measured"/>
+      <state_interface name="protection_fault_threshold"/>
     </joint>
 
     <joint name="RightBrush_joint">
       <command_interface name="velocity"/>
       <state_interface name="position"/>
       <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <state_interface name="torque"/>
+      <state_interface name="current"/>
+      <state_interface name="temperature"/>
+      <state_interface name="voltage"/>
+      <state_interface name="protection_fault_latched"/>
+      <state_interface name="protection_fault_type"/>
+      <state_interface name="protection_fault_measured"/>
+      <state_interface name="protection_fault_threshold"/>
     </joint>
   </ros2_control>
 

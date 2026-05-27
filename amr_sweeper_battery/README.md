@@ -1,7 +1,7 @@
 # amr_sweeper_battery
 
 ```bash
-ros2 launch amr_sweeper_battery battery.launch.py
+ros2 launch amr_sweeper_battery amr_sweeper_battery.launch.py
 ```
 
 Dependencies to other AMR Sweeper packages:
@@ -11,10 +11,10 @@ Dependencies to other AMR Sweeper packages:
 This package publishes battery-state and battery-health information for the AMR Sweeper from the battery CAN interface.
 
 ## Main Launch File
-`launch/battery.launch.py`
+`launch/amr_sweeper_battery.launch.py`
 
 ## Available Launch Files
-- `battery.launch.py`
+- `amr_sweeper_battery.launch.py`
 
 ## Launch Arguments
 - `namespace`: default `amr_sweeper`

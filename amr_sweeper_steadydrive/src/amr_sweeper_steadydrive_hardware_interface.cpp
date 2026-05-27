@@ -8,6 +8,9 @@
 #include <cstring>
 #include <cmath>
 #include <fstream>
+#include <functional>
+#include <optional>
+#include <sstream>
 #include <stdexcept>
 
 #include <linux/can/raw.h>
@@ -27,6 +30,7 @@ constexpr double ENCODER_COUNTS_PER_REV = 16384.0;
 constexpr double RAD_PER_COUNT = TWO_PI / ENCODER_COUNTS_PER_REV;
 constexpr int32_t MAX_SPEED_COMMAND = 7200000;
 constexpr int32_t MIN_SPEED_COMMAND = -7200000;
+constexpr double CURRENT_RAW_TO_AMPERE = 0.01;
 
 uint32_t parse_can_id(const std::string & value, const std::string & parameter_name)
 {
@@ -156,6 +160,128 @@ int load_optional_int(const YAML::Node & root, const std::string & key, int fall
   }
   return root[key].as<int>();
 }
+
+constexpr std::array<amr_sweeper_steadydrive::ProtectionType, 5> kProtectionTypes = {
+  amr_sweeper_steadydrive::ProtectionType::OverTorque,
+  amr_sweeper_steadydrive::ProtectionType::OverSpeed,
+  amr_sweeper_steadydrive::ProtectionType::OverTemperature,
+  amr_sweeper_steadydrive::ProtectionType::OverCurrent,
+  amr_sweeper_steadydrive::ProtectionType::OverVoltage,
+};
+
+std::size_t protectionIndex(amr_sweeper_steadydrive::ProtectionType type)
+{
+  return static_cast<std::size_t>(type);
+}
+
+const char * protectionKey(amr_sweeper_steadydrive::ProtectionType type)
+{
+  switch (type) {
+    case amr_sweeper_steadydrive::ProtectionType::OverTorque:
+      return "over_torque";
+    case amr_sweeper_steadydrive::ProtectionType::OverSpeed:
+      return "over_speed";
+    case amr_sweeper_steadydrive::ProtectionType::OverTemperature:
+      return "over_temperature";
+    case amr_sweeper_steadydrive::ProtectionType::OverCurrent:
+      return "over_current";
+    case amr_sweeper_steadydrive::ProtectionType::OverVoltage:
+      return "over_voltage";
+    case amr_sweeper_steadydrive::ProtectionType::Count:
+      break;
+  }
+  return "unknown";
+}
+
+double faultTypeStateValue(const std::optional<amr_sweeper_steadydrive::ProtectionFault> & fault)
+{
+  if (!fault) {
+    return -1.0;
+  }
+  return static_cast<double>(static_cast<int>(fault->type));
+}
+
+std::optional<double> selectMeasuredValue(
+  amr_sweeper_steadydrive::ProtectionType type,
+  const amr_sweeper_steadydrive::JointTelemetry & telemetry)
+{
+  switch (type) {
+    case amr_sweeper_steadydrive::ProtectionType::OverTorque:
+      if (!telemetry.has_torque_proxy) {
+        return std::nullopt;
+      }
+      return std::fabs(telemetry.torque_proxy);
+    case amr_sweeper_steadydrive::ProtectionType::OverSpeed:
+      if (!telemetry.has_speed) {
+        return std::nullopt;
+      }
+      return std::fabs(telemetry.speed_rad_s);
+    case amr_sweeper_steadydrive::ProtectionType::OverTemperature:
+      if (!telemetry.has_temperature) {
+        return std::nullopt;
+      }
+      return telemetry.temperature_c;
+    case amr_sweeper_steadydrive::ProtectionType::OverCurrent:
+      if (!telemetry.has_current) {
+        return std::nullopt;
+      }
+      return std::fabs(telemetry.current_a);
+    case amr_sweeper_steadydrive::ProtectionType::OverVoltage:
+      if (!telemetry.has_voltage) {
+        return std::nullopt;
+      }
+      return telemetry.voltage_v;
+    case amr_sweeper_steadydrive::ProtectionType::Count:
+      break;
+  }
+  return std::nullopt;
+}
+
+amr_sweeper_steadydrive::ProtectionLimit load_protection_limit(
+  const YAML::Node & defaults_node,
+  const YAML::Node & override_node,
+  amr_sweeper_steadydrive::ProtectionType type)
+{
+  amr_sweeper_steadydrive::ProtectionLimit limit;
+  const std::string key = protectionKey(type);
+  const YAML::Node default_limit = defaults_node && defaults_node[key] ? defaults_node[key] : YAML::Node();
+  const YAML::Node joint_limit = override_node && override_node[key] ? override_node[key] : YAML::Node();
+
+  auto read_bool = [](const YAML::Node & preferred, const YAML::Node & fallback, const char * field, bool default_value) {
+      if (preferred && preferred[field]) {
+        return preferred[field].as<bool>();
+      }
+      if (fallback && fallback[field]) {
+        return fallback[field].as<bool>();
+      }
+      return default_value;
+    };
+  auto read_double = [](const YAML::Node & preferred, const YAML::Node & fallback, const char * field, double default_value) {
+      if (preferred && preferred[field]) {
+        return preferred[field].as<double>();
+      }
+      if (fallback && fallback[field]) {
+        return fallback[field].as<double>();
+      }
+      return default_value;
+    };
+  auto read_string = [](const YAML::Node & preferred, const YAML::Node & fallback, const char * field, const std::string & default_value) {
+      if (preferred && preferred[field]) {
+        return preferred[field].as<std::string>();
+      }
+      if (fallback && fallback[field]) {
+        return fallback[field].as<std::string>();
+      }
+      return default_value;
+    };
+
+  limit.enabled = read_bool(joint_limit, default_limit, "enabled", false);
+  limit.threshold = read_double(joint_limit, default_limit, "threshold", 0.0);
+  limit.units = read_string(joint_limit, default_limit, "units", std::string{});
+  limit.trip_duration = std::chrono::milliseconds(
+    static_cast<int>(read_double(joint_limit, default_limit, "trip_duration_ms", 0.0)));
+  return limit;
+}
 }  // namespace
 
 using amr_sweeper_steadydrive::SteadydriveHardwareInterface;
@@ -180,12 +306,23 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
   prev_velocity_commands_.resize(num_joints_);
   velocity_states_.resize(num_joints_);
   position_states_.resize(num_joints_);
+  effort_states_.assign(num_joints_, 0.0);
+  torque_states_.assign(num_joints_, 0.0);
+  current_states_.assign(num_joints_, 0.0);
+  temperature_states_.assign(num_joints_, 0.0);
+  voltage_states_.assign(num_joints_, 0.0);
+  fault_latched_states_.assign(num_joints_, 0.0);
+  fault_type_states_.assign(num_joints_, -1.0);
+  fault_measured_states_.assign(num_joints_, 0.0);
+  fault_threshold_states_.assign(num_joints_, 0.0);
   positive_motor_direction_signs_.resize(num_joints_, 1.0);
   gear_ratios_.resize(num_joints_, 1.0);
   motor_can_ids_.resize(num_joints_);
   can_sockets_.assign(num_joints_, -1);
   last_encoder_position_raw_.resize(num_joints_);
   accumulated_motor_position_rad_.resize(num_joints_, 0.0);
+  joint_telemetry_.resize(num_joints_);
+  protection_states_.resize(num_joints_);
 
   if (num_joints_ != 2)
   {
@@ -236,6 +373,7 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
       hardware_config, "fatal_after_consecutive_errors", fatal_after_consecutive_errors_);
     max_reconnect_attempts_ =
       load_optional_int(hardware_config, "max_reconnect_attempts", max_reconnect_attempts_);
+    loadProtectionParameters();
 
     RCLCPP_INFO(
       rclcpp::get_logger(hw_name_),
@@ -270,6 +408,22 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
+  if (!safety_stop_publisher_) {
+    if (auto node = get_node()) {
+      safety_stop_publisher_ = node->create_publisher<amr_sweeper_safety_msgs::msg::SafetyStop>(
+        safety_stop_topic_name_, rclcpp::SystemDefaultsQoS());
+    }
+  }
+  if (!clear_safety_stop_service_) {
+    if (auto node = get_node()) {
+      clear_safety_stop_service_ = node->create_service<std_srvs::srv::Trigger>(
+        clear_safety_stop_service_name_,
+        std::bind(
+          &SteadydriveHardwareInterface::clearSafetyStopService, this,
+          std::placeholders::_1, std::placeholders::_2));
+    }
+  }
+
   if (!initializeCanSockets()) {
     reportConnectionIssue(
       last_connection_error_message_.empty() ?
@@ -474,6 +628,101 @@ void SteadydriveHardwareInterface::resetIssueCounters()
   fatal_error_ = false;
 }
 
+void SteadydriveHardwareInterface::loadProtectionParameters()
+{
+  const YAML::Node hardware_config =
+    load_hardware_config("amr_sweeper_steadydrive", "amr_sweeper_steadydrive.yaml");
+  const YAML::Node protection_node = hardware_config["protection"];
+
+  if (!protection_node || !protection_node.IsMap()) {
+    return;
+  }
+
+  protection_enabled_ = protection_node["enabled"] ? protection_node["enabled"].as<bool>() : false;
+  clear_faults_on_activate_ =
+    protection_node["clear_faults_on_activate"] ?
+    protection_node["clear_faults_on_activate"].as<bool>() : true;
+  latch_faults_ = protection_node["latch_faults"] ? protection_node["latch_faults"].as<bool>() : true;
+  command_deadband_for_checks_ =
+    protection_node["command_deadband_for_checks"] ?
+    protection_node["command_deadband_for_checks"].as<double>() : 0.0;
+  startup_ignore_duration_ = std::chrono::milliseconds(
+    protection_node["startup_ignore_ms"] ? protection_node["startup_ignore_ms"].as<int>() : 500);
+  safety_stop_topic_name_ =
+    protection_node["safety_stop_topic_name"] ?
+    protection_node["safety_stop_topic_name"].as<std::string>() : "safety_msgs/stop";
+  safety_stop_sender_name_ =
+    protection_node["safety_stop_sender_name"] ?
+    protection_node["safety_stop_sender_name"].as<std::string>() : "steadydrive_hardware_interface";
+  clear_safety_stop_service_name_ =
+    protection_node["clear_safety_stop_service_name"] ?
+    protection_node["clear_safety_stop_service_name"].as<std::string>() :
+    "/steadydrive_ros2_control/clear_safety_stop";
+
+  const YAML::Node defaults_node = protection_node["defaults"];
+  const YAML::Node joint_overrides_node =
+    protection_node["joint_overrides"] ? protection_node["joint_overrides"] : protection_node["joints"];
+
+  for (std::size_t i = 0; i < info_.joints.size(); ++i) {
+    protection_states_[i].joint_name = info_.joints[i].name;
+    const YAML::Node joint_override =
+      joint_overrides_node && joint_overrides_node[info_.joints[i].name] ?
+      joint_overrides_node[info_.joints[i].name] : YAML::Node();
+
+    for (const auto type : kProtectionTypes) {
+      protection_states_[i].limits[protectionIndex(type)] =
+        load_protection_limit(defaults_node, joint_override, type);
+    }
+  }
+}
+
+void SteadydriveHardwareInterface::clearProtectionFaults()
+{
+  for (std::size_t i = 0; i < protection_states_.size(); ++i) {
+    protection_states_[i].fault.reset();
+    protection_states_[i].safe_stop_sent = false;
+    protection_states_[i].safety_stop_published = false;
+    protection_states_[i].over_threshold_seconds.fill(0.0);
+    updateProtectionStatusState(i);
+  }
+}
+
+void SteadydriveHardwareInterface::clearSafetyStopService(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  (void)request;
+
+  if (!ensureCanSockets()) {
+    response->success = false;
+    response->message = last_connection_error_message_.empty() ?
+      "Steadydrive CAN interface is not ready" : last_connection_error_message_;
+    return;
+  }
+
+  clearProtectionFaults();
+
+  for (std::size_t i = 0; i < num_joints_; ++i) {
+    velocity_commands_[i] = 0.0;
+    prev_velocity_commands_[i] = 0.0;
+    if (!sendMotorCommand(i, 0x88)) {
+      response->success = false;
+      response->message = last_connection_error_message_.empty() ?
+        "Failed to re-enable Steadydrive motor" : last_connection_error_message_;
+      return;
+    }
+    if (!sendMotorCommand(i, 0xA2)) {
+      response->success = false;
+      response->message = last_connection_error_message_.empty() ?
+        "Failed to send zero Steadydrive command" : last_connection_error_message_;
+      return;
+    }
+  }
+
+  response->success = true;
+  response->message = "Steadydrive safety stop cleared and motors re-enabled";
+}
+
 bool SteadydriveHardwareInterface::sendMotorCommand(
   size_t motor_index, uint8_t command_byte,
   uint8_t byte1, uint8_t byte2, uint8_t byte3,
@@ -518,6 +767,12 @@ bool SteadydriveHardwareInterface::sendMotorCommand(
 void SteadydriveHardwareInterface::writeCommandsToHardware()
 {
   for (size_t motor_index = 0; motor_index < velocity_commands_.size(); ++motor_index) {
+    if (motorHasLatchedFault(motor_index)) {
+      stopOrDisableMotor(motor_index);
+      prev_velocity_commands_[motor_index] = 0.0;
+      continue;
+    }
+
     const double motor_velocity_deg_s =
       velocity_commands_[motor_index] * gear_ratios_[motor_index] * RAD_TO_DEG *
       positive_motor_direction_signs_[motor_index];
@@ -581,14 +836,24 @@ void SteadydriveHardwareInterface::processMotorFrame(size_t motor_index, const s
     return;
   }
 
+  const double current_a =
+    static_cast<double>(decode_signed_16bit(frame.data[2], frame.data[3])) * CURRENT_RAW_TO_AMPERE;
   const int16_t speed_deg_per_sec = decode_signed_16bit(frame.data[4], frame.data[5]);
   const uint16_t encoder_position_raw =
     (static_cast<uint16_t>(frame.data[6]) |
     (static_cast<uint16_t>(frame.data[7]) << 8)) & 0x3fff;
 
+  joint_telemetry_[motor_index].temperature_c = static_cast<double>(frame.data[1]);
+  joint_telemetry_[motor_index].has_temperature = true;
+  joint_telemetry_[motor_index].current_a = current_a;
+  joint_telemetry_[motor_index].has_current = true;
+  joint_telemetry_[motor_index].torque_proxy = current_a;
+  joint_telemetry_[motor_index].has_torque_proxy = true;
   velocity_states_[motor_index] =
     static_cast<double>(speed_deg_per_sec) * DEG_TO_RAD *
     positive_motor_direction_signs_[motor_index] / gear_ratios_[motor_index];
+  joint_telemetry_[motor_index].speed_rad_s = velocity_states_[motor_index];
+  joint_telemetry_[motor_index].has_speed = true;
   position_states_[motor_index] =
     unwrapEncoderPositionRad(motor_index, encoder_position_raw) *
     positive_motor_direction_signs_[motor_index] / gear_ratios_[motor_index];
@@ -644,6 +909,168 @@ void SteadydriveHardwareInterface::updateJointsFromHardware()
     velocity_states_[LEFT_MOTOR_INDEX], velocity_states_[RIGHT_MOTOR_INDEX]);     
 }
 
+void SteadydriveHardwareInterface::updateProtectionStatusState(size_t joint_index)
+{
+  const auto & telemetry = joint_telemetry_[joint_index];
+  const auto & state = protection_states_[joint_index];
+
+  torque_states_[joint_index] = telemetry.has_torque_proxy ? telemetry.torque_proxy : 0.0;
+  current_states_[joint_index] = telemetry.has_current ? telemetry.current_a : 0.0;
+  temperature_states_[joint_index] = telemetry.has_temperature ? telemetry.temperature_c : 0.0;
+  voltage_states_[joint_index] = telemetry.has_voltage ? telemetry.voltage_v : 0.0;
+  effort_states_[joint_index] = telemetry.has_torque_proxy ? telemetry.torque_proxy :
+    (telemetry.has_current ? telemetry.current_a : 0.0);
+  fault_latched_states_[joint_index] = state.fault ? 1.0 : 0.0;
+  fault_type_states_[joint_index] = faultTypeStateValue(state.fault);
+  fault_measured_states_[joint_index] = state.fault ? state.fault->measured_value : 0.0;
+  fault_threshold_states_[joint_index] = state.fault ? state.fault->threshold : 0.0;
+}
+
+void SteadydriveHardwareInterface::latchProtectionFault(
+  size_t joint_index,
+  ProtectionType type,
+  double measured_value,
+  const ProtectionLimit & limit)
+{
+  auto & state = protection_states_[joint_index];
+  if (state.fault) {
+    return;
+  }
+
+  state.fault = ProtectionFault{type, state.joint_name, measured_value, limit.threshold, limit.units};
+  state.safe_stop_sent = false;
+
+  RCLCPP_ERROR(
+    rclcpp::get_logger(hw_name_),
+    "Protection tripped: interface=steadydrive joint=%s protection=%s measured=%.3f %s threshold=%.3f %s action=\"motor stopped and fault latched\"",
+    state.joint_name.c_str(),
+    protectionKey(type),
+    measured_value,
+    limit.units.c_str(),
+    limit.threshold,
+    limit.units.c_str());
+
+  if (safety_stop_publisher_ && !state.safety_stop_published) {
+    amr_sweeper_safety_msgs::msg::SafetyStop stop_msg;
+    stop_msg.stamp = get_clock()->now();
+    stop_msg.sender = safety_stop_sender_name_;
+    std::ostringstream reason;
+    reason << "motor protection fault on " << state.joint_name
+           << ": " << protectionKey(type)
+           << " measured=" << measured_value << " " << limit.units
+           << " threshold=" << limit.threshold << " " << limit.units;
+    stop_msg.reason = reason.str();
+    safety_stop_publisher_->publish(stop_msg);
+    state.safety_stop_published = true;
+  }
+
+  stopOrDisableMotor(joint_index);
+  updateProtectionStatusState(joint_index);
+}
+
+bool SteadydriveHardwareInterface::motorHasLatchedFault(size_t joint_index) const
+{
+  return protection_enabled_ && joint_index < protection_states_.size() && protection_states_[joint_index].fault.has_value();
+}
+
+void SteadydriveHardwareInterface::stopOrDisableMotor(size_t joint_index)
+{
+  if (joint_index >= protection_states_.size()) {
+    return;
+  }
+
+  auto & state = protection_states_[joint_index];
+  velocity_commands_[joint_index] = 0.0;
+  if (state.safe_stop_sent) {
+    return;
+  }
+
+  (void)sendMotorCommand(joint_index, 0xA2);
+  (void)sendMotorCommand(joint_index, 0x81);
+  state.safe_stop_sent = true;
+}
+
+void SteadydriveHardwareInterface::evaluateProtections(const rclcpp::Duration & period)
+{
+  if (!protection_enabled_) {
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      updateProtectionStatusState(i);
+    }
+    return;
+  }
+
+  const double dt = std::max(0.0, period.seconds());
+  const bool in_startup_ignore =
+    activation_time_.nanoseconds() != 0 &&
+    (rclcpp::Clock(RCL_ROS_TIME).now() - activation_time_) < rclcpp::Duration(startup_ignore_duration_);
+
+  for (std::size_t i = 0; i < num_joints_; ++i) {
+    auto & state = protection_states_[i];
+
+    if (state.fault) {
+      stopOrDisableMotor(i);
+      updateProtectionStatusState(i);
+      continue;
+    }
+
+    for (const auto type : kProtectionTypes) {
+      const auto index = protectionIndex(type);
+      const auto & limit = state.limits[index];
+      if (!limit.enabled) {
+        state.over_threshold_seconds[index] = 0.0;
+        continue;
+      }
+
+      if (type == ProtectionType::OverVoltage) {
+        if (!state.unsupported_warning_logged) {
+          RCLCPP_WARN(
+            rclcpp::get_logger(hw_name_),
+            "Steadydrive protection '%s' is enabled for joint '%s', but this interface does not expose voltage telemetry yet. Keeping the check inactive.",
+            protectionKey(type),
+            state.joint_name.c_str());
+          state.unsupported_warning_logged = true;
+        }
+        state.over_threshold_seconds[index] = 0.0;
+        continue;
+      }
+
+      if (std::fabs(velocity_commands_[i]) <= command_deadband_for_checks_ &&
+        (type == ProtectionType::OverTorque || type == ProtectionType::OverCurrent))
+      {
+        state.over_threshold_seconds[index] = 0.0;
+        continue;
+      }
+
+      if (in_startup_ignore) {
+        state.over_threshold_seconds[index] = 0.0;
+        continue;
+      }
+
+      const auto measured = selectMeasuredValue(type, joint_telemetry_[i]);
+      if (!measured.has_value()) {
+        state.over_threshold_seconds[index] = 0.0;
+        continue;
+      }
+
+      if (*measured > limit.threshold) {
+        state.over_threshold_seconds[index] += dt;
+      } else {
+        state.over_threshold_seconds[index] = 0.0;
+      }
+
+      if (state.over_threshold_seconds[index] >= (static_cast<double>(limit.trip_duration.count()) / 1000.0)) {
+        latchProtectionFault(i, type, *measured, limit);
+        if (!latch_faults_) {
+          state.over_threshold_seconds[index] = 0.0;
+        }
+        break;
+      }
+    }
+
+    updateProtectionStatusState(i);
+  }
+}
+
 
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::validateJoints()
 { 
@@ -668,31 +1095,31 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::validateJoints(
       return hardware_interface::CallbackReturn::ERROR;
     }
 
-    if (joint.state_interfaces.size() != 2)
+    if (joint.state_interfaces.size() < 2)
     {
       RCLCPP_FATAL(
         rclcpp::get_logger(hw_name_),
-        "Joint '%s' has %zu state interface. 2 expected.", joint.name.c_str(),
+        "Joint '%s' has %zu state interface. At least 2 expected.", joint.name.c_str(),
         joint.state_interfaces.size());
       return hardware_interface::CallbackReturn::ERROR;
     }
-
-    if (joint.state_interfaces[0].name != hardware_interface::HW_IF_POSITION)
-    {
+    const auto has_position = std::any_of(
+      joint.state_interfaces.begin(), joint.state_interfaces.end(),
+      [](const auto & interface_info) {
+        return interface_info.name == hardware_interface::HW_IF_POSITION;
+      });
+    const auto has_velocity = std::any_of(
+      joint.state_interfaces.begin(), joint.state_interfaces.end(),
+      [](const auto & interface_info) {
+        return interface_info.name == hardware_interface::HW_IF_VELOCITY;
+      });
+    if (!has_position || !has_velocity) {
       RCLCPP_FATAL(
         rclcpp::get_logger(hw_name_),
-        "Joint '%s' have '%s' as first state interface. '%s' expected.",
-        joint.name.c_str(), joint.state_interfaces[0].name.c_str(),
-        hardware_interface::HW_IF_POSITION);
-      return hardware_interface::CallbackReturn::ERROR;
-    }
-
-    if (joint.state_interfaces[1].name != hardware_interface::HW_IF_VELOCITY)
-    {
-      RCLCPP_FATAL(
-        rclcpp::get_logger(hw_name_),
-        "Joint '%s' have '%s' as second state interface. '%s' expected.", joint.name.c_str(),
-        joint.state_interfaces[1].name.c_str(), hardware_interface::HW_IF_VELOCITY);
+        "Joint '%s' must expose at least '%s' and '%s' state interfaces.",
+        joint.name.c_str(),
+        hardware_interface::HW_IF_POSITION,
+        hardware_interface::HW_IF_VELOCITY);
       return hardware_interface::CallbackReturn::ERROR;
     }
   }
@@ -712,6 +1139,30 @@ std::vector<hardware_interface::StateInterface> SteadydriveHardwareInterface::ex
     state_interfaces.emplace_back(
       hardware_interface::StateInterface(
         info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &velocity_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(
+        info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &effort_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(info_.joints[i].name, "torque", &torque_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(info_.joints[i].name, "current", &current_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(
+        info_.joints[i].name, "temperature", &temperature_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(info_.joints[i].name, "voltage", &voltage_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(
+        info_.joints[i].name, "protection_fault_latched", &fault_latched_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(
+        info_.joints[i].name, "protection_fault_type", &fault_type_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(
+        info_.joints[i].name, "protection_fault_measured", &fault_measured_states_[i]));
+    state_interfaces.emplace_back(
+      hardware_interface::StateInterface(
+        info_.joints[i].name, "protection_fault_threshold", &fault_threshold_states_[i]));
   }
 
   return state_interfaces;
@@ -734,6 +1185,10 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Starting ...please wait...");
   lifecycle_active_ = true;
+  activation_time_ = rclcpp::Clock(RCL_ROS_TIME).now();
+  if (clear_faults_on_activate_) {
+    clearProtectionFaults();
+  }
   // set some default values
   for (auto i = 0u; i < num_joints_; i++) {
     velocity_commands_[i] = 0.0;
@@ -765,13 +1220,14 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_deactivate(c
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
-hardware_interface::return_type SteadydriveHardwareInterface::read(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
+hardware_interface::return_type SteadydriveHardwareInterface::read(const rclcpp::Time & /*time*/, const rclcpp::Duration & period)
 {
   if (!ensureCanSockets()) {
     return fatal_error_ ? hardware_interface::return_type::ERROR : hardware_interface::return_type::OK;
   }
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Reading from hardware");
   updateJointsFromHardware();
+  evaluateProtections(period);
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), "Joints successfully read!");
   return fatal_error_ ? hardware_interface::return_type::ERROR : hardware_interface::return_type::OK;
 }

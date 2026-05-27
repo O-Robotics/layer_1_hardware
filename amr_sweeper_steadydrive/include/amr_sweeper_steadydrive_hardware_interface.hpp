@@ -3,13 +3,16 @@
 
 #include <chrono>
 #include <cstdint>
+#include <array>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <linux/can.h>
 
+#include "amr_sweeper_safety_msgs/msg/safety_stop.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 #include "hardware_interface/actuator_interface.hpp"
 #include "hardware_interface/system_interface.hpp"
@@ -17,6 +20,58 @@
 
 namespace amr_sweeper_steadydrive
 {
+
+enum class ProtectionType : std::size_t
+{
+  OverTorque = 0,
+  OverSpeed = 1,
+  OverTemperature = 2,
+  OverCurrent = 3,
+  OverVoltage = 4,
+  Count = 5,
+};
+
+struct ProtectionLimit
+{
+  bool enabled{false};
+  double threshold{0.0};
+  std::string units;
+  std::chrono::milliseconds trip_duration{0};
+};
+
+struct ProtectionFault
+{
+  ProtectionType type{ProtectionType::OverTorque};
+  std::string joint_name;
+  double measured_value{0.0};
+  double threshold{0.0};
+  std::string units;
+};
+
+struct JointTelemetry
+{
+  double torque_proxy{0.0};
+  bool has_torque_proxy{false};
+  double speed_rad_s{0.0};
+  bool has_speed{false};
+  double current_a{0.0};
+  bool has_current{false};
+  double temperature_c{0.0};
+  bool has_temperature{false};
+  double voltage_v{0.0};
+  bool has_voltage{false};
+};
+
+struct MotorProtectionState
+{
+  std::string joint_name;
+  std::array<ProtectionLimit, static_cast<std::size_t>(ProtectionType::Count)> limits{};
+  std::array<double, static_cast<std::size_t>(ProtectionType::Count)> over_threshold_seconds{};
+  std::optional<ProtectionFault> fault;
+  bool unsupported_warning_logged{false};
+  bool safe_stop_sent{false};
+  bool safety_stop_published{false};
+};
 
 class SteadydriveHardwareInterface : public hardware_interface::SystemInterface
 {
@@ -56,18 +111,41 @@ protected:
   void readAvailableMotorFrames(size_t motor_index);
   void processMotorFrame(size_t motor_index, const struct can_frame & frame);
   double unwrapEncoderPositionRad(size_t motor_index, uint16_t encoder_position_raw);
+  void loadProtectionParameters();
+  void clearProtectionFaults();
+  void evaluateProtections(const rclcpp::Duration & period);
+  void updateProtectionStatusState(size_t joint_index);
+  void latchProtectionFault(
+    size_t joint_index, ProtectionType type, double measured_value,
+    const ProtectionLimit & limit);
+  bool motorHasLatchedFault(size_t joint_index) const;
+  void stopOrDisableMotor(size_t joint_index);
+  void clearSafetyStopService(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
   // Store the command for the robot
   std::vector<double> velocity_commands_;
   std::vector<double> prev_velocity_commands_;
   std::vector<double> velocity_states_;
   std::vector<double> position_states_;
+  std::vector<double> effort_states_;
+  std::vector<double> torque_states_;
+  std::vector<double> current_states_;
+  std::vector<double> temperature_states_;
+  std::vector<double> voltage_states_;
+  std::vector<double> fault_latched_states_;
+  std::vector<double> fault_type_states_;
+  std::vector<double> fault_measured_states_;
+  std::vector<double> fault_threshold_states_;
   std::vector<double> positive_motor_direction_signs_;
   std::vector<double> gear_ratios_;
   std::vector<uint32_t> motor_can_ids_;
   std::vector<int> can_sockets_;
   std::vector<std::optional<uint16_t>> last_encoder_position_raw_;
   std::vector<double> accumulated_motor_position_rad_;
+  std::vector<JointTelemetry> joint_telemetry_;
+  std::vector<MotorProtectionState> protection_states_;
 
   // Config parameters 
   std::string hw_name_;
@@ -81,8 +159,19 @@ protected:
   int connection_issue_count_ {0};
   bool fatal_error_ {false};
   bool lifecycle_active_ {false};
+  bool protection_enabled_ {false};
+  bool clear_faults_on_activate_ {true};
+  bool latch_faults_ {true};
+  double command_deadband_for_checks_ {0.0};
+  std::chrono::milliseconds startup_ignore_duration_{500};
+  std::string safety_stop_topic_name_{"safety_msgs/stop"};
+  std::string safety_stop_sender_name_{"steadydrive_hardware_interface"};
+  std::string clear_safety_stop_service_name_{"/steadydrive_ros2_control/clear_safety_stop"};
   std::string last_connection_error_message_;
   std::chrono::steady_clock::time_point last_reconnect_attempt_time_{};
+  rclcpp::Time activation_time_{0, 0, RCL_ROS_TIME};
+  rclcpp::Publisher<amr_sweeper_safety_msgs::msg::SafetyStop>::SharedPtr safety_stop_publisher_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr clear_safety_stop_service_;
 };
 
 

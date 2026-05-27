@@ -10,9 +10,11 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
+find_package(amr_sweeper_safety_msgs REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 add_library(
@@ -30,9 +32,11 @@ target_include_directories(
 ament_target_dependencies(
   odrive_ros2_control_plugin
   ament_index_cpp
+  amr_sweeper_safety_msgs
   hardware_interface
   pluginlib
   rclcpp
+  std_srvs
   yaml-cpp
 )
 
@@ -69,9 +73,11 @@ ament_export_libraries(
 )
 ament_export_dependencies(
   ament_index_cpp
+  amr_sweeper_safety_msgs
   hardware_interface
   pluginlib
   rclcpp
+  std_srvs
   yaml-cpp
 )
 

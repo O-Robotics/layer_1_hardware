@@ -1,30 +1,46 @@
-#ifndef AMR_SWEEPER_BATTERY__AMR_SWEEPER_BATTERY_NODE_HPP_
-#define AMR_SWEEPER_BATTERY__AMR_SWEEPER_BATTERY_NODE_HPP_
+#ifndef AMR_SWEEPER_BATTERY__BATTERY_NODE_HPP_
+#define AMR_SWEEPER_BATTERY__BATTERY_NODE_HPP_
 
 #include <linux/can.h>
 
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include "amr_sweeper_safety_msgs/msg/safety_stop.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "diagnostic_msgs/msg/key_value.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 
-class DalyBmsCanNode : public rclcpp::Node
+class BatteryNode : public rclcpp::Node
 {
 public:
-  DalyBmsCanNode();
-  ~DalyBmsCanNode() override;
+  BatteryNode();
+  ~BatteryNode() override;
 
-private:
   static constexpr std::array<uint8_t, 9> kDataIds{{0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98}};
+
+  enum class ProtectionType : std::size_t
+  {
+    OverVoltage = 0,
+    UnderVoltage = 1,
+    ChargingOverCurrent = 2,
+    ChargingUnderCurrent = 3,
+    ChargingOverTemperature = 4,
+    ChargingUnderTemperature = 5,
+    DischargingOverCurrent = 6,
+    DischargingUnderCurrent = 7,
+    DischargingOverTemperature = 8,
+    DischargingUnderTemperature = 9,
+    Count = 10,
+  };
 
   struct ParsedId
   {
@@ -33,6 +49,21 @@ private:
     uint8_t dst_addr;
     uint8_t priority;
   };
+
+  struct ProtectionLimit
+  {
+    bool enabled{false};
+    double threshold{0.0};
+    std::string units;
+  };
+
+  struct ProtectionState
+  {
+    ProtectionLimit limit;
+    bool active{false};
+  };
+
+private:
 
   bool setup_can_socket(bool log_failure);
   void close_can_socket();
@@ -45,6 +76,14 @@ private:
   void on_timer();
   bool send_request(uint8_t data_id);
   void rx_loop();
+  void evaluate_protections();
+  void clear_protection_state(ProtectionType type);
+  void publish_safety_stop(
+    ProtectionType type,
+    const std::string & signal_name,
+    double measured_value,
+    const ProtectionLimit & limit,
+    const std::string & comparator_text);
   void handle_can_frame(const can_frame & frame);
   void decode_0x90(const uint8_t * data, size_t len);
   void decode_0x91(const uint8_t * data, size_t len);
@@ -109,10 +148,15 @@ private:
   std::vector<double> cell_temperatures_;
   std::vector<int> balance_state_;
   std::optional<std::vector<uint8_t>> failure_bytes_;
+  std::array<ProtectionState, static_cast<std::size_t>(ProtectionType::Count)> protection_states_{};
+
+  std::string safety_stop_topic_name_{"safety_msgs/stop"};
+  std::string safety_stop_sender_name_{"battery_node"};
 
   rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr batt_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr health_pub_;
+  rclcpp::Publisher<amr_sweeper_safety_msgs::msg::SafetyStop>::SharedPtr safety_stop_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 
-#endif  // AMR_SWEEPER_BATTERY__AMR_SWEEPER_BATTERY_NODE_HPP_
+#endif  // AMR_SWEEPER_BATTERY__BATTERY_NODE_HPP_

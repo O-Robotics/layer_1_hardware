@@ -7,6 +7,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(amr_sweeper_safety_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
@@ -15,8 +16,14 @@ find_package(sensor_msgs REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(amr_sweeper_battery_node src/amr_sweeper_battery_node.cpp)
-ament_target_dependencies(amr_sweeper_battery_node rclcpp std_msgs diagnostic_msgs sensor_msgs)
+add_executable(amr_sweeper_battery_node src/battery_node.cpp)
+ament_target_dependencies(
+  amr_sweeper_battery_node
+  amr_sweeper_safety_msgs
+  rclcpp
+  std_msgs
+  diagnostic_msgs
+  sensor_msgs)
 target_include_directories(amr_sweeper_battery_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

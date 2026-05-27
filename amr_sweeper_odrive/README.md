@@ -16,3 +16,5 @@ The package is intentionally structured to match `amr_sweeper_steadydrive` close
 - Layer 2 wheel control ultimately feeds commands into this package's `diff_cont` controller path.
 - Hardware-specific runtime configuration is loaded from `config/amr_sweeper_odrive.yaml`.
 - The config file owns the SocketCAN interface, left/right motor IDs, positive motor directions, and the shared gear ratio used by the ODrive hardware interface.
+- The hardware interface now exports `effort` plus additional protection/telemetry state interfaces for torque, current, temperature, voltage, and latched-fault reporting.
+- ODrive protection checks use encoder speed, torque estimate, iq current, and bus-voltage/temperature telemetry requested over CAN when the corresponding checks are enabled.

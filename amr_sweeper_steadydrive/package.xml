@@ -13,9 +13,11 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>ament_index_cpp</depend>
+  <depend>amr_sweeper_safety_msgs</depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
+  <depend>std_srvs</depend>
   <depend>yaml-cpp</depend>
 
   <export>

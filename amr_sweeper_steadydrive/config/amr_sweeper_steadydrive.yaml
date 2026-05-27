@@ -19,6 +19,9 @@
       latch_faults:                   true     # Keeps a tripped protection active until an explicit recovery step.
       startup_ignore_ms:              500      # Grace period before protection checks begin after startup.
       command_deadband_for_checks:    0.0      # Optional minimum commanded speed before motion-based checks apply.
+      safety_stop_topic_name:         safety_msgs/stop # Shared stop topic used when this interface latches a protection fault.
+      safety_stop_sender_name:        steadydrive_hardware_interface # Sender label attached to published SafetyStop messages.
+      clear_safety_stop_service_name: /steadydrive_ros2_control/clear_safety_stop # Recovery service that clears protection latches and re-enables the tool motors.
 
       defaults:
         over_torque:

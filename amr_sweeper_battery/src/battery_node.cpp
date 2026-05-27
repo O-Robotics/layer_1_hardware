@@ -20,10 +20,70 @@
 #include <utility>
 #include <vector>
 
-#include "amr_sweeper_battery_node.hpp"
+#include "battery_node.hpp"
+#include "builtin_interfaces/msg/time.hpp"
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 
-DalyBmsCanNode::DalyBmsCanNode()
+namespace
+{
+
+std::size_t protection_index(BatteryNode::ProtectionType type)
+{
+  return static_cast<std::size_t>(type);
+}
+
+builtin_interfaces::msg::Time to_builtin_time(const rclcpp::Time & time)
+{
+  builtin_interfaces::msg::Time stamp;
+  const auto nanoseconds = time.nanoseconds();
+  stamp.sec = static_cast<int32_t>(nanoseconds / 1000000000LL);
+  stamp.nanosec = static_cast<uint32_t>(nanoseconds % 1000000000LL);
+  return stamp;
+}
+
+const char * protection_key(BatteryNode::ProtectionType type)
+{
+  switch (type) {
+    case BatteryNode::ProtectionType::OverVoltage:
+      return "over_voltage";
+    case BatteryNode::ProtectionType::UnderVoltage:
+      return "under_voltage";
+    case BatteryNode::ProtectionType::ChargingOverCurrent:
+      return "charging.over_current";
+    case BatteryNode::ProtectionType::ChargingUnderCurrent:
+      return "charging.under_current";
+    case BatteryNode::ProtectionType::ChargingOverTemperature:
+      return "charging.over_temperature";
+    case BatteryNode::ProtectionType::ChargingUnderTemperature:
+      return "charging.under_temperature";
+    case BatteryNode::ProtectionType::DischargingOverCurrent:
+      return "discharging.over_current";
+    case BatteryNode::ProtectionType::DischargingUnderCurrent:
+      return "discharging.under_current";
+    case BatteryNode::ProtectionType::DischargingOverTemperature:
+      return "discharging.over_temperature";
+    case BatteryNode::ProtectionType::DischargingUnderTemperature:
+      return "discharging.under_temperature";
+    case BatteryNode::ProtectionType::Count:
+      break;
+  }
+  return "unknown";
+}
+
+BatteryNode::ProtectionLimit load_protection_limit(
+  const BatteryNode & node, BatteryNode::ProtectionType type)
+{
+  BatteryNode::ProtectionLimit limit;
+  const std::string key = std::string("protection.") + protection_key(type);
+  limit.enabled = node.get_parameter(key + ".enabled").as_bool();
+  limit.threshold = node.get_parameter(key + ".threshold").as_double();
+  limit.units = node.get_parameter(key + ".units").as_string();
+  return limit;
+}
+
+}  // namespace
+
+BatteryNode::BatteryNode()
 : Node("amr_sweeper_battery_node")
 {
   declare_parameter<std::string>("can_interface", "can0");
@@ -34,6 +94,38 @@ DalyBmsCanNode::DalyBmsCanNode()
   declare_parameter<int>("retry_attempts_before_error", 3);
   declare_parameter<int>("fatal_after_consecutive_errors", 10);
   declare_parameter<int>("max_reconnect_attempts", 10);
+  declare_parameter<std::string>("protection.safety_stop_topic_name", "safety_msgs/stop");
+  declare_parameter<std::string>("protection.safety_stop_sender_name", "battery_node");
+  declare_parameter<bool>("protection.over_voltage.enabled", false);
+  declare_parameter<double>("protection.over_voltage.threshold", 60.0);
+  declare_parameter<std::string>("protection.over_voltage.units", "V");
+  declare_parameter<bool>("protection.under_voltage.enabled", false);
+  declare_parameter<double>("protection.under_voltage.threshold", 42.0);
+  declare_parameter<std::string>("protection.under_voltage.units", "V");
+  declare_parameter<bool>("protection.charging.over_current.enabled", false);
+  declare_parameter<double>("protection.charging.over_current.threshold", 80.0);
+  declare_parameter<std::string>("protection.charging.over_current.units", "A");
+  declare_parameter<bool>("protection.charging.under_current.enabled", false);
+  declare_parameter<double>("protection.charging.under_current.threshold", 5.0);
+  declare_parameter<std::string>("protection.charging.under_current.units", "A");
+  declare_parameter<bool>("protection.charging.over_temperature.enabled", false);
+  declare_parameter<double>("protection.charging.over_temperature.threshold", 45.0);
+  declare_parameter<std::string>("protection.charging.over_temperature.units", "degC");
+  declare_parameter<bool>("protection.charging.under_temperature.enabled", false);
+  declare_parameter<double>("protection.charging.under_temperature.threshold", 0.0);
+  declare_parameter<std::string>("protection.charging.under_temperature.units", "degC");
+  declare_parameter<bool>("protection.discharging.over_current.enabled", false);
+  declare_parameter<double>("protection.discharging.over_current.threshold", -80.0);
+  declare_parameter<std::string>("protection.discharging.over_current.units", "A");
+  declare_parameter<bool>("protection.discharging.under_current.enabled", false);
+  declare_parameter<double>("protection.discharging.under_current.threshold", -5.0);
+  declare_parameter<std::string>("protection.discharging.under_current.units", "A");
+  declare_parameter<bool>("protection.discharging.over_temperature.enabled", false);
+  declare_parameter<double>("protection.discharging.over_temperature.threshold", 60.0);
+  declare_parameter<std::string>("protection.discharging.over_temperature.units", "degC");
+  declare_parameter<bool>("protection.discharging.under_temperature.enabled", false);
+  declare_parameter<double>("protection.discharging.under_temperature.threshold", 0.0);
+  declare_parameter<std::string>("protection.discharging.under_temperature.units", "degC");
 
   can_interface_ = get_parameter("can_interface").as_string();
   const auto timer_period = get_parameter("timer_period").as_double();
@@ -43,6 +135,8 @@ DalyBmsCanNode::DalyBmsCanNode()
   retry_attempts_before_error_ = get_parameter("retry_attempts_before_error").as_int();
   fatal_after_consecutive_errors_ = get_parameter("fatal_after_consecutive_errors").as_int();
   max_reconnect_attempts_ = get_parameter("max_reconnect_attempts").as_int();
+  safety_stop_topic_name_ = get_parameter("protection.safety_stop_topic_name").as_string();
+  safety_stop_sender_name_ = get_parameter("protection.safety_stop_sender_name").as_string();
 
   if (retry_attempts_before_error_ < 1) {
     retry_attempts_before_error_ = 1;
@@ -61,6 +155,23 @@ DalyBmsCanNode::DalyBmsCanNode()
 
   batt_pub_ = create_publisher<sensor_msgs::msg::BatteryState>("battery_state", 10);
   health_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>("battery_health", 10);
+  safety_stop_pub_ = create_publisher<amr_sweeper_safety_msgs::msg::SafetyStop>(
+    safety_stop_topic_name_, 10);
+
+  for (auto type : {
+      ProtectionType::OverVoltage,
+      ProtectionType::UnderVoltage,
+      ProtectionType::ChargingOverCurrent,
+      ProtectionType::ChargingUnderCurrent,
+      ProtectionType::ChargingOverTemperature,
+      ProtectionType::ChargingUnderTemperature,
+      ProtectionType::DischargingOverCurrent,
+      ProtectionType::DischargingUnderCurrent,
+      ProtectionType::DischargingOverTemperature,
+      ProtectionType::DischargingUnderTemperature})
+  {
+    protection_states_[protection_index(type)].limit = load_protection_limit(*this, type);
+  }
 
   if (!setup_can_socket(true)) {
     report_connection_issue(last_connection_error_message_);
@@ -68,17 +179,17 @@ DalyBmsCanNode::DalyBmsCanNode()
 
   const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
     std::chrono::duration<double>(timer_period));
-  timer_ = create_wall_timer(period, std::bind(&DalyBmsCanNode::on_timer, this));
+  timer_ = create_wall_timer(period, std::bind(&BatteryNode::on_timer, this));
 
   RCLCPP_INFO(get_logger(), "amr_sweeper_battery_node started.");
 }
 
-DalyBmsCanNode::~DalyBmsCanNode()
+BatteryNode::~BatteryNode()
 {
   close_can_socket();
 }
 
-bool DalyBmsCanNode::setup_can_socket(bool log_failure)
+bool BatteryNode::setup_can_socket(bool log_failure)
 {
   std::lock_guard<std::mutex> socket_lock(socket_mutex_);
   if (can_socket_ >= 0) {
@@ -118,7 +229,7 @@ bool DalyBmsCanNode::setup_can_socket(bool log_failure)
   if (rx_thread_.joinable()) {
     rx_thread_.join();
   }
-  rx_thread_ = std::thread(&DalyBmsCanNode::rx_loop, this);
+  rx_thread_ = std::thread(&BatteryNode::rx_loop, this);
   missing_can_warned_ = false;
   last_connection_error_message_.clear();
   reset_issue_counters();
@@ -127,7 +238,7 @@ bool DalyBmsCanNode::setup_can_socket(bool log_failure)
   return true;
 }
 
-void DalyBmsCanNode::close_can_socket()
+void BatteryNode::close_can_socket()
 {
   int socket_to_close = -1;
   {
@@ -146,13 +257,13 @@ void DalyBmsCanNode::close_can_socket()
   }
 }
 
-int DalyBmsCanNode::current_socket() const
+int BatteryNode::current_socket() const
 {
   std::lock_guard<std::mutex> socket_lock(socket_mutex_);
   return can_socket_;
 }
 
-void DalyBmsCanNode::report_connection_issue(const std::string & message)
+void BatteryNode::report_connection_issue(const std::string & message)
 {
   std::lock_guard<std::mutex> issue_lock(issue_mutex_);
   ++connection_issue_count_;
@@ -174,7 +285,7 @@ void DalyBmsCanNode::report_connection_issue(const std::string & message)
   log_escalating_issue(connection_issue_count_, message);
 }
 
-void DalyBmsCanNode::log_escalating_issue(int count, const std::string & message)
+void BatteryNode::log_escalating_issue(int count, const std::string & message)
 {
   if (count < retry_attempts_before_error_) {
     RCLCPP_WARN(get_logger(), "%s", message.c_str());
@@ -205,7 +316,7 @@ void DalyBmsCanNode::log_escalating_issue(int count, const std::string & message
   }
 }
 
-void DalyBmsCanNode::reset_issue_counters()
+void BatteryNode::reset_issue_counters()
 {
   std::lock_guard<std::mutex> issue_lock(issue_mutex_);
   reconnect_attempt_count_ = 0;
@@ -213,7 +324,7 @@ void DalyBmsCanNode::reset_issue_counters()
   fatal_error_.store(false);
 }
 
-uint32_t DalyBmsCanNode::make_pc_to_bms_id(uint8_t data_id) const
+uint32_t BatteryNode::make_pc_to_bms_id(uint8_t data_id) const
 {
   return
     (static_cast<uint32_t>(priority_) << 24) |
@@ -222,7 +333,7 @@ uint32_t DalyBmsCanNode::make_pc_to_bms_id(uint8_t data_id) const
     static_cast<uint32_t>(pc_addr_);
 }
 
-DalyBmsCanNode::ParsedId DalyBmsCanNode::parse_bms_to_pc_id(uint32_t arb_id)
+BatteryNode::ParsedId BatteryNode::parse_bms_to_pc_id(uint32_t arb_id)
 {
   ParsedId parsed {};
   parsed.priority = static_cast<uint8_t>((arb_id >> 24) & 0xFF);
@@ -232,7 +343,7 @@ DalyBmsCanNode::ParsedId DalyBmsCanNode::parse_bms_to_pc_id(uint32_t arb_id)
   return parsed;
 }
 
-void DalyBmsCanNode::on_timer()
+void BatteryNode::on_timer()
 {
   if (fatal_error_.load()) {
     return;
@@ -282,9 +393,10 @@ void DalyBmsCanNode::on_timer()
 
   publish_battery_state();
   publish_battery_health();
+  evaluate_protections();
 }
 
-bool DalyBmsCanNode::send_request(uint8_t data_id)
+bool BatteryNode::send_request(uint8_t data_id)
 {
   const auto fd = current_socket();
   if (fd < 0) {
@@ -314,7 +426,7 @@ bool DalyBmsCanNode::send_request(uint8_t data_id)
   return true;
 }
 
-void DalyBmsCanNode::rx_loop()
+void BatteryNode::rx_loop()
 {
   while (rx_running_.load()) {
     const auto fd = current_socket();
@@ -365,7 +477,7 @@ void DalyBmsCanNode::rx_loop()
   }
 }
 
-void DalyBmsCanNode::handle_can_frame(const can_frame & frame)
+void BatteryNode::handle_can_frame(const can_frame & frame)
 {
   if ((frame.can_id & CAN_EFF_FLAG) == 0U) {
     return;
@@ -410,7 +522,7 @@ void DalyBmsCanNode::handle_can_frame(const can_frame & frame)
   }
 }
 
-void DalyBmsCanNode::decode_0x90(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x90(const uint8_t * data, size_t len)
 {
   if (len < 8) {
     return;
@@ -426,7 +538,7 @@ void DalyBmsCanNode::decode_0x90(const uint8_t * data, size_t len)
   soc_percent_ = soc_u16 / 10.0;
 }
 
-void DalyBmsCanNode::decode_0x91(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x91(const uint8_t * data, size_t len)
 {
   if (len < 6) {
     return;
@@ -439,7 +551,7 @@ void DalyBmsCanNode::decode_0x91(const uint8_t * data, size_t len)
   min_cell_index_ = data[5];
 }
 
-void DalyBmsCanNode::decode_0x92(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x92(const uint8_t * data, size_t len)
 {
   if (len < 4) {
     return;
@@ -452,7 +564,7 @@ void DalyBmsCanNode::decode_0x92(const uint8_t * data, size_t len)
   min_temp_index_ = data[3];
 }
 
-void DalyBmsCanNode::decode_0x93(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x93(const uint8_t * data, size_t len)
 {
   if (len < 8) {
     return;
@@ -472,7 +584,7 @@ void DalyBmsCanNode::decode_0x93(const uint8_t * data, size_t len)
   remaining_capacity_m_ah_ = rem_m_ah;
 }
 
-void DalyBmsCanNode::decode_0x94(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x94(const uint8_t * data, size_t len)
 {
   if (len < 5) {
     return;
@@ -504,7 +616,7 @@ void DalyBmsCanNode::decode_0x94(const uint8_t * data, size_t len)
   }
 }
 
-void DalyBmsCanNode::decode_0x95(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x95(const uint8_t * data, size_t len)
 {
   if (len < 7 || data[0] == 0xFF) {
     return;
@@ -528,7 +640,7 @@ void DalyBmsCanNode::decode_0x95(const uint8_t * data, size_t len)
   }
 }
 
-void DalyBmsCanNode::decode_0x96(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x96(const uint8_t * data, size_t len)
 {
   if (len < 2) {
     return;
@@ -556,7 +668,7 @@ void DalyBmsCanNode::decode_0x96(const uint8_t * data, size_t len)
   }
 }
 
-void DalyBmsCanNode::decode_0x97(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x97(const uint8_t * data, size_t len)
 {
   if (len < 8) {
     return;
@@ -573,7 +685,7 @@ void DalyBmsCanNode::decode_0x97(const uint8_t * data, size_t len)
   }
 }
 
-void DalyBmsCanNode::decode_0x98(const uint8_t * data, size_t len)
+void BatteryNode::decode_0x98(const uint8_t * data, size_t len)
 {
   if (len < 8) {
     return;
@@ -583,7 +695,7 @@ void DalyBmsCanNode::decode_0x98(const uint8_t * data, size_t len)
   failure_bytes_ = std::vector<uint8_t>(data, data + 8);
 }
 
-diagnostic_msgs::msg::KeyValue DalyBmsCanNode::make_kv(
+diagnostic_msgs::msg::KeyValue BatteryNode::make_kv(
   const std::string & key,
   const std::string & value)
 {
@@ -593,7 +705,7 @@ diagnostic_msgs::msg::KeyValue DalyBmsCanNode::make_kv(
   return kv;
 }
 
-void DalyBmsCanNode::publish_battery_state()
+void BatteryNode::publish_battery_state()
 {
   sensor_msgs::msg::BatteryState msg;
   msg.header.stamp = now();
@@ -645,7 +757,7 @@ void DalyBmsCanNode::publish_battery_state()
   batt_pub_->publish(msg);
 }
 
-void DalyBmsCanNode::publish_battery_health()
+void BatteryNode::publish_battery_health()
 {
   diagnostic_msgs::msg::DiagnosticArray diag_array;
   diag_array.header.stamp = now();
@@ -736,6 +848,31 @@ void DalyBmsCanNode::publish_battery_health()
   if (load) {
     values.push_back(make_kv("load_connected", *load ? "True" : "False"));
   }
+  for (auto type : {
+      ProtectionType::OverVoltage,
+      ProtectionType::UnderVoltage,
+      ProtectionType::ChargingOverCurrent,
+      ProtectionType::ChargingUnderCurrent,
+      ProtectionType::ChargingOverTemperature,
+      ProtectionType::ChargingUnderTemperature,
+      ProtectionType::DischargingOverCurrent,
+      ProtectionType::DischargingUnderCurrent,
+      ProtectionType::DischargingOverTemperature,
+      ProtectionType::DischargingUnderTemperature})
+  {
+    const auto & state = protection_states_[protection_index(type)];
+    values.push_back(make_kv(
+      std::string("protection.") + protection_key(type) + ".enabled",
+      state.limit.enabled ? "True" : "False"));
+    values.push_back(make_kv(
+      std::string("protection.") + protection_key(type) + ".active",
+      state.active ? "True" : "False"));
+    if (state.limit.enabled) {
+      values.push_back(make_kv(
+        std::string("protection.") + protection_key(type) + ".threshold",
+        format_number(state.limit.threshold, 2) + " " + state.limit.units));
+    }
+  }
 
   std::vector<std::string> balancing_cells;
   for (size_t i = 0; i < balances.size(); ++i) {
@@ -768,14 +905,132 @@ void DalyBmsCanNode::publish_battery_health()
   health_pub_->publish(diag_array);
 }
 
-std::string DalyBmsCanNode::format_number(double value, int precision)
+void BatteryNode::evaluate_protections()
+{
+  std::optional<double> voltage;
+  std::optional<double> current;
+  std::optional<double> max_temperature;
+  std::optional<double> min_temperature;
+
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    voltage = pack_voltage_;
+    current = pack_current_;
+    max_temperature = max_temp_;
+    min_temperature = min_temp_;
+  }
+
+  const bool charging_active = current.has_value() && *current > 0.0;
+  const bool discharging_active = current.has_value() && *current < 0.0;
+
+  const auto evaluate_limit = [this](
+      ProtectionType type,
+      const std::optional<double> & measured_value,
+      const std::string & signal_name,
+      const std::string & comparator_text,
+      const auto & comparator) {
+      auto & state = protection_states_[protection_index(type)];
+      if (!state.limit.enabled || !measured_value.has_value()) {
+        clear_protection_state(type);
+        return;
+      }
+
+      if (comparator(*measured_value, state.limit.threshold)) {
+        if (!state.active) {
+          publish_safety_stop(
+            type, signal_name, *measured_value, state.limit, comparator_text);
+          state.active = true;
+        }
+        return;
+      }
+
+      state.active = false;
+    };
+
+  evaluate_limit(
+    ProtectionType::OverVoltage, voltage, "pack_voltage", "exceeded",
+    [](double measured, double threshold) { return measured > threshold; });
+  evaluate_limit(
+    ProtectionType::UnderVoltage, voltage, "pack_voltage", "fell below",
+    [](double measured, double threshold) { return measured < threshold; });
+
+  if (charging_active) {
+    evaluate_limit(
+      ProtectionType::ChargingOverCurrent, current, "pack_current", "exceeded",
+      [](double measured, double threshold) { return measured > threshold; });
+    evaluate_limit(
+      ProtectionType::ChargingUnderCurrent, current, "pack_current", "fell below",
+      [](double measured, double threshold) { return measured < threshold; });
+    evaluate_limit(
+      ProtectionType::ChargingOverTemperature, max_temperature, "max_temperature", "exceeded",
+      [](double measured, double threshold) { return measured > threshold; });
+    evaluate_limit(
+      ProtectionType::ChargingUnderTemperature, min_temperature, "min_temperature", "fell below",
+      [](double measured, double threshold) { return measured < threshold; });
+  } else {
+    clear_protection_state(ProtectionType::ChargingOverCurrent);
+    clear_protection_state(ProtectionType::ChargingUnderCurrent);
+    clear_protection_state(ProtectionType::ChargingOverTemperature);
+    clear_protection_state(ProtectionType::ChargingUnderTemperature);
+  }
+
+  if (discharging_active) {
+    evaluate_limit(
+      ProtectionType::DischargingOverCurrent, current, "pack_current", "fell below",
+      [](double measured, double threshold) { return measured < threshold; });
+    evaluate_limit(
+      ProtectionType::DischargingUnderCurrent, current, "pack_current", "rose above",
+      [](double measured, double threshold) { return measured > threshold; });
+    evaluate_limit(
+      ProtectionType::DischargingOverTemperature, max_temperature, "max_temperature", "exceeded",
+      [](double measured, double threshold) { return measured > threshold; });
+    evaluate_limit(
+      ProtectionType::DischargingUnderTemperature, min_temperature, "min_temperature", "fell below",
+      [](double measured, double threshold) { return measured < threshold; });
+  } else {
+    clear_protection_state(ProtectionType::DischargingOverCurrent);
+    clear_protection_state(ProtectionType::DischargingUnderCurrent);
+    clear_protection_state(ProtectionType::DischargingOverTemperature);
+    clear_protection_state(ProtectionType::DischargingUnderTemperature);
+  }
+}
+
+void BatteryNode::clear_protection_state(ProtectionType type)
+{
+  protection_states_[protection_index(type)].active = false;
+}
+
+void BatteryNode::publish_safety_stop(
+  ProtectionType type,
+  const std::string & signal_name,
+  double measured_value,
+  const ProtectionLimit & limit,
+  const std::string & comparator_text)
+{
+  amr_sweeper_safety_msgs::msg::SafetyStop stop_msg;
+  stop_msg.stamp = to_builtin_time(now());
+  stop_msg.sender = safety_stop_sender_name_;
+
+  std::ostringstream reason;
+  reason << "battery protection fault: " << protection_key(type)
+         << " on " << signal_name
+         << " measured=" << format_number(measured_value, 2) << " " << limit.units
+         << " " << comparator_text
+         << " threshold=" << format_number(limit.threshold, 2) << " " << limit.units;
+  stop_msg.reason = reason.str();
+
+  safety_stop_pub_->publish(stop_msg);
+  RCLCPP_ERROR(get_logger(), "%s", stop_msg.reason.c_str());
+}
+
+std::string BatteryNode::format_number(double value, int precision)
 {
   std::ostringstream oss;
   oss << std::fixed << std::setprecision(precision) << value;
   return oss.str();
 }
 
-std::string DalyBmsCanNode::bytes_to_hex(const std::vector<uint8_t> & bytes)
+std::string BatteryNode::bytes_to_hex(const std::vector<uint8_t> & bytes)
 {
   std::ostringstream oss;
   oss << std::hex << std::setfill('0');
@@ -785,7 +1040,7 @@ std::string DalyBmsCanNode::bytes_to_hex(const std::vector<uint8_t> & bytes)
   return oss.str();
 }
 
-std::string DalyBmsCanNode::join_strings(
+std::string BatteryNode::join_strings(
   const std::vector<std::string> & items,
   const std::string & delim)
 {
@@ -799,7 +1054,7 @@ std::string DalyBmsCanNode::join_strings(
   return oss.str();
 }
 
-std::vector<std::string> DalyBmsCanNode::decode_fault_messages(
+std::vector<std::string> BatteryNode::decode_fault_messages(
   const std::vector<uint8_t> & failure_bytes)
 {
   static const std::vector<std::pair<std::pair<int, int>, std::string>> bit_descriptions{
@@ -886,7 +1141,7 @@ std::vector<std::string> DalyBmsCanNode::decode_fault_messages(
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<DalyBmsCanNode>();
+  auto node = std::make_shared<BatteryNode>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
