@@ -182,11 +182,12 @@ void DepthCameraWatchdogNode::reportConnectionIssue(const std::string & message)
 
   if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
     fatal_error_ = true;
-    RCLCPP_FATAL(
-      get_logger(),
-      "%s. Reached reconnect limit after %d attempts",
-      message.c_str(),
-      reconnect_attempt_count_);
+    const std::string fatal_message =
+      message + ". Reached reconnect limit after " + std::to_string(reconnect_attempt_count_) +
+      " attempts";
+    if (shouldLogIssue("fatal", fatal_message)) {
+      RCLCPP_FATAL(get_logger(), "%s", fatal_message.c_str());
+    }
     if (watchdog_timer_) {
       watchdog_timer_->cancel();
     }
@@ -199,29 +200,34 @@ void DepthCameraWatchdogNode::reportConnectionIssue(const std::string & message)
 void DepthCameraWatchdogNode::logEscalatingIssue(int count, const std::string & message)
 {
   if (count < retry_attempts_before_error_) {
-    RCLCPP_WARN(get_logger(), "%s", message.c_str());
+    if (shouldLogIssue("warn", message)) {
+      RCLCPP_WARN(get_logger(), "%s", message.c_str());
+    }
     return;
   }
 
   if (count < fatal_after_consecutive_errors_) {
     if (count == retry_attempts_before_error_) {
-      RCLCPP_ERROR(
-        get_logger(),
-        "%s. Escalating after %d consecutive failures",
-        message.c_str(),
-        count);
+      const std::string error_message =
+        message + ". Escalating after " + std::to_string(count) + " consecutive failures";
+      if (shouldLogIssue("error", error_message)) {
+        RCLCPP_ERROR(get_logger(), "%s", error_message.c_str());
+      }
       return;
     }
-    RCLCPP_ERROR(get_logger(), "%s", message.c_str());
+    if (shouldLogIssue("error", message)) {
+      RCLCPP_ERROR(get_logger(), "%s", message.c_str());
+    }
     return;
   }
 
   fatal_error_ = true;
-  RCLCPP_FATAL(
-    get_logger(),
-    "%s. Reached fatal threshold after %d consecutive connection failures",
-    message.c_str(),
-    count);
+  const std::string fatal_message =
+    message + ". Reached fatal threshold after " + std::to_string(count) +
+    " consecutive connection failures";
+  if (shouldLogIssue("fatal", fatal_message)) {
+    RCLCPP_FATAL(get_logger(), "%s", fatal_message.c_str());
+  }
   if (watchdog_timer_) {
     watchdog_timer_->cancel();
   }
@@ -232,6 +238,18 @@ void DepthCameraWatchdogNode::resetConnectionIssueCounters()
   reconnect_attempt_count_ = 0;
   connection_issue_count_ = 0;
   fatal_error_ = false;
+  last_issue_log_level_.clear();
+  last_issue_message_.clear();
+}
+
+bool DepthCameraWatchdogNode::shouldLogIssue(const std::string & level, const std::string & message)
+{
+  if (last_issue_log_level_ == level && last_issue_message_ == message) {
+    return false;
+  }
+  last_issue_log_level_ = level;
+  last_issue_message_ = message;
+  return true;
 }
 
 }  // namespace amr_sweeper_depth_camera

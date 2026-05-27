@@ -27,6 +27,7 @@ private:
   void reportConnectionIssue(const std::string & message);
   void logEscalatingIssue(int count, const std::string & message);
   void resetConnectionIssueCounters();
+  bool shouldLogIssue(const std::string & level, const std::string & message);
   bool isTopicStale(const rclcpp::Time & last_message_time) const;
   bool startupGraceActive() const;
 
@@ -55,6 +56,8 @@ private:
   int max_reconnect_attempts_{10};
   int reconnect_attempt_count_{0};
   int connection_issue_count_{0};
+  std::string last_issue_log_level_;
+  std::string last_issue_message_;
 };
 
 }  // namespace amr_sweeper_depth_camera
