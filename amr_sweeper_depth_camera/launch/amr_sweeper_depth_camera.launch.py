@@ -1,5 +1,9 @@
 import math
+import os
 from pathlib import Path
+import re
+import subprocess
+import tempfile
 
 import yaml
 from launch import LaunchDescription
@@ -39,17 +43,72 @@ def _load_ros_parameter_file(path: str) -> dict:
     return data
 
 
+def _list_topics_for_domain(domain_id: int) -> list[str]:
+    env = dict(os.environ)
+    env["ROS_DOMAIN_ID"] = str(domain_id)
+    result = subprocess.run(
+        ["ros2", "topic", "list"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10.0,
+        env=env,
+    )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _discover_camera_id(topics: list[str], source_root_namespace: str, source_camera_model: str) -> str:
+    escaped_root = re.escape(source_root_namespace.rstrip("/"))
+    escaped_model = re.escape(source_camera_model)
+    pattern = re.compile(
+        rf"^{escaped_root}/(?P<camera_id>{escaped_model}_[^/_]+)"
+        rf"(?:/tf_static|_Color(?:/.*)?|_CompressedColor(?:/.*)?|_Depth(?:/.*)?|"
+        rf"_Infrared_1(?:/.*)?|_Infrared_2(?:/.*)?|_Motion(?:/.*)?|_ObjectDetection(?:/.*)?)$"
+    )
+
+    matches = {match.group("camera_id") for topic in topics if (match := pattern.match(topic))}
+    if not matches:
+        raise RuntimeError(
+            f"Could not find a {source_camera_model} camera under '{source_root_namespace}' "
+            "on the source ROS domain."
+        )
+    if len(matches) > 1:
+        raise RuntimeError(
+            "Found multiple candidate depth cameras on the source ROS domain: "
+            + ", ".join(sorted(matches))
+            + ". Set source_camera_id explicitly."
+        )
+    return next(iter(matches))
+
+
+def _resolve_domain_bridge_config(
+    template_path: str,
+    namespace_value: str,
+    source_domain_id: int,
+    target_domain_id: int,
+    source_camera_id: str,
+) -> str:
+    template = Path(template_path).read_text()
+    resolved = (
+        template
+        .replace("__FROM_DOMAIN__", str(source_domain_id))
+        .replace("__TO_DOMAIN__", str(target_domain_id))
+        .replace("__CAMERA_ID__", source_camera_id)
+        .replace("__TARGET_NAMESPACE__", namespace_value.rstrip("/"))
+    )
+
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".yaml",
+        prefix="amr_sweeper_depth_camera_domain_bridge_",
+        delete=False,
+    ) as handle:
+        handle.write(resolved)
+        return handle.name
+
+
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
-    realsense_node_name_value = _leaf_name(namespace_value)
-
-    realsense_namespace_value = _parent_namespace(namespace_value)
-    if realsense_namespace_value == "/" and namespace_value != "/":
-        realsense_namespace_value = "/"
-
-    realsense_params = _load_ros_parameter_file(
-        LaunchConfiguration("realsense_params_file").perform(context)
-    )
     watchdog_params = _load_ros_parameter_file(
         LaunchConfiguration("watchdog_params_file").perform(context)
     )
@@ -96,31 +155,47 @@ def _launch_setup(context, *args, **kwargs):
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
 
+    source_domain_id_value = int(LaunchConfiguration("source_domain_id").perform(context))
+    target_domain_id_value = int(LaunchConfiguration("target_domain_id").perform(context))
+    source_root_namespace_value = _normalize_namespace(
+        LaunchConfiguration("source_root_namespace").perform(context)
+    )
+    source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
+    source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
+    if not source_camera_id_value:
+        source_topics = _list_topics_for_domain(source_domain_id_value)
+        source_camera_id_value = _discover_camera_id(
+            source_topics,
+            source_root_namespace_value,
+            source_camera_model_value,
+        )
+
+    resolved_bridge_config = _resolve_domain_bridge_config(
+        LaunchConfiguration("domain_bridge_config_file").perform(context),
+        namespace_value,
+        source_domain_id_value,
+        target_domain_id_value,
+        source_camera_id_value,
+    )
+
     launch_summary = LogInfo(
         msg=(
             "amr_sweeper_depth_camera: "
-            f"realsense namespace={realsense_namespace_value}, "
-            f"realsense node={realsense_node_name_value}, "
+            f"bridge {source_domain_id_value}->{target_domain_id_value}, "
+            f"source camera={source_camera_id_value}, "
             f"depth topic={depth_image_topic_value}, "
             f"camera_info topic={depth_camera_info_topic_value}"
         )
     )
 
-    realsense_ros_node = Node(
-        package="realsense2_camera",
-        executable="realsense2_camera_node",
-        name=realsense_node_name_value,
-        namespace=realsense_namespace_value,
+    domain_bridge_node = Node(
+        package="domain_bridge",
+        executable="domain_bridge",
+        name="domain_bridge",
+        namespace=namespace_value,
         output="screen",
-        arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
-        parameters=[
-            realsense_params,
-            {
-                "use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool),
-                "camera_name": realsense_node_name_value,
-            },
-        ],
-        condition=IfCondition(LaunchConfiguration("use_realsense_ros")),
+        arguments=[resolved_bridge_config],
+        condition=IfCondition(LaunchConfiguration("use_domain_bridge")),
     )
 
     laserscan_node = Node(
@@ -179,15 +254,10 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    return [launch_summary, realsense_ros_node, laserscan_tf_node, watchdog_node, laserscan_node]
+    return [launch_summary, domain_bridge_node, laserscan_tf_node, watchdog_node, laserscan_node]
 
 
 def generate_launch_description():
-    default_realsense_params_file = PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_depth_camera"),
-        "config",
-        "amr_sweeper_depth_camera_realsense.yaml",
-    ])
     default_watchdog_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
@@ -198,13 +268,26 @@ def generate_launch_description():
         "config",
         "amr_sweeper_depth_camera_laserscan_node.yaml",
     ])
+    default_domain_bridge_config_file = PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_depth_camera"),
+        "config",
+        "domain_bridge.yaml",
+    ])
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper/depth_camera"),
         DeclareLaunchArgument("log_level", default_value="info"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
-        DeclareLaunchArgument("use_realsense_ros", default_value="true"),
-        DeclareLaunchArgument("realsense_params_file", default_value=default_realsense_params_file),
+        DeclareLaunchArgument("use_domain_bridge", default_value="true"),
+        DeclareLaunchArgument("source_domain_id", default_value="5"),
+        DeclareLaunchArgument("target_domain_id", default_value="0"),
+        DeclareLaunchArgument("source_root_namespace", default_value="/realsense"),
+        DeclareLaunchArgument("source_camera_model", default_value="D555"),
+        DeclareLaunchArgument("source_camera_id", default_value=""),
+        DeclareLaunchArgument(
+            "domain_bridge_config_file",
+            default_value=default_domain_bridge_config_file,
+        ),
         DeclareLaunchArgument("use_watchdog", default_value="true"),
         DeclareLaunchArgument("watchdog_params_file", default_value=default_watchdog_params_file),
         DeclareLaunchArgument("use_laserscan", default_value="true"),

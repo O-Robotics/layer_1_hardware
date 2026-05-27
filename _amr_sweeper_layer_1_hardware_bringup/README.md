@@ -50,7 +50,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
-The main bringup launch starts the core hardware stack under the default robot root `/amr_sweeper`. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera driver and laser-scan conversion, IMU, GNSS rover, and optional NTRIP client. Package-owned sensor namespaces follow the package role below that root, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras/<camera_name>`, and the flattened RealSense path `/amr_sweeper/depth_camera`.
+The main bringup launch starts the core hardware stack under the default robot root `/amr_sweeper`. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera domain bridge and laser-scan conversion, IMU, GNSS rover, and optional NTRIP client. Package-owned sensor namespaces follow the package role below that root, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras/<camera_name>`, and the flattened depth-camera path `/amr_sweeper/depth_camera`.
 
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.
@@ -59,7 +59,7 @@ The main bringup launch starts the core hardware stack under the default robot r
 - The inlined ros2_control sequence expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
 - The ros2_control controller spawners load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml` with `--param-file`.
 - The `namespace` argument becomes the robot root, while package-owned sensor namespaces are nested below it, such as `imu`, `gnss`, `usb_cameras`, and `depth_camera`.
-- The depth camera bringup passes `namespace:=/amr_sweeper/depth_camera` into the package launch, and that launch derives the RealSense node placement so the driver topics stay flattened under `/amr_sweeper/depth_camera/...`.
+- The depth camera bringup passes `namespace:=/amr_sweeper/depth_camera` into the package launch, and that launch bridges the camera's native ROS topics from domain `5` into the flattened `/amr_sweeper/depth_camera/...` topic layout.
 - The battery and system-info nodes load defaults from `config/amr_sweeper_battery.yaml` and `config/amr_sweeper_system_info.yaml` before any bringup-level overrides are applied.
 - The IMU bringup loads defaults from `amr_sweeper_imu/config/amr_sweeper_imu.yaml`, and `imu_params_file` can swap that file without changing the package launch file.
 - When `use_amr_sweeper_gnss:=true` and `use_ntrip_client:=true`, the GNSS wrapper launches the package-local

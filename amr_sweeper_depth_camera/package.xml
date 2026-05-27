@@ -3,7 +3,7 @@
 <package format="3">
   <name>amr_sweeper_depth_camera</name>
   <version>0.0.1</version>
-  <description>Launch package for the AMR Sweeper depth camera laser scan pipeline.</description>
+  <description>Launch package for the AMR Sweeper depth camera domain bridge and laser scan pipeline.</description>
 
   <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
 
@@ -19,8 +19,10 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>domain_bridge</exec_depend>
+  <exec_depend>realsense2_camera_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
