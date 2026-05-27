@@ -8,7 +8,7 @@ import tempfile
 import yaml
 from ament_index_python.packages import PackageNotFoundError, get_package_prefix
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, LogInfo, LogWarn, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -238,9 +238,9 @@ def _launch_setup(context, *args, **kwargs):
             f"skipped optional bridge topics={len(skipped_bridge_topics)}"
         )
     )
-    unavailable_summary = LogInfo(
+    unavailable_summary = LogWarn(
         msg=(
-            "amr_sweeper_depth_camera: warning: "
+            "amr_sweeper_depth_camera: "
             f"{unavailable_reason} Starting in degraded mode with an empty domain bridge config "
             "and without laserscan or watchdog nodes."
         )
