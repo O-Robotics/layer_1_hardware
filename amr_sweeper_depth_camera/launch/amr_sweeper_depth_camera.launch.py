@@ -9,7 +9,6 @@ import yaml
 from ament_index_python.packages import PackageNotFoundError, get_package_prefix
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
-import launch.logging
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -111,33 +110,6 @@ def _resolve_domain_bridge_config(
         yaml.safe_dump(resolved, handle, sort_keys=False)
         return handle.name, skipped_topics
 
-
-def _write_empty_domain_bridge_config(source_domain_id: int, target_domain_id: int) -> str:
-    empty_config = {
-        "name": "amr_sweeper_depth_camera_bridge",
-        "from_domain": source_domain_id,
-        "to_domain": target_domain_id,
-        "topics": {},
-    }
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".yaml",
-        prefix="amr_sweeper_depth_camera_domain_bridge_empty_",
-        delete=False,
-    ) as handle:
-        yaml.safe_dump(empty_config, handle, sort_keys=False)
-        return handle.name
-
-
-def _log_launch_warning(message: str):
-    def _emit_warning(context, *args, **kwargs):
-        del context, args, kwargs
-        launch.logging.get_logger("launch.user").warning(message)
-        return []
-
-    return OpaqueFunction(function=_emit_warning)
-
-
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
     watchdog_params = _load_ros_parameter_file(
@@ -200,36 +172,26 @@ def _launch_setup(context, *args, **kwargs):
     source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
     resolved_bridge_config = ""
     skipped_bridge_topics: list[str] = []
-    unavailable_reason = ""
     if use_domain_bridge_value:
         source_root_namespace_value = _normalize_namespace(
             LaunchConfiguration("source_root_namespace").perform(context)
         )
         source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
-        try:
-            if not source_camera_id_value:
-                source_topics = _list_topics_for_domain(source_domain_id_value)
-                source_camera_id_value = _discover_camera_id(
-                    source_topics,
-                    source_root_namespace_value,
-                    source_camera_model_value,
-                )
+        if not source_camera_id_value:
+            source_topics = _list_topics_for_domain(source_domain_id_value)
+            source_camera_id_value = _discover_camera_id(
+                source_topics,
+                source_root_namespace_value,
+                source_camera_model_value,
+            )
 
-            resolved_bridge_config, skipped_bridge_topics = _resolve_domain_bridge_config(
-                LaunchConfiguration("domain_bridge_config_file").perform(context),
-                namespace_value,
-                source_domain_id_value,
-                target_domain_id_value,
-                source_camera_id_value,
-            )
-        except RuntimeError as exc:
-            unavailable_reason = str(exc)
-            resolved_bridge_config = _write_empty_domain_bridge_config(
-                source_domain_id_value,
-                target_domain_id_value,
-            )
-            use_watchdog_value = False
-            use_laserscan_value = False
+        resolved_bridge_config, skipped_bridge_topics = _resolve_domain_bridge_config(
+            LaunchConfiguration("domain_bridge_config_file").perform(context),
+            namespace_value,
+            source_domain_id_value,
+            target_domain_id_value,
+            source_camera_id_value,
+        )
 
     launch_summary = LogInfo(
         msg=(
@@ -241,11 +203,6 @@ def _launch_setup(context, *args, **kwargs):
             f"camera_info topic={depth_camera_info_topic_value}, "
             f"skipped optional bridge topics={len(skipped_bridge_topics)}"
         )
-    )
-    unavailable_summary = _log_launch_warning(
-        "amr_sweeper_depth_camera: "
-        f"{unavailable_reason} Starting in degraded mode with an empty domain bridge config "
-        "and without laserscan or watchdog nodes."
     )
     skipped_topics_summary = LogInfo(
         msg=(
@@ -321,8 +278,6 @@ def _launch_setup(context, *args, **kwargs):
     )
 
     actions = [launch_summary]
-    if unavailable_reason:
-        actions.append(unavailable_summary)
     if skipped_bridge_topics:
         actions.append(skipped_topics_summary)
     if use_domain_bridge_value:
