@@ -17,7 +17,6 @@ DepthCameraWatchdogNode::DepthCameraWatchdogNode(const rclcpp::NodeOptions & opt
   stale_data_timeout_sec_ = declare_parameter("stale_data_timeout_sec", 8.0);
   startup_grace_sec_ = declare_parameter("startup_grace_sec", 12.0);
   require_camera_info_ = declare_parameter("require_camera_info", true);
-  require_pointcloud_ = declare_parameter("require_pointcloud", true);
   reconnect_attempt_interval_ms_ = declare_parameter("reconnect_attempt_interval_ms", 1000);
   retry_attempts_before_error_ = declare_parameter("retry_attempts_before_error", 3);
   fatal_after_consecutive_errors_ = declare_parameter("fatal_after_consecutive_errors", 10);
@@ -30,7 +29,8 @@ DepthCameraWatchdogNode::DepthCameraWatchdogNode(const rclcpp::NodeOptions & opt
   fatal_after_consecutive_errors_ = std::max(fatal_after_consecutive_errors_, 1);
   max_reconnect_attempts_ = std::max(max_reconnect_attempts_, 0);
 
-  const auto qos = rclcpp::SystemDefaultsQoS();
+  // RealSense image-family topics are typically published with sensor-data QoS.
+  const auto qos = rclcpp::SensorDataQoS();
   depth_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
     "depth",
     qos,
@@ -39,10 +39,6 @@ DepthCameraWatchdogNode::DepthCameraWatchdogNode(const rclcpp::NodeOptions & opt
     "depth_camera_info",
     qos,
     std::bind(&DepthCameraWatchdogNode::cameraInfoCb, this, std::placeholders::_1));
-  pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    "pointcloud",
-    qos,
-    std::bind(&DepthCameraWatchdogNode::pointCloudCb, this, std::placeholders::_1));
 
   watchdog_timer_ = create_wall_timer(
     std::chrono::milliseconds(reconnect_attempt_interval_ms_),
@@ -56,9 +52,6 @@ void DepthCameraWatchdogNode::depthCb(const sensor_msgs::msg::Image::SharedPtr i
   received_depth_message_ = true;
 
   if (require_camera_info_ && !received_camera_info_message_) {
-    return;
-  }
-  if (require_pointcloud_ && !received_pointcloud_message_) {
     return;
   }
 
@@ -76,24 +69,10 @@ void DepthCameraWatchdogNode::cameraInfoCb(const sensor_msgs::msg::CameraInfo::S
   (void)info;
   last_camera_info_message_time_ = now();
   received_camera_info_message_ = true;
-}
-
-void DepthCameraWatchdogNode::pointCloudCb(const sensor_msgs::msg::PointCloud2::SharedPtr cloud)
-{
-  (void)cloud;
-  last_pointcloud_message_time_ = now();
-  received_pointcloud_message_ = true;
-
-  if (!received_depth_message_) {
-    return;
-  }
-  if (require_camera_info_ && !received_camera_info_message_) {
-    return;
-  }
 
   if (!was_healthy_) {
     if (connection_issue_count_ > 0 || reconnect_attempt_count_ > 0) {
-      RCLCPP_INFO(get_logger(), "Depth camera point cloud stream recovered.");
+      RCLCPP_INFO(get_logger(), "Depth camera data stream recovered.");
     }
     resetConnectionIssueCounters();
     was_healthy_ = true;
@@ -121,22 +100,16 @@ void DepthCameraWatchdogNode::watchdogTimerCb()
 
   if (
     startupGraceActive() &&
-    (!received_depth_message_ ||
-    (require_camera_info_ && !received_camera_info_message_) ||
-    (require_pointcloud_ && !received_pointcloud_message_)))
+    (!received_depth_message_ || (require_camera_info_ && !received_camera_info_message_)))
   {
     return;
   }
 
   const bool depth_healthy = received_depth_message_ && !isTopicStale(last_depth_message_time_);
   const bool camera_info_healthy =
-    !require_camera_info_ ||
-    (received_camera_info_message_ && !isTopicStale(last_camera_info_message_time_));
-  const bool pointcloud_healthy =
-    !require_pointcloud_ ||
-    (received_pointcloud_message_ && !isTopicStale(last_pointcloud_message_time_));
+    !require_camera_info_ || (received_camera_info_message_ && !isTopicStale(last_camera_info_message_time_));
 
-  if (depth_healthy && camera_info_healthy && pointcloud_healthy) {
+  if (depth_healthy && camera_info_healthy) {
     if (!was_healthy_) {
       if (connection_issue_count_ > 0 || reconnect_attempt_count_ > 0) {
         RCLCPP_INFO(get_logger(), "Depth camera topics are healthy again.");
@@ -162,13 +135,6 @@ void DepthCameraWatchdogNode::watchdogTimerCb()
       issue << "; no camera info received yet";
     } else if (!camera_info_healthy) {
       issue << "; camera info stopped arriving on 'depth_camera_info'";
-    }
-  }
-  if (require_pointcloud_) {
-    if (!received_pointcloud_message_) {
-      issue << "; no point cloud received yet on 'pointcloud'";
-    } else if (!pointcloud_healthy) {
-      issue << "; point cloud stopped arriving on 'pointcloud'";
     }
   }
 

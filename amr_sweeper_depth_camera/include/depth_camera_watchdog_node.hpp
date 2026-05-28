@@ -9,7 +9,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
 
 namespace amr_sweeper_depth_camera
 {
@@ -22,7 +21,6 @@ public:
 private:
   void depthCb(const sensor_msgs::msg::Image::SharedPtr image);
   void cameraInfoCb(const sensor_msgs::msg::CameraInfo::SharedPtr info);
-  void pointCloudCb(const sensor_msgs::msg::PointCloud2::SharedPtr cloud);
   void watchdogTimerCb();
   void reportConnectionIssue(const std::string & message);
   void logEscalatingIssue(int count, const std::string & message);
@@ -33,17 +31,13 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_image_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
   rclcpp::TimerBase::SharedPtr watchdog_timer_;
 
   rclcpp::Time last_depth_message_time_;
   rclcpp::Time last_camera_info_message_time_;
-  rclcpp::Time last_pointcloud_message_time_;
   bool received_depth_message_{false};
   bool received_camera_info_message_{false};
-  bool received_pointcloud_message_{false};
   bool require_camera_info_{true};
-  bool require_pointcloud_{true};
   bool fatal_error_{false};
   bool was_healthy_{false};
 

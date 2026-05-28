@@ -177,7 +177,6 @@ def _launch_setup(context, *args, **kwargs):
 
     default_depth_image_topic = f"{namespace_value}/depth/image_rect_raw"
     default_depth_camera_info_topic = f"{namespace_value}/depth/camera_info"
-    default_pointcloud_topic = f"{namespace_value}/depth/color/points"
 
     depth_image_topic_value = LaunchConfiguration("depth_image_topic").perform(context)
     if not depth_image_topic_value:
@@ -186,10 +185,6 @@ def _launch_setup(context, *args, **kwargs):
     depth_camera_info_topic_value = LaunchConfiguration("depth_camera_info_topic").perform(context)
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
-
-    pointcloud_topic_value = LaunchConfiguration("pointcloud_topic").perform(context)
-    if not pointcloud_topic_value:
-        pointcloud_topic_value = default_pointcloud_topic
 
     use_domain_bridge_value = (
         LaunchConfiguration("use_domain_bridge").perform(context).strip().lower() in ("1", "true", "yes", "on")
@@ -244,7 +239,6 @@ def _launch_setup(context, *args, **kwargs):
             f"source camera={source_camera_id_value or 'auto-discover'}, "
             f"depth topic={depth_image_topic_value}, "
             f"camera_info topic={depth_camera_info_topic_value}, "
-            f"pointcloud topic={pointcloud_topic_value}, "
             f"skipped optional bridge topics={len(skipped_bridge_topics)}"
         )
     )
@@ -303,7 +297,6 @@ def _launch_setup(context, *args, **kwargs):
         remappings=[
             ("depth", depth_image_topic_value),
             ("depth_camera_info", depth_camera_info_topic_value),
-            ("pointcloud", pointcloud_topic_value),
         ],
         condition=IfCondition(LaunchConfiguration("use_watchdog")),
     )
@@ -345,12 +338,12 @@ def generate_launch_description():
     default_watchdog_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
-        "amr_sweeper_depth_camera_watchdog.yaml",
+        "depth_camera_watchdog.yaml",
     ])
     default_laserscan_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
-        "amr_sweeper_depth_camera_laserscan_node.yaml",
+        "laserscan.yaml",
     ])
     default_domain_bridge_config_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
@@ -381,7 +374,6 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument("depth_image_topic", default_value=""),
         DeclareLaunchArgument("depth_camera_info_topic", default_value=""),
-        DeclareLaunchArgument("pointcloud_topic", default_value=""),
         DeclareLaunchArgument("depth_camera_frame", default_value="depth_camera_link"),
         DeclareLaunchArgument("scan_topic", default_value="scan"),
         DeclareLaunchArgument("output_frame", default_value=""),

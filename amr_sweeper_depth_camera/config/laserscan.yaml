@@ -1,0 +1,13 @@
+/**:
+  ros__parameters:
+    # -- Scan geometry --------------------------------------------------------
+    output_frame:         laserscan_link  # Output LaserScan frame name; default: laserscan_link.
+    scan_height:          5               # Number of image rows sampled per scan update; default: 5.
+    scan_tilt_angle_deg:  4.5             # Upward sampling offset in degrees, mirrored by the laserscan frame pitch; default: 4.5.
+
+    # -- Range filtering ------------------------------------------------------
+    range_min:            0.20            # Minimum accepted obstacle range in meters; default: 0.20.
+    range_max:            5.0             # Maximum accepted obstacle range in meters; default: 5.0.
+
+    # -- Timing ---------------------------------------------------------------
+    scan_time:            0.050           # Expected scan period in seconds for the converted depth stream; default: 0.050.

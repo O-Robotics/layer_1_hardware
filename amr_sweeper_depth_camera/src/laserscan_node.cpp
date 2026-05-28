@@ -15,7 +15,8 @@ namespace amr_sweeper_depth_camera
 LaserScanNode::LaserScanNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("laserscan", options)
 {
-  const auto qos = rclcpp::SystemDefaultsQoS();
+  // Match common camera publisher QoS so depth and camera info actually connect.
+  const auto qos = rclcpp::SensorDataQoS();
 
   cam_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
     "depth_camera_info",

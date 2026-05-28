@@ -1,0 +1,12 @@
+/**:
+  ros__parameters:
+    # -- Topic health ---------------------------------------------------------
+    stale_data_timeout_sec:         8.0   # Maximum silence before a stream is treated as stale, in seconds; default: 8.0.
+    startup_grace_sec:              12.0  # Startup grace period before missing topics count as failures, in seconds; default: 12.0.
+    require_camera_info:            true  # Require the paired depth camera info stream for a healthy state; default: true.
+
+    # -- Escalation -----------------------------------------------------------
+    reconnect_attempt_interval_ms:  1000  # Watchdog polling period in milliseconds; default: 1000.
+    retry_attempts_before_error:    3     # Consecutive failed checks before logging at ERROR; default: 3.
+    fatal_after_consecutive_errors: 10    # Consecutive failed checks before escalating to FATAL; default: 10.
+    max_reconnect_attempts:         10    # Hard reconnect-attempt ceiling before FATAL, if enabled; default: 10.
