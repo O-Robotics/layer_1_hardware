@@ -203,7 +203,7 @@ def _launch_setup(context, *args, **kwargs):
     laserscan_frame_value = str(laserscan_params.get("output_frame", depth_camera_frame_value))
     scan_tilt_angle_rad = math.radians(float(laserscan_params.get("scan_tilt_angle_deg", 0.0)))
 
-    default_depth_image_topic = f"{namespace_value}/depth/image_rect_raw"
+    default_depth_image_topic = f"{namespace_value}/depth"
     default_depth_camera_info_topic = f"{namespace_value}/depth/camera_info"
     depth_image_topic_value = LaunchConfiguration("depth_image_topic").perform(context)
     if not depth_image_topic_value:

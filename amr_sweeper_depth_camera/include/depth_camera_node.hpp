@@ -92,6 +92,7 @@ private:
   std::string target_namespace_root_{"/amr_sweeper/depth_camera"};
 
   bool enable_watchdog_{true};
+  bool watchdog_shutdown_on_fatal_{false};
   bool fatal_error_{false};
   bool was_healthy_{false};
 

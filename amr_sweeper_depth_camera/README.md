@@ -29,7 +29,7 @@ This package is a standalone ROS 2 wrapper around the D555's native ROS interfac
 - `params_file`: default `config/amr_sweeper_depth_camera.yaml`
 - `use_laserscan`: default `true`
 - `laserscan_params_file`: default `config/laserscan.yaml`
-- `depth_image_topic`: default derived from `namespace`, e.g. `/amr_sweeper/depth_camera/depth/image_rect_raw`
+- `depth_image_topic`: default derived from `namespace`, e.g. `/amr_sweeper/depth_camera/depth`
 - `depth_camera_info_topic`: default derived from `namespace`, e.g. `/amr_sweeper/depth_camera/depth/camera_info`
 - `depth_camera_frame`: default `depth_camera_link`
 - `scan_topic`: default `scan`
@@ -41,7 +41,7 @@ This package is a standalone ROS 2 wrapper around the D555's native ROS interfac
 - `scan_time`: default from `config/laserscan.yaml` (`0.050`)
 
 ## Overview
-`amr_sweeper_depth_camera` contains the launch configuration needed to discover the serial-specific D555 topic prefix on camera domain `5` and start a single custom `depth_camera_node`. The wrapper is independent of `librealsense` itself: it does not link against or embed the SDK, and instead consumes only the native ROS interfaces already exposed by the D555 side. The node uses the `domain_bridge` C++ API directly to bridge the camera topics and services into the flattened AMR Sweeper namespace in the workspace domain, for example `/amr_sweeper/depth_camera/depth/image_rect_raw`, `/amr_sweeper/depth_camera/color/metadata`, `/amr_sweeper/depth_camera/depth/color/points`, and `/amr_sweeper/depth_camera/set_parameters`. The same node also monitors the bridged camera topic set across depth, color, infrared, motion, and discovered point-cloud streams.
+`amr_sweeper_depth_camera` contains the launch configuration needed to discover the serial-specific D555 topic prefix on camera domain `5` and start a single custom `depth_camera_node`. The wrapper is independent of `librealsense` itself: it does not link against or embed the SDK, and instead consumes only the native ROS interfaces already exposed by the D555 side. The node uses the `domain_bridge` C++ API directly to bridge the camera topics and services into the flattened AMR Sweeper namespace in the workspace domain, for example `/amr_sweeper/depth_camera/depth`, `/amr_sweeper/depth_camera/color/metadata`, `/amr_sweeper/depth_camera/depth/color/points`, and `/amr_sweeper/depth_camera/set_parameters`. The same node also monitors the bridged camera topic set across depth, color, infrared, motion, and discovered point-cloud streams.
 
 ## Notes
 - Main nodes: `depth_camera_node` and `laserscan_node`.
@@ -55,6 +55,7 @@ This package is a standalone ROS 2 wrapper around the D555's native ROS interfac
 - The old separate `*_profile_enable` layer is gone. If `use_color` is true, the wrapper enables the source color stream, applies the configured color profile, and bridges the resulting topics together.
 - The default profiles now bias toward the lowest listed resolution and FPS to reduce DDS / ROS bandwidth by default.
 - The watchdog is demand-aware: a bridged stream is only treated as required when there is at least one downstream subscriber beyond the wrapper's own internal monitor subscription.
+- `watchdog_shutdown_on_fatal` can be left `false` while debugging so the node keeps running and logging instead of exiting on watchdog fatal conditions.
 - When `apply_source_stream_control_on_startup` is enabled, the wrapper sends the configured `use_*` and `*_profile_*` values to `/amr_sweeper/depth_camera/set_parameters_atomically`, which the domain bridge forwards to the native D555 ROS node in camera domain `5`.
 - The bridge rewrites serial-specific native camera topics under `/realsense/D555_<serial>...` into `/amr_sweeper/depth_camera/...`.
 - The native D555 services are bridged from `/<camera_id>/...`, matching the live graph exposed by the DDS-backed RealSense wrapper.

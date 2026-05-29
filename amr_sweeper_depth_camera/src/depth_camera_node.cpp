@@ -54,6 +54,7 @@ DepthCameraNode::DepthCameraNode(const rclcpp::NodeOptions & options)
     declare_parameter<std::string>("target_namespace_root", get_namespace()));
 
   enable_watchdog_ = declare_parameter("enable_watchdog", true);
+  watchdog_shutdown_on_fatal_ = declare_parameter("watchdog_shutdown_on_fatal", false);
   stale_data_timeout_sec_ = declare_parameter("stale_data_timeout_sec", 8.0);
   startup_grace_sec_ = declare_parameter("startup_grace_sec", 12.0);
   reconnect_attempt_interval_ms_ = declare_parameter("reconnect_attempt_interval_ms", 1000);
@@ -334,7 +335,7 @@ void DepthCameraNode::configureTopicBridges()
     "std_msgs/msg/String", use_compressed_color, false);
   addTopicBridge(
     source_camera_root + "_Depth",
-    joinName(target_namespace_root_, "depth/image_rect_raw"),
+    joinName(target_namespace_root_, "depth"),
     "sensor_msgs/msg/Image", use_depth, use_depth);
   addTopicBridge(
     source_camera_root + "_Depth/camera_info",
@@ -779,6 +780,12 @@ void DepthCameraNode::enterFatalState(const std::string & message)
   fatal_error_ = true;
   if (shouldLogIssue("fatal", message)) {
     RCLCPP_FATAL(get_logger(), "%s", message.c_str());
+  }
+  if (!watchdog_shutdown_on_fatal_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Watchdog fatal shutdown is paused by parameter; keeping depth_camera_node alive for inspection.");
+    return;
   }
   if (watchdog_timer_) {
     watchdog_timer_->cancel();

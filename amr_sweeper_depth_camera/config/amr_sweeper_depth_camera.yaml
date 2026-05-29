@@ -64,6 +64,7 @@
 
     # -- Watchdog topic monitoring -------------------------------------------
     enable_watchdog:                        true                       # Monitor the bridged camera topics for startup failure or stale data.
+    watchdog_shutdown_on_fatal:            false                      # Keep the node alive on watchdog fatal conditions so topic publication can be inspected live.
     stale_data_timeout_sec:                 8.0                        # Mark a monitored topic unhealthy after this many seconds without new data.
     startup_grace_sec:                      12.0                       # Suppress startup warnings while the bridge and source camera are still coming online.
     reconnect_attempt_interval_ms:          1000                       # Poll period used by the watchdog while checking topic health.
