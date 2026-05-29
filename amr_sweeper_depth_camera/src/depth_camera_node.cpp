@@ -254,12 +254,12 @@ void DepthCameraNode::configureTopicBridges()
 {
   const std::string source_camera_root = joinName(source_root_namespace_, source_camera_id_);
   const bool use_tf_static = declare_parameter("use_tf_static", true);
-  const bool use_color = declare_parameter("use_color", true);
-  const bool use_compressed_color = declare_parameter("use_compressed_color", true);
-  const bool use_depth = declare_parameter("use_depth", true);
-  const bool use_infra1 = declare_parameter("use_infra1", true);
-  const bool use_infra2 = declare_parameter("use_infra2", true);
-  const bool use_motion = declare_parameter("use_motion", true);
+  const bool use_color = get_parameter("use_color").as_bool();
+  const bool use_compressed_color = get_parameter("use_compressed_color").as_bool();
+  const bool use_depth = get_parameter("use_depth").as_bool();
+  const bool use_infra1 = get_parameter("use_infra1").as_bool();
+  const bool use_infra2 = get_parameter("use_infra2").as_bool();
+  const bool use_motion = get_parameter("use_motion").as_bool();
   const bool use_pointcloud = declare_parameter("use_pointcloud", true);
   const bool use_object_detection = declare_parameter("use_object_detection", true);
 
