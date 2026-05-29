@@ -11,15 +11,20 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>ament_index_cpp</depend>
+  <depend>domain_bridge</depend>
   <depend>image_geometry</depend>
   <depend>libopencv-dev</depend>
   <depend>rclcpp</depend>
+  <depend>rcl_interfaces</depend>
+  <depend>realsense2_camera_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
 
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>domain_bridge</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>vision_msgs</exec_depend>
 

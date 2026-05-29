@@ -3,10 +3,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
-import tempfile
 
 import yaml
-from ament_index_python.packages import PackageNotFoundError, get_package_prefix
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
@@ -70,51 +68,36 @@ def _discover_camera_id(topics: list[str], source_root_namespace: str, source_ca
     return next(iter(matches))
 
 
-def _resolve_domain_bridge_config(
-    template_path: str,
-    namespace_value: str,
-    source_domain_id: int,
-    target_domain_id: int,
-    source_camera_id: str,
-) -> tuple[str, list[str]]:
-    template = Path(template_path).read_text()
-    resolved_text = (
-        template
-        .replace("__FROM_DOMAIN__", str(source_domain_id))
-        .replace("__TO_DOMAIN__", str(target_domain_id))
-        .replace("__CAMERA_ID__", source_camera_id)
-        .replace("__TARGET_NAMESPACE__", namespace_value.rstrip("/"))
+def _discover_optional_pointcloud_topic(topics: list[str], source_camera_root: str) -> str:
+    candidates = [
+        topic for topic in topics
+        if topic.startswith(source_camera_root) and (
+            "points" in topic.lower() or "pointcloud" in topic.lower() or "pcl" in topic.lower()
+        )
+    ]
+    if not candidates:
+        return ""
+
+    priority_suffixes = (
+        "/depth/color/points",
+        "_Depth_Color_Points",
+        "_DepthColorPoints",
+        "_Points",
+        "_PCL",
     )
-    resolved = yaml.safe_load(resolved_text) or {}
+    for suffix in priority_suffixes:
+        for topic in candidates:
+            if topic.endswith(suffix):
+                return topic
 
-    skipped_topics: list[str] = []
-    filtered_topics = {}
-    for topic_name, topic_config in (resolved.get("topics") or {}).items():
-        type_name = str(topic_config.get("type", ""))
-        package_name = type_name.split("/", 1)[0]
-        try:
-            get_package_prefix(package_name)
-        except PackageNotFoundError:
-            skipped_topics.append(f"{topic_name} ({type_name})")
-            continue
-        filtered_topics[topic_name] = topic_config
+    if len(candidates) == 1:
+        return candidates[0]
+    return ""
 
-    resolved["topics"] = filtered_topics
-
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".yaml",
-        prefix="amr_sweeper_depth_camera_domain_bridge_",
-        delete=False,
-    ) as handle:
-        yaml.safe_dump(resolved, handle, sort_keys=False)
-        return handle.name, skipped_topics
 
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
-    watchdog_params = _load_ros_parameter_file(
-        LaunchConfiguration("watchdog_params_file").perform(context)
-    )
+    depth_camera_params = _load_ros_parameter_file(LaunchConfiguration("params_file").perform(context))
     laserscan_params = _load_ros_parameter_file(
         LaunchConfiguration("laserscan_params_file").perform(context)
     )
@@ -149,15 +132,6 @@ def _launch_setup(context, *args, **kwargs):
 
     default_depth_image_topic = f"{namespace_value}/depth/image_rect_raw"
     default_depth_camera_info_topic = f"{namespace_value}/depth/camera_info"
-    default_color_image_topic = f"{namespace_value}/color/image_raw"
-    default_color_camera_info_topic = f"{namespace_value}/color/camera_info"
-    default_color_compressed_topic = f"{namespace_value}/color/image_raw/compressed"
-    default_infra1_image_topic = f"{namespace_value}/infra1/image_rect_raw"
-    default_infra1_camera_info_topic = f"{namespace_value}/infra1/camera_info"
-    default_infra2_image_topic = f"{namespace_value}/infra2/image_rect_raw"
-    default_infra2_camera_info_topic = f"{namespace_value}/infra2/camera_info"
-    default_motion_imu_topic = f"{namespace_value}/motion/imu"
-
     depth_image_topic_value = LaunchConfiguration("depth_image_topic").perform(context)
     if not depth_image_topic_value:
         depth_image_topic_value = default_depth_image_topic
@@ -169,64 +143,54 @@ def _launch_setup(context, *args, **kwargs):
     use_domain_bridge_value = (
         LaunchConfiguration("use_domain_bridge").perform(context).strip().lower() in ("1", "true", "yes", "on")
     )
-    use_watchdog_value = (
-        LaunchConfiguration("use_watchdog").perform(context).strip().lower() in ("1", "true", "yes", "on")
-    )
     use_laserscan_value = (
         LaunchConfiguration("use_laserscan").perform(context).strip().lower() in ("1", "true", "yes", "on")
     )
-    source_domain_id_value = int(LaunchConfiguration("source_domain_id").perform(context))
-    target_domain_id_value = int(LaunchConfiguration("target_domain_id").perform(context))
+    camera_domain_id_value = int(LaunchConfiguration("camera_domain_id").perform(context))
+    workspace_domain_id_value = int(LaunchConfiguration("workspace_domain_id").perform(context))
     source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
-    resolved_bridge_config = ""
-    skipped_bridge_topics: list[str] = []
+    source_pointcloud_topic_value = ""
     if use_domain_bridge_value:
         source_root_namespace_value = _normalize_namespace(
             LaunchConfiguration("source_root_namespace").perform(context)
         )
         source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
+        source_topics = _list_topics_for_domain(camera_domain_id_value)
         if not source_camera_id_value:
-            source_topics = _list_topics_for_domain(source_domain_id_value)
             source_camera_id_value = _discover_camera_id(
                 source_topics,
                 source_root_namespace_value,
                 source_camera_model_value,
             )
-
-        resolved_bridge_config, skipped_bridge_topics = _resolve_domain_bridge_config(
-            LaunchConfiguration("domain_bridge_config_file").perform(context),
-            namespace_value,
-            source_domain_id_value,
-            target_domain_id_value,
-            source_camera_id_value,
+        source_camera_root_value = f"{source_root_namespace_value}/{source_camera_id_value}"
+        source_pointcloud_topic_value = _discover_optional_pointcloud_topic(
+            source_topics,
+            source_camera_root_value,
         )
+
+    depth_camera_params.update(
+        {
+            "camera_domain_id": camera_domain_id_value,
+            "workspace_domain_id": workspace_domain_id_value,
+            "source_root_namespace": _normalize_namespace(
+                LaunchConfiguration("source_root_namespace").perform(context)
+            ),
+            "source_camera_id": source_camera_id_value,
+            "source_pointcloud_topic": source_pointcloud_topic_value,
+            "target_namespace_root": namespace_value,
+        }
+    )
 
     launch_summary = LogInfo(
         msg=(
             "amr_sweeper_depth_camera: "
-            f"bridge={'enabled' if use_domain_bridge_value else 'disabled'}, "
-            f"bridge_path={source_domain_id_value}->{target_domain_id_value}, "
+            f"custom_bridge={'enabled' if use_domain_bridge_value else 'disabled'}, "
+            f"bridge_path={camera_domain_id_value}->{workspace_domain_id_value}, "
             f"source camera={source_camera_id_value or 'auto-discover'}, "
+            f"pointcloud={'detected' if source_pointcloud_topic_value else 'not detected'}, "
             f"depth topic={depth_image_topic_value}, "
-            f"camera_info topic={depth_camera_info_topic_value}, "
-            f"skipped optional bridge topics={len(skipped_bridge_topics)}"
+            f"camera_info topic={depth_camera_info_topic_value}"
         )
-    )
-    skipped_topics_summary = LogInfo(
-        msg=(
-            "amr_sweeper_depth_camera: skipped bridge topics due to unavailable interfaces: "
-            + ", ".join(skipped_bridge_topics)
-        )
-    )
-
-    domain_bridge_node = Node(
-        package="domain_bridge",
-        executable="domain_bridge",
-        name="domain_bridge",
-        namespace=namespace_value,
-        output="screen",
-        arguments=[resolved_bridge_config],
-        condition=IfCondition(LaunchConfiguration("use_domain_bridge")),
     )
 
     laserscan_node = Node(
@@ -248,30 +212,18 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    watchdog_node = Node(
+    depth_camera_node = Node(
         package="amr_sweeper_depth_camera",
-        executable="depth_camera_watchdog_node",
-        name="depth_camera_watchdog",
+        executable="depth_camera_node",
+        name="depth_camera",
         namespace=namespace_value,
         output="screen",
         arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
         parameters=[
-            watchdog_params,
+            depth_camera_params,
             {"use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)},
         ],
-        remappings=[
-            ("depth", depth_image_topic_value),
-            ("depth_camera_info", depth_camera_info_topic_value),
-            ("color_image", default_color_image_topic),
-            ("color_camera_info", default_color_camera_info_topic),
-            ("color_compressed", default_color_compressed_topic),
-            ("infra1_image", default_infra1_image_topic),
-            ("infra1_camera_info", default_infra1_camera_info_topic),
-            ("infra2_image", default_infra2_image_topic),
-            ("infra2_camera_info", default_infra2_camera_info_topic),
-            ("motion_imu", default_motion_imu_topic),
-        ],
-        condition=IfCondition(LaunchConfiguration("use_watchdog")),
+        condition=IfCondition(LaunchConfiguration("use_domain_bridge")),
     )
 
     laserscan_tf_node = Node(
@@ -294,32 +246,23 @@ def _launch_setup(context, *args, **kwargs):
     )
 
     actions = [launch_summary]
-    if skipped_bridge_topics:
-        actions.append(skipped_topics_summary)
     if use_domain_bridge_value:
-        actions.append(domain_bridge_node)
+        actions.append(depth_camera_node)
     if use_laserscan_value:
         actions.extend([laserscan_tf_node, laserscan_node])
-    if use_watchdog_value:
-        actions.append(watchdog_node)
     return actions
 
 
 def generate_launch_description():
-    default_watchdog_params_file = PathJoinSubstitution([
+    default_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
-        "depth_camera_watchdog.yaml",
+        "amr_sweeper_depth_camera.yaml",
     ])
     default_laserscan_params_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_depth_camera"),
         "config",
         "laserscan.yaml",
-    ])
-    default_domain_bridge_config_file = PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_depth_camera"),
-        "config",
-        "domain_bridge.yaml",
     ])
 
     return LaunchDescription([
@@ -327,17 +270,12 @@ def generate_launch_description():
         DeclareLaunchArgument("log_level", default_value="info"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("use_domain_bridge", default_value="true"),
-        DeclareLaunchArgument("source_domain_id", default_value="5"),
-        DeclareLaunchArgument("target_domain_id", default_value="0"),
+        DeclareLaunchArgument("camera_domain_id", default_value="5"),
+        DeclareLaunchArgument("workspace_domain_id", default_value="0"),
         DeclareLaunchArgument("source_root_namespace", default_value="/realsense"),
         DeclareLaunchArgument("source_camera_model", default_value="D555"),
         DeclareLaunchArgument("source_camera_id", default_value=""),
-        DeclareLaunchArgument(
-            "domain_bridge_config_file",
-            default_value=default_domain_bridge_config_file,
-        ),
-        DeclareLaunchArgument("use_watchdog", default_value="true"),
-        DeclareLaunchArgument("watchdog_params_file", default_value=default_watchdog_params_file),
+        DeclareLaunchArgument("params_file", default_value=default_params_file),
         DeclareLaunchArgument("use_laserscan", default_value="true"),
         DeclareLaunchArgument(
             "laserscan_params_file",

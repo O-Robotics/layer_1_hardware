@@ -1,0 +1,72 @@
+/**:
+  ros__parameters:
+    # -- Domains and naming ---------------------------------------------------
+    camera_domain_id:                      5                          # DDS / ROS domain where the native D555 ROS graph is published.
+    workspace_domain_id:                   0                          # DDS / ROS domain exposed to the AMR Sweeper stack.
+    source_root_namespace:                 /realsense                 # Root namespace that contains the D555_<serial> native ROS topics and services.
+    source_camera_id:                      ""                         # Leave empty to auto-discover the single D555_<serial> camera on the source domain.
+    target_namespace_root:                 /amr_sweeper/depth_camera  # Flattened namespace exported to the robot stack on domain 0.
+
+    # -- Startup source stream control ---------------------------------------
+    apply_source_stream_control_on_startup: false                     # Push the configured use_* and *_profile_* settings to the source D555 through the bridged set_parameters_atomically service.
+    source_stream_control_retry_interval_ms: 1000                     # Retry cadence while waiting for the bridged parameter service to appear.
+    source_stream_control_max_attempts:    5                          # Stop retrying after this many failed startup attempts.
+
+    # -- Stream selection and profiles ---------------------------------------
+    use_color:                              true                       # Enable the source Color stream, push the configured Color profile, and bridge the raw color image plus color camera_info topics.
+    color_profile_name:                     rgb_camera.profile         # Native source parameter used to select the Color stream profile.
+    color_profile_parameter:                "448x252x5:RGB8"           # Default to the lowest listed Color bandwidth. Other supported examples: 1280x800x30:RGB8, 1280x720x15:BGR8, 896x504x60:YUYV, 640x360x30:Y8, 448x252x5:RGBA8.
+
+    use_compressed_color:                   true                       # Enable source-side compressed color publication via the RGB camera stream and bridge the compressed color image topic independently from raw color.
+    compressed_color_profile_name:          rgb_camera.profile         # Native source parameter used to select the compressed Color profile. In most D555 ROS setups this is shared with the RGB camera profile key.
+    compressed_color_profile_parameter:     "448x252x5:RGB8"           # Default to the lowest listed CompressedColor bandwidth. Other supported examples: 1280x800x30:RGB8, 1280x720x15:RGB8, 896x504x60:RGB8, 640x360x30:RGB8, 448x252x5:RGB8.
+
+    use_depth:                              true                       # Enable the source Depth stream, push the configured Depth profile, and bridge the rectified depth image plus depth camera_info topics.
+    depth_profile_name:                     depth_module.depth_profile # Native source parameter used to select the Depth stream profile.
+    depth_profile_parameter:                "448x252x5:Z16"            # Default to the lowest listed low-rate Depth mode above 256x144. Other supported examples: 1280x800x15:Z16, 1280x720x30:Z16, 896x504x60:Z16, 640x360x15:Z16, 256x144x90:Z16.
+
+    use_infra1:                             true                       # Enable the source Infrared_1 stream, push the configured Infrared_1 profile, and bridge its image plus camera_info topics.
+    infra1_profile_name:                    depth_module.infra1_profile # Native source parameter used to select the Infrared_1 stream profile.
+    infra1_profile_parameter:               "448x252x5:Y8"             # Default to the lowest listed Infrared_1 bandwidth that keeps the common Y8 path. Other supported examples: 1280x800x15:Y16, 896x504x60:Y8, 640x360x5:Y8, 256x144x90:Y8.
+
+    use_infra2:                             true                       # Enable the source Infrared_2 stream, push the configured Infrared_2 profile, and bridge its image plus camera_info topics.
+    infra2_profile_name:                    depth_module.infra2_profile # Native source parameter used to select the Infrared_2 stream profile.
+    infra2_profile_parameter:               "448x252x5:Y8"             # Default to the lowest listed Infrared_2 bandwidth that keeps the common Y8 path. Other supported examples: 1280x800x15:Y16, 896x504x60:Y8, 640x360x5:Y8, 256x144x90:Y8.
+
+    use_motion:                             true                       # Enable the source Motion stream, push the configured Motion profile, and bridge the combined motion / IMU topic.
+    motion_profile_name:                    motion_module.profile      # Native source parameter used to select the Motion stream profile.
+    motion_profile_parameter:               "100:COMBINED_MOTION"      # Default to the lower listed Motion rate. Other supported examples: 200:COMBINED_MOTION, 100:COMBINED_MOTION.
+
+    use_pointcloud:                         true                       # Bridge the discovered native point-cloud topic into depth/color/points when available.
+    use_object_detection:                   true                       # Bridge the optional object-detection topic when the source graph exposes it.
+    use_tf_static:                          true                       # Bridge the native static transforms published by the D555 ROS graph.
+
+    # -- Service bridge selection ---------------------------------------------
+    bridge_describe_parameters:             true                       # Expose source parameter descriptions under the wrapper namespace.
+    bridge_application_config_read:         true                       # Expose native D555 application-config read service when available.
+    bridge_application_config_write:        true                       # Expose native D555 application-config write service when available.
+    bridge_calib_config_read:               true                       # Expose native D555 calibration-config read service when available.
+    bridge_calib_config_write:              true                       # Expose native D555 calibration-config write service when available.
+    bridge_get_device_info:                 true                       # Expose native RealSense device-info service.
+    bridge_get_device_info_std:             true                       # Expose the trigger-style device-info helper when the source graph publishes it.
+    bridge_get_parameter_types:             true                       # Expose source parameter type lookup.
+    bridge_get_parameters:                  true                       # Expose source parameter reads.
+    bridge_hardware_monitor_command:        true                       # Expose hardware-monitor command passthrough for advanced maintenance workflows.
+    bridge_help:                            true                       # Expose the source help / capability trigger when available.
+    bridge_hw_reset:                        true                       # Expose hardware reset through the wrapper namespace.
+    bridge_list_parameters:                 true                       # Expose source parameter discovery.
+    bridge_safety_interface_config_read:    true                       # Expose safety-interface config read service when available.
+    bridge_safety_interface_config_write:   true                       # Expose safety-interface config write service when available.
+    bridge_safety_preset_read:              true                       # Expose safety-preset read service when available.
+    bridge_safety_preset_write:             true                       # Expose safety-preset write service when available.
+    bridge_set_parameters:                  true                       # Expose source set_parameters so operators can change stream toggles and profiles at runtime.
+    bridge_set_parameters_atomically:       true                       # Expose source set_parameters_atomically for grouped stream changes.
+
+    # -- Watchdog topic monitoring -------------------------------------------
+    enable_watchdog:                        true                       # Monitor the bridged camera topics for startup failure or stale data.
+    stale_data_timeout_sec:                 8.0                        # Mark a monitored topic unhealthy after this many seconds without new data.
+    startup_grace_sec:                      12.0                       # Suppress startup warnings while the bridge and source camera are still coming online.
+    reconnect_attempt_interval_ms:          1000                       # Poll period used by the watchdog while checking topic health.
+    retry_attempts_before_error:            3                          # Escalate to ERROR after this many consecutive full outages.
+    fatal_after_consecutive_errors:         10                         # Escalate to FATAL after this many consecutive full outages.
+    max_reconnect_attempts:                 10                         # Stop retrying and shut down after this many full-outage attempts. Set to 0 to retry forever.
