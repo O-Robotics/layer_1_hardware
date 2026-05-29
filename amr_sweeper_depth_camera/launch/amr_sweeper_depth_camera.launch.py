@@ -30,18 +30,37 @@ def _load_ros_parameter_file(path: str) -> dict:
     return data
 
 
-def _list_topics_for_domain(domain_id: int) -> list[str]:
+def _list_topics_for_domain(
+    domain_id: int,
+    *,
+    use_daemon: bool = False,
+    spin_time_seconds: float = 3.0,
+    attempts: int = 3,
+) -> list[str]:
     env = dict(os.environ)
     env["ROS_DOMAIN_ID"] = str(domain_id)
-    result = subprocess.run(
-        ["ros2", "topic", "list"],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=10.0,
-        env=env,
-    )
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    command = ["ros2", "topic", "list"]
+    if not use_daemon:
+        command.extend(["--no-daemon", "--spin-time", str(spin_time_seconds)])
+
+    last_error = None
+    for _ in range(max(1, attempts)):
+        try:
+            result = subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=max(10.0, spin_time_seconds + 2.0),
+                env=env,
+            )
+            return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        except subprocess.CalledProcessError as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    return []
 
 
 def _discover_camera_id(topics: list[str], source_root_namespace: str, source_camera_model: str) -> str:
@@ -155,7 +174,12 @@ def _launch_setup(context, *args, **kwargs):
             LaunchConfiguration("source_root_namespace").perform(context)
         )
         source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
-        source_topics = _list_topics_for_domain(camera_domain_id_value)
+        source_topics = _list_topics_for_domain(
+            camera_domain_id_value,
+            use_daemon=False,
+            spin_time_seconds=3.0,
+            attempts=3,
+        )
         if not source_camera_id_value:
             source_camera_id_value = _discover_camera_id(
                 source_topics,

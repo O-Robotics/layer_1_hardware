@@ -64,6 +64,7 @@ This package is a standalone ROS 2 wrapper around the D555's native ROS interfac
 - The default `output_frame` is `laserscan_link`, a frame pitched upward to match the selected scan row.
 - `scan_tilt_angle_deg` is resolution-independent and shifts the sampled scan band by angle instead of raw pixels.
 - If topic auto-discovery finds more than one D555 on the camera domain, set `source_camera_id` explicitly.
+- Launch-time camera discovery now queries camera domain `5` with `ros2 topic list --no-daemon`, so it can refresh the D555 graph directly without restarting the global ROS 2 daemon.
 - The launch file also attempts to auto-detect the native point-cloud topic from the source ROS graph. If it cannot find a unique match, point-cloud bridging is skipped and logged.
 - The watchdog monitors the bridged depth, color, infrared, and motion topics by default.
 - If some monitored topics are stale while at least one monitored topic is still healthy, the watchdog stays at `WARN`.
