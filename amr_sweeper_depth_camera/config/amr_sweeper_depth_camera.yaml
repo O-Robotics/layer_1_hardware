@@ -8,7 +8,8 @@
     target_namespace_root:                 /amr_sweeper/depth_camera  # Flattened namespace exported to the robot stack on domain 0.
 
     # -- Startup source stream control ---------------------------------------
-    apply_source_stream_control_on_startup: false                     # Push the configured use_* and *_profile_* settings to the source D555 through the bridged set_parameters_atomically service.
+    apply_source_stream_control_on_startup: false                     # Push source-side stream enable/disable settings to the D555 through the bridged set_parameters_atomically service.
+    apply_source_profiles_on_startup:      false                      # Also push the configured *_profile_* resolution / fps / format parameters. Leave false to avoid changing the camera's active profiles.
     source_stream_control_retry_interval_ms: 1000                     # Retry cadence while waiting for the bridged parameter service to appear.
     source_stream_control_max_attempts:    5                          # Stop retrying after this many failed startup attempts.
 

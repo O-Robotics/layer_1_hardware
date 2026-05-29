@@ -111,6 +111,8 @@ void DepthCameraNode::configureSourceStreamControl()
 {
   apply_source_stream_control_on_startup_ = declare_parameter(
     "apply_source_stream_control_on_startup", false);
+  const bool apply_source_profiles_on_startup = declare_parameter(
+    "apply_source_profiles_on_startup", false);
   source_stream_control_retry_interval_ms_ = std::max(
     static_cast<int>(declare_parameter("source_stream_control_retry_interval_ms", 1000L)),
     100);
@@ -137,7 +139,7 @@ void DepthCameraNode::configureSourceStreamControl()
     };
 
   const auto queue_stream_parameters =
-    [this, &get_or_declare_bool, &get_or_declare_string](
+    [this, &get_or_declare_bool, &get_or_declare_string, apply_source_profiles_on_startup](
       const std::string & use_parameter_name, const std::string & default_enable_parameter_name,
       const std::string & profile_name_parameter_name,
       const std::string & profile_parameter_parameter_name,
@@ -153,7 +155,7 @@ void DepthCameraNode::configureSourceStreamControl()
         std::string(""));
 
       queueSourceBoolParameter(default_enable_parameter_name, enabled);
-      if (enabled) {
+      if (enabled && apply_source_profiles_on_startup) {
         queueSourceStringParameter(profile_parameter_name, profile);
       }
     };
@@ -171,7 +173,7 @@ void DepthCameraNode::configureSourceStreamControl()
     "compressed_color_profile_parameter", std::string(""));
 
   queueSourceBoolParameter("enable_color", source_color_enabled);
-  if (source_color_enabled) {
+  if (source_color_enabled && apply_source_profiles_on_startup) {
     if (use_color) {
       queueSourceStringParameter(color_profile_name, color_profile_parameter);
       if (use_compressed_color &&
@@ -323,7 +325,7 @@ void DepthCameraNode::configureTopicBridges()
     "tf2_msgs/msg/TFMessage", use_tf_static, false, tf_static_bridge_options());
   addTopicBridge(
     source_camera_root + "_Color",
-    joinName(target_namespace_root_, "color/image_raw"),
+    joinName(target_namespace_root_, "color/image"),
     "sensor_msgs/msg/Image", use_color, use_color, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Color/camera_info",
@@ -332,15 +334,15 @@ void DepthCameraNode::configureTopicBridges()
   addTopicBridge(
     // Keep compressed color separately switchable so downstream consumers can opt out of raw color.
     source_camera_root + "_CompressedColor",
-    joinName(target_namespace_root_, "color/image_raw/compressed"),
+    joinName(target_namespace_root_, "compressed/image"),
     "sensor_msgs/msg/CompressedImage", use_compressed_color, use_compressed_color, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_CompressedColor/camera_info",
-    joinName(target_namespace_root_, "color/image_raw/compressed/camera_info"),
+    joinName(target_namespace_root_, "compressed/camera_info"),
     "sensor_msgs/msg/CameraInfo", use_compressed_color, false, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Depth",
-    joinName(target_namespace_root_, "depth"),
+    joinName(target_namespace_root_, "depth/image"),
     "sensor_msgs/msg/Image", use_depth, use_depth, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Depth/camera_info",
@@ -348,7 +350,7 @@ void DepthCameraNode::configureTopicBridges()
     "sensor_msgs/msg/CameraInfo", use_depth, use_depth, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_1",
-    joinName(target_namespace_root_, "infra1/image_rect_raw"),
+    joinName(target_namespace_root_, "infra1/image"),
     "sensor_msgs/msg/Image", use_infra1, use_infra1, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_1/camera_info",
@@ -356,7 +358,7 @@ void DepthCameraNode::configureTopicBridges()
     "sensor_msgs/msg/CameraInfo", use_infra1, use_infra1, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_2",
-    joinName(target_namespace_root_, "infra2/image_rect_raw"),
+    joinName(target_namespace_root_, "infra2/image"),
     "sensor_msgs/msg/Image", use_infra2, use_infra2, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_2/camera_info",
