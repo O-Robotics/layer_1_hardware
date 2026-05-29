@@ -114,6 +114,60 @@ def _discover_optional_pointcloud_topic(topics: list[str], source_camera_root: s
     return ""
 
 
+def _build_bridged_topic_preview(
+    source_root_namespace: str,
+    source_camera_id: str,
+    params: dict,
+    source_pointcloud_topic: str,
+) -> str:
+    source_camera_root = f"{source_root_namespace}/{source_camera_id}"
+    preview_topics = []
+
+    if params.get("use_tf_static", True):
+        preview_topics.append(f"{source_camera_root}/tf_static")
+    if params.get("use_color", True):
+        preview_topics.extend(
+            [
+                f"{source_camera_root}_Color",
+                f"{source_camera_root}_Color/camera_info",
+            ]
+        )
+    if params.get("use_depth", True):
+        preview_topics.extend(
+            [
+                f"{source_camera_root}_Depth",
+                f"{source_camera_root}_Depth/camera_info",
+            ]
+        )
+    if params.get("use_infra1", False):
+        preview_topics.extend(
+            [
+                f"{source_camera_root}_Infrared_1",
+                f"{source_camera_root}_Infrared_1/camera_info",
+            ]
+        )
+    if params.get("use_infra2", False):
+        preview_topics.extend(
+            [
+                f"{source_camera_root}_Infrared_2",
+                f"{source_camera_root}_Infrared_2/camera_info",
+            ]
+        )
+    if params.get("use_motion", False):
+        preview_topics.append(f"{source_camera_root}_Motion")
+    if params.get("use_compressed_color", False):
+        preview_topics.extend(
+            [
+                f"{source_camera_root}_CompressedColor",
+                f"{source_camera_root}_CompressedColor/camera_info",
+            ]
+        )
+    if params.get("use_pointcloud", False) and source_pointcloud_topic:
+        preview_topics.append(source_pointcloud_topic)
+
+    return "\n".join(preview_topics)
+
+
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
     depth_camera_params = _load_ros_parameter_file(LaunchConfiguration("params_file").perform(context))
@@ -192,6 +246,15 @@ def _launch_setup(context, *args, **kwargs):
             source_camera_root_value,
         )
 
+    bridged_topic_preview = ""
+    if use_domain_bridge_value and source_camera_id_value:
+        bridged_topic_preview = _build_bridged_topic_preview(
+            _normalize_namespace(LaunchConfiguration("source_root_namespace").perform(context)),
+            source_camera_id_value,
+            depth_camera_params,
+            source_pointcloud_topic_value,
+        )
+
     depth_camera_params.update(
         {
             "camera_domain_id": camera_domain_id_value,
@@ -208,12 +271,9 @@ def _launch_setup(context, *args, **kwargs):
     launch_summary = LogInfo(
         msg=(
             "amr_sweeper_depth_camera: "
-            f"custom_bridge={'enabled' if use_domain_bridge_value else 'disabled'}, "
-            f"bridge_path={camera_domain_id_value}->{workspace_domain_id_value}, "
-            f"source camera={source_camera_id_value or 'auto-discover'}, "
-            f"pointcloud={'detected' if source_pointcloud_topic_value else 'not detected'}, "
-            f"depth topic={depth_image_topic_value}, "
-            f"camera_info topic={depth_camera_info_topic_value}"
+            f"domain_bridge_path={camera_domain_id_value}->{workspace_domain_id_value}, "
+            f"source_camera={LaunchConfiguration('source_camera_model').perform(context)}, "
+            f"topics_to_be_bridged=\n{bridged_topic_preview}"
         )
     )
 

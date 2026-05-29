@@ -253,15 +253,24 @@ void DepthCameraNode::configureServiceBridges()
 void DepthCameraNode::configureTopicBridges()
 {
   const std::string source_camera_root = joinName(source_root_namespace_, source_camera_id_);
-  const bool use_tf_static = declare_parameter("use_tf_static", true);
-  const bool use_color = get_parameter("use_color").as_bool();
-  const bool use_compressed_color = get_parameter("use_compressed_color").as_bool();
-  const bool use_depth = get_parameter("use_depth").as_bool();
-  const bool use_infra1 = get_parameter("use_infra1").as_bool();
-  const bool use_infra2 = get_parameter("use_infra2").as_bool();
-  const bool use_motion = get_parameter("use_motion").as_bool();
-  const bool use_pointcloud = declare_parameter("use_pointcloud", true);
-  const bool use_object_detection = declare_parameter("use_object_detection", true);
+  const auto get_or_declare_bool =
+    [this](const char * name, bool default_value)
+    {
+      if (has_parameter(name)) {
+        return get_parameter(name).as_bool();
+      }
+      return declare_parameter(name, default_value);
+    };
+
+  const bool use_tf_static = get_or_declare_bool("use_tf_static", true);
+  const bool use_color = get_or_declare_bool("use_color", true);
+  const bool use_compressed_color = get_or_declare_bool("use_compressed_color", true);
+  const bool use_depth = get_or_declare_bool("use_depth", true);
+  const bool use_infra1 = get_or_declare_bool("use_infra1", true);
+  const bool use_infra2 = get_or_declare_bool("use_infra2", true);
+  const bool use_motion = get_or_declare_bool("use_motion", true);
+  const bool use_pointcloud = get_or_declare_bool("use_pointcloud", true);
+  const bool use_object_detection = get_or_declare_bool("use_object_detection", true);
 
   addTopicBridge(
     joinName(source_camera_root, "tf_static"),
