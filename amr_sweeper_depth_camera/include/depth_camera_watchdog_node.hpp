@@ -25,6 +25,8 @@ private:
   void enterFatalState(const std::string & message);
   void reportConnectionIssue(const std::string & message);
   void logEscalatingIssue(int count, const std::string & message);
+  bool topicsHealthy() const;
+  void markRecoveredIfHealthy(const char * recovery_message);
   void resetConnectionIssueCounters();
   bool shouldLogIssue(const std::string & level, const std::string & message);
   bool isTopicStale(const rclcpp::Time & last_message_time) const;

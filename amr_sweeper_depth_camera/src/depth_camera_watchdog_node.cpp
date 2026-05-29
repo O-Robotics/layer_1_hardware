@@ -50,18 +50,7 @@ void DepthCameraWatchdogNode::depthCb(const sensor_msgs::msg::Image::SharedPtr i
   (void)image;
   last_depth_message_time_ = now();
   received_depth_message_ = true;
-
-  if (require_camera_info_ && !received_camera_info_message_) {
-    return;
-  }
-
-  if (!was_healthy_) {
-    if (connection_issue_count_ > 0 || reconnect_attempt_count_ > 0) {
-      RCLCPP_INFO(get_logger(), "Depth camera data stream recovered.");
-    }
-    resetConnectionIssueCounters();
-    was_healthy_ = true;
-  }
+  markRecoveredIfHealthy("Depth camera data stream recovered.");
 }
 
 void DepthCameraWatchdogNode::cameraInfoCb(const sensor_msgs::msg::CameraInfo::SharedPtr info)
@@ -69,14 +58,7 @@ void DepthCameraWatchdogNode::cameraInfoCb(const sensor_msgs::msg::CameraInfo::S
   (void)info;
   last_camera_info_message_time_ = now();
   received_camera_info_message_ = true;
-
-  if (!was_healthy_) {
-    if (connection_issue_count_ > 0 || reconnect_attempt_count_ > 0) {
-      RCLCPP_INFO(get_logger(), "Depth camera data stream recovered.");
-    }
-    resetConnectionIssueCounters();
-    was_healthy_ = true;
-  }
+  markRecoveredIfHealthy("Depth camera data stream recovered.");
 }
 
 bool DepthCameraWatchdogNode::isTopicStale(const rclcpp::Time & last_message_time) const
@@ -90,6 +72,28 @@ bool DepthCameraWatchdogNode::startupGraceActive() const
     return false;
   }
   return (now() - startup_time_).seconds() < startup_grace_sec_;
+}
+
+bool DepthCameraWatchdogNode::topicsHealthy() const
+{
+  const bool depth_healthy = received_depth_message_ && !isTopicStale(last_depth_message_time_);
+  const bool camera_info_healthy =
+    !require_camera_info_ ||
+    (received_camera_info_message_ && !isTopicStale(last_camera_info_message_time_));
+  return depth_healthy && camera_info_healthy;
+}
+
+void DepthCameraWatchdogNode::markRecoveredIfHealthy(const char * recovery_message)
+{
+  if (!topicsHealthy() || was_healthy_) {
+    return;
+  }
+
+  if (connection_issue_count_ > 0 || reconnect_attempt_count_ > 0) {
+    RCLCPP_INFO(get_logger(), "%s", recovery_message);
+  }
+  resetConnectionIssueCounters();
+  was_healthy_ = true;
 }
 
 void DepthCameraWatchdogNode::watchdogTimerCb()
@@ -107,16 +111,11 @@ void DepthCameraWatchdogNode::watchdogTimerCb()
 
   const bool depth_healthy = received_depth_message_ && !isTopicStale(last_depth_message_time_);
   const bool camera_info_healthy =
-    !require_camera_info_ || (received_camera_info_message_ && !isTopicStale(last_camera_info_message_time_));
+    !require_camera_info_ ||
+    (received_camera_info_message_ && !isTopicStale(last_camera_info_message_time_));
 
   if (depth_healthy && camera_info_healthy) {
-    if (!was_healthy_) {
-      if (connection_issue_count_ > 0 || reconnect_attempt_count_ > 0) {
-        RCLCPP_INFO(get_logger(), "Depth camera topics are healthy again.");
-      }
-      resetConnectionIssueCounters();
-      was_healthy_ = true;
-    }
+    markRecoveredIfHealthy("Depth camera topics are healthy again.");
     return;
   }
 
