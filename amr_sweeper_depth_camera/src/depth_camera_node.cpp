@@ -117,16 +117,39 @@ void DepthCameraNode::configureSourceStreamControl()
     static_cast<int>(declare_parameter("source_stream_control_max_attempts", 5L)),
     1);
 
+  const auto get_or_declare_bool =
+    [this](const char * name, bool default_value)
+    {
+      if (has_parameter(name)) {
+        return get_parameter(name).as_bool();
+      }
+      return declare_parameter(name, default_value);
+    };
+
+  const auto get_or_declare_string =
+    [this](const char * name, const std::string & default_value)
+    {
+      if (has_parameter(name)) {
+        return get_parameter(name).as_string();
+      }
+      return declare_parameter(name, default_value);
+    };
+
   const auto queue_stream_parameters =
-    [this](const std::string & use_parameter_name, const std::string & default_enable_parameter_name,
+    [this, &get_or_declare_bool, &get_or_declare_string](
+      const std::string & use_parameter_name, const std::string & default_enable_parameter_name,
       const std::string & profile_name_parameter_name,
       const std::string & profile_parameter_parameter_name,
       const std::string & default_profile_parameter_name)
     {
-      const bool enabled = declare_parameter(use_parameter_name, true);
+      const bool enabled = get_or_declare_bool(use_parameter_name.c_str(), true);
       const std::string profile_parameter_name = normalizeOptionalParameterName(
-        declare_parameter(profile_parameter_parameter_name, default_profile_parameter_name));
-      const std::string profile = declare_parameter(profile_name_parameter_name, std::string(""));
+        get_or_declare_string(
+          profile_parameter_parameter_name.c_str(),
+          default_profile_parameter_name));
+      const std::string profile = get_or_declare_string(
+        profile_name_parameter_name.c_str(),
+        std::string(""));
 
       queueSourceBoolParameter(default_enable_parameter_name, enabled);
       if (enabled) {
@@ -134,16 +157,16 @@ void DepthCameraNode::configureSourceStreamControl()
       }
     };
 
-  const bool use_color = declare_parameter("use_color", true);
-  const bool use_compressed_color = declare_parameter("use_compressed_color", true);
+  const bool use_color = get_or_declare_bool("use_color", true);
+  const bool use_compressed_color = get_or_declare_bool("use_compressed_color", true);
   const bool source_color_enabled = use_color || use_compressed_color;
   const std::string color_profile_name = normalizeOptionalParameterName(
-    declare_parameter("color_profile_name", std::string("rgb_camera.profile")));
-  const std::string color_profile_parameter = declare_parameter(
+    get_or_declare_string("color_profile_name", std::string("rgb_camera.profile")));
+  const std::string color_profile_parameter = get_or_declare_string(
     "color_profile_parameter", std::string(""));
   const std::string compressed_color_profile_name = normalizeOptionalParameterName(
-    declare_parameter("compressed_color_profile_name", std::string("rgb_camera.profile")));
-  const std::string compressed_color_profile_parameter = declare_parameter(
+    get_or_declare_string("compressed_color_profile_name", std::string("rgb_camera.profile")));
+  const std::string compressed_color_profile_parameter = get_or_declare_string(
     "compressed_color_profile_parameter", std::string(""));
 
   queueSourceBoolParameter("enable_color", source_color_enabled);

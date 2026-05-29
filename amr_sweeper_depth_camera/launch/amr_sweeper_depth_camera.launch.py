@@ -272,7 +272,7 @@ def _launch_setup(context, *args, **kwargs):
         msg=(
             "amr_sweeper_depth_camera: "
             f"domain_bridge_path={camera_domain_id_value}->{workspace_domain_id_value}, "
-            f"source_camera={LaunchConfiguration('source_camera_model').perform(context)}, "
+            f"source_camera={source_camera_id_value or (LaunchConfiguration('source_camera_model').perform(context) + '_<serial>')}, "
             f"topics_to_be_bridged=\n{bridged_topic_preview}"
         )
     )
