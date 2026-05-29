@@ -149,6 +149,14 @@ def _launch_setup(context, *args, **kwargs):
 
     default_depth_image_topic = f"{namespace_value}/depth/image_rect_raw"
     default_depth_camera_info_topic = f"{namespace_value}/depth/camera_info"
+    default_color_image_topic = f"{namespace_value}/color/image_raw"
+    default_color_camera_info_topic = f"{namespace_value}/color/camera_info"
+    default_color_compressed_topic = f"{namespace_value}/color/image_raw/compressed"
+    default_infra1_image_topic = f"{namespace_value}/infra1/image_rect_raw"
+    default_infra1_camera_info_topic = f"{namespace_value}/infra1/camera_info"
+    default_infra2_image_topic = f"{namespace_value}/infra2/image_rect_raw"
+    default_infra2_camera_info_topic = f"{namespace_value}/infra2/camera_info"
+    default_motion_imu_topic = f"{namespace_value}/motion/imu"
 
     depth_image_topic_value = LaunchConfiguration("depth_image_topic").perform(context)
     if not depth_image_topic_value:
@@ -254,6 +262,14 @@ def _launch_setup(context, *args, **kwargs):
         remappings=[
             ("depth", depth_image_topic_value),
             ("depth_camera_info", depth_camera_info_topic_value),
+            ("color_image", default_color_image_topic),
+            ("color_camera_info", default_color_camera_info_topic),
+            ("color_compressed", default_color_compressed_topic),
+            ("infra1_image", default_infra1_image_topic),
+            ("infra1_camera_info", default_infra1_camera_info_topic),
+            ("infra2_image", default_infra2_image_topic),
+            ("infra2_camera_info", default_infra2_camera_info_topic),
+            ("motion_imu", default_motion_imu_topic),
         ],
         condition=IfCondition(LaunchConfiguration("use_watchdog")),
     )

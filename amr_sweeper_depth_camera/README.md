@@ -41,7 +41,7 @@ This package bridges the native ROS 2 topics from the RealSense D555 camera into
 - `scan_time`: default from `config/laserscan.yaml` (`0.050`)
 
 ## Overview
-`amr_sweeper_depth_camera` contains the launch configuration needed to discover the serial-specific D555 topic prefix on ROS domain `5`, generate a resolved `domain_bridge` configuration from `config/domain_bridge.yaml`, and bridge those topics into the flattened AMR Sweeper namespace, for example `/amr_sweeper/depth_camera/depth/image_rect_raw`. The local `laserscan_node` and watchdog consume the bridged depth image and camera info topics, and the watchdog uses the same warn/error/fatal escalation pattern used elsewhere in the workspace.
+`amr_sweeper_depth_camera` contains the launch configuration needed to discover the serial-specific D555 topic prefix on ROS domain `5`, generate a resolved `domain_bridge` configuration from `config/domain_bridge.yaml`, and bridge those topics into the flattened AMR Sweeper namespace, for example `/amr_sweeper/depth_camera/depth/image_rect_raw`. The local `laserscan_node` consumes the bridged depth image and camera info topics, and the watchdog monitors the bridged camera topic set across depth, color, infrared, and motion streams.
 
 ## Notes
  - Main nodes: `domain_bridge`, `laserscan_node`, and `depth_camera_watchdog_node`.
@@ -52,4 +52,6 @@ This package bridges the native ROS 2 topics from the RealSense D555 camera into
  - `scan_tilt_angle_deg` is resolution-independent and shifts the sampled scan band by angle instead of raw pixels.
  - If topic auto-discovery finds more than one D555 on the source domain, set `source_camera_id` explicitly.
  - The current bridge template covers the native topics supplied for the D555 that the stack currently cares about, including image, camera info, compressed color, motion, and object detection.
- - The watchdog monitors the bridged depth image and camera info streams only, because those are the camera topics this package consumes directly.
+ - The watchdog monitors the bridged depth, color, infrared, and motion topics by default.
+ - If some monitored topics are stale while at least one monitored topic is still healthy, the watchdog stays at `WARN`.
+ - The watchdog escalates to `ERROR` and `FATAL` only when all enabled monitored topics are missing or stale together.
