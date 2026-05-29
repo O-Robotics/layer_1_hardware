@@ -303,7 +303,9 @@ void DepthCameraNode::configureTopicBridges()
       qos_options.history(rclcpp::HistoryPolicy::KeepLast);
       qos_options.depth(10);
       options.qos_options(qos_options);
+      options.wait_for_subscription(true);
       options.wait_for_publisher(false);
+      options.auto_remove(domain_bridge::TopicBridgeOptions::AutoRemove::OnNoSubscription);
       return options;
     };
 
@@ -315,7 +317,9 @@ void DepthCameraNode::configureTopicBridges()
       qos_options.history(rclcpp::HistoryPolicy::KeepLast);
       qos_options.depth(1);
       options.qos_options(qos_options);
+      options.wait_for_subscription(true);
       options.wait_for_publisher(false);
+      options.auto_remove(domain_bridge::TopicBridgeOptions::AutoRemove::OnNoSubscription);
       return options;
     };
 
