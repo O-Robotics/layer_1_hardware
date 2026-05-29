@@ -37,6 +37,7 @@ private:
   // Convert ROS parameter values into the compact `CameraParameters` struct.
   void assign_params(const std::vector<rclcpp::Parameter> & parameters);
   // Emit warn/error/fatal logs that escalate like the IMU reconnect path.
+  void enter_fatal_state(const std::string & message);
   void report_connection_issue(const std::string & message);
   void log_escalating_issue(int count, const std::string & message);
   void reset_connection_issue_counters();

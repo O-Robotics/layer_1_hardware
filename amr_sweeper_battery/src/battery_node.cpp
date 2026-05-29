@@ -263,6 +263,16 @@ int BatteryNode::current_socket() const
   return can_socket_;
 }
 
+void BatteryNode::enter_fatal_state(const std::string & message)
+{
+  fatal_error_.store(true);
+  RCLCPP_FATAL(get_logger(), "%s", message.c_str());
+  if (timer_) {
+    timer_->cancel();
+  }
+  rclcpp::shutdown();
+}
+
 void BatteryNode::report_connection_issue(const std::string & message)
 {
   std::lock_guard<std::mutex> issue_lock(issue_mutex_);
@@ -270,15 +280,9 @@ void BatteryNode::report_connection_issue(const std::string & message)
   ++reconnect_attempt_count_;
 
   if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
-    fatal_error_.store(true);
-    RCLCPP_FATAL(
-      get_logger(),
-      "%s. Reached reconnect limit after %d attempts",
-      message.c_str(),
-      reconnect_attempt_count_);
-    if (timer_) {
-      timer_->cancel();
-    }
+    enter_fatal_state(
+      message + ". Reached reconnect limit after " + std::to_string(reconnect_attempt_count_) +
+      " attempts");
     return;
   }
 
@@ -305,15 +309,9 @@ void BatteryNode::log_escalating_issue(int count, const std::string & message)
     return;
   }
 
-  fatal_error_.store(true);
-  RCLCPP_FATAL(
-    get_logger(),
-    "%s. Reached fatal threshold after %d consecutive connection failures",
-    message.c_str(),
-    count);
-  if (timer_) {
-    timer_->cancel();
-  }
+  enter_fatal_state(
+    message + ". Reached fatal threshold after " + std::to_string(count) +
+    " consecutive connection failures");
 }
 
 void BatteryNode::reset_issue_counters()

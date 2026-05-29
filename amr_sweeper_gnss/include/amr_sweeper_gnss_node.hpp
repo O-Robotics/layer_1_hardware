@@ -72,6 +72,7 @@ private:
 
   void loadParameters();
   void onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg);
+  void enterFatalState(const std::string & message);
   void reportConnectionIssue(const std::string & message);
   void reportConfigurationIssue(const std::string & message);
   void logEscalatingIssue(int count, const std::string & message, const std::string & issue_type);

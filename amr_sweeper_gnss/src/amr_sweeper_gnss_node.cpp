@@ -178,16 +178,22 @@ void UbloxNode::reportConnectionIssue(const std::string & message)
   ++reconnect_attempt_count_;
 
   if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
-    fatal_error_message_ =
+    enterFatalState(
       message + ". Reached reconnect limit after " + std::to_string(reconnect_attempt_count_) +
-      " attempts";
-    RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
-    fatal_error_.store(true);
-    stop_requested_.store(true);
+      " attempts");
     return;
   }
 
   logEscalatingIssue(connection_issue_count_, message, "connection");
+}
+
+void UbloxNode::enterFatalState(const std::string & message)
+{
+  fatal_error_message_ = message;
+  RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
+  fatal_error_.store(true);
+  stop_requested_.store(true);
+  rclcpp::shutdown();
 }
 
 void UbloxNode::reportConfigurationIssue(const std::string & message)
@@ -214,12 +220,9 @@ void UbloxNode::logEscalatingIssue(int count, const std::string & message, const
     return;
   }
 
-  fatal_error_message_ =
+  enterFatalState(
     message + ". Reached fatal threshold after " + std::to_string(count) +
-    " consecutive " + issue_type + " failures";
-  RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
-  fatal_error_.store(true);
-  stop_requested_.store(true);
+    " consecutive " + issue_type + " failures");
 }
 
 void UbloxNode::resetIssueCounters()

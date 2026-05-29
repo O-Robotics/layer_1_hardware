@@ -38,6 +38,7 @@ private:
   std::optional<uint8_t> baud_to_device_code(int baud) const;
   std::optional<uint8_t> rate_to_device_code(double hz) const;
   uint16_t build_return_content_mask() const;
+  void enter_fatal_state(const std::string & message);
   void report_connection_issue(const std::string & message);
   void report_configuration_issue(const std::string & message);
   void log_escalating_issue(int count, const std::string & message, const std::string & issue_type);

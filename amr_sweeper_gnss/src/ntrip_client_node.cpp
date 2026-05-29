@@ -948,6 +948,15 @@ void NtripClientNode::report_bad_rtcm_issue(const std::string & message)
   log_escalating_issue(bad_rtcm_issue_count_, message, "rtcm");
 }
 
+void NtripClientNode::enterFatalState(const std::string & message)
+{
+  fatal_error_message_ = message;
+  RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
+  fatal_error_.store(true);
+  stop_requested_.store(true);
+  rclcpp::shutdown();
+}
+
 void NtripClientNode::log_escalating_issue(
   int count,
   const std::string & message,
@@ -972,12 +981,9 @@ void NtripClientNode::log_escalating_issue(
     return;
   }
 
-  fatal_error_message_ =
+  enterFatalState(
     message + ". Reached fatal threshold after " + std::to_string(count) +
-    " consecutive " + issue_type + " failures";
-  RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
-  fatal_error_.store(true);
-  stop_requested_.store(true);
+    " consecutive " + issue_type + " failures");
 }
 
 void NtripClientNode::reset_issue_counters()

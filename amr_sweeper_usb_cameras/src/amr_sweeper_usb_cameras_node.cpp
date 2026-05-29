@@ -228,19 +228,23 @@ void UsbCameraNode::report_connection_issue(const std::string & message)
   ++m_reconnect_attempt_count;
 
   if (m_max_reconnect_attempts > 0 && m_reconnect_attempt_count >= m_max_reconnect_attempts) {
-    m_fatal_error = true;
-    RCLCPP_FATAL(
-      get_logger(),
-      "%s. Reached reconnect limit after %d attempts",
-      message.c_str(),
-      m_reconnect_attempt_count);
-    if (m_timer) {
-      m_timer->cancel();
-    }
+    enter_fatal_state(
+      message + ". Reached reconnect limit after " + std::to_string(m_reconnect_attempt_count) +
+      " attempts");
     return;
   }
 
   log_escalating_issue(m_connection_issue_count, message);
+}
+
+void UsbCameraNode::enter_fatal_state(const std::string & message)
+{
+  m_fatal_error = true;
+  RCLCPP_FATAL(get_logger(), "%s", message.c_str());
+  if (m_timer) {
+    m_timer->cancel();
+  }
+  rclcpp::shutdown();
 }
 
 void UsbCameraNode::log_escalating_issue(int count, const std::string & message)
@@ -263,15 +267,9 @@ void UsbCameraNode::log_escalating_issue(int count, const std::string & message)
     return;
   }
 
-  m_fatal_error = true;
-  RCLCPP_FATAL(
-    get_logger(),
-    "%s. Reached fatal threshold after %d consecutive connection failures",
-    message.c_str(),
-    count);
-  if (m_timer) {
-    m_timer->cancel();
-  }
+  enter_fatal_state(
+    message + ". Reached fatal threshold after " + std::to_string(count) +
+    " consecutive connection failures");
 }
 
 void UsbCameraNode::reset_connection_issue_counters()

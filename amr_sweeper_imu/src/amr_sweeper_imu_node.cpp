@@ -398,21 +398,27 @@ bool JY901ImuNode::reopen_serial_with_baud(int baud)
   return true;
 }
 
+void JY901ImuNode::enter_fatal_state(const std::string & message)
+{
+  fatal_error_message_ = message;
+  RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
+  fatal_error_.store(true);
+  stop_requested_.store(true);
+  if (read_timer_) {
+    read_timer_->cancel();
+  }
+  rclcpp::shutdown();
+}
+
 void JY901ImuNode::report_connection_issue(const std::string & message)
 {
   ++connection_issue_count_;
   ++reconnect_attempt_count_;
 
   if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
-    fatal_error_message_ =
+    enter_fatal_state(
       message + ". Reached reconnect limit after " + std::to_string(reconnect_attempt_count_) +
-      " attempts";
-    RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
-    fatal_error_.store(true);
-    stop_requested_.store(true);
-    if (read_timer_) {
-      read_timer_->cancel();
-    }
+      " attempts");
     return;
   }
 
@@ -449,15 +455,9 @@ void JY901ImuNode::log_escalating_issue(
     return;
   }
 
-  fatal_error_message_ =
+  enter_fatal_state(
     message + ". Reached fatal threshold after " + std::to_string(count) +
-    " consecutive " + issue_type + " failures";
-  RCLCPP_FATAL(get_logger(), "%s", fatal_error_message_.c_str());
-  fatal_error_.store(true);
-  stop_requested_.store(true);
-  if (read_timer_) {
-    read_timer_->cancel();
-  }
+    " consecutive " + issue_type + " failures");
 }
 
 void JY901ImuNode::reset_issue_counters()

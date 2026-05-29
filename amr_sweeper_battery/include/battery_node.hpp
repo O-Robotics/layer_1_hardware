@@ -68,6 +68,7 @@ private:
   bool setup_can_socket(bool log_failure);
   void close_can_socket();
   int current_socket() const;
+  void enter_fatal_state(const std::string & message);
   void report_connection_issue(const std::string & message);
   void log_escalating_issue(int count, const std::string & message);
   void reset_issue_counters();

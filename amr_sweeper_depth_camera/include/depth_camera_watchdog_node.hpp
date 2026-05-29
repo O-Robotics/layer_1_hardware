@@ -22,6 +22,7 @@ private:
   void depthCb(const sensor_msgs::msg::Image::SharedPtr image);
   void cameraInfoCb(const sensor_msgs::msg::CameraInfo::SharedPtr info);
   void watchdogTimerCb();
+  void enterFatalState(const std::string & message);
   void reportConnectionIssue(const std::string & message);
   void logEscalatingIssue(int count, const std::string & message);
   void resetConnectionIssueCounters();

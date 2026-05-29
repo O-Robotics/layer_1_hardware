@@ -55,6 +55,7 @@ private:
   void advance_mountpoint();
   void close_socket();
   bool stream_timed_out() const;
+  void enterFatalState(const std::string & message);
   void report_connection_issue(const std::string & message);
   void report_bad_rtcm_issue(const std::string & message);
   void log_escalating_issue(int count, const std::string & message, const std::string & issue_type);

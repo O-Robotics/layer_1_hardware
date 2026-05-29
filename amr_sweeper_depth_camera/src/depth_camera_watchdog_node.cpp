@@ -147,20 +147,29 @@ void DepthCameraWatchdogNode::reportConnectionIssue(const std::string & message)
   ++reconnect_attempt_count_;
 
   if (max_reconnect_attempts_ > 0 && reconnect_attempt_count_ >= max_reconnect_attempts_) {
-    fatal_error_ = true;
     const std::string fatal_message =
       message + ". Reached reconnect limit after " + std::to_string(reconnect_attempt_count_) +
       " attempts";
-    if (shouldLogIssue("fatal", fatal_message)) {
-      RCLCPP_FATAL(get_logger(), "%s", fatal_message.c_str());
-    }
-    if (watchdog_timer_) {
-      watchdog_timer_->cancel();
-    }
+    enterFatalState(fatal_message);
     return;
   }
 
   logEscalatingIssue(connection_issue_count_, message);
+}
+
+void DepthCameraWatchdogNode::enterFatalState(const std::string & message)
+{
+  fatal_error_ = true;
+  if (shouldLogIssue("fatal", message)) {
+    RCLCPP_FATAL(get_logger(), "%s", message.c_str());
+  }
+  if (watchdog_timer_) {
+    watchdog_timer_->cancel();
+  }
+
+  // A fatal log does not end the process by itself; explicitly shut down this ROS context so the
+  // executor stops spinning and the watchdog process exits under launch.
+  rclcpp::shutdown();
 }
 
 void DepthCameraWatchdogNode::logEscalatingIssue(int count, const std::string & message)
@@ -187,16 +196,10 @@ void DepthCameraWatchdogNode::logEscalatingIssue(int count, const std::string & 
     return;
   }
 
-  fatal_error_ = true;
   const std::string fatal_message =
     message + ". Reached fatal threshold after " + std::to_string(count) +
     " consecutive connection failures";
-  if (shouldLogIssue("fatal", fatal_message)) {
-    RCLCPP_FATAL(get_logger(), "%s", fatal_message.c_str());
-  }
-  if (watchdog_timer_) {
-    watchdog_timer_->cancel();
-  }
+  enterFatalState(fatal_message);
 }
 
 void DepthCameraWatchdogNode::resetConnectionIssueCounters()
