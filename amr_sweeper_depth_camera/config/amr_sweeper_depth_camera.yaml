@@ -37,8 +37,6 @@
     motion_profile_name:                    motion_module.profile      # Native source parameter used to select the Motion stream profile.
     motion_profile_parameter:               "100:COMBINED_MOTION"      # Default to the lower listed Motion rate. Other supported examples: 200:COMBINED_MOTION, 100:COMBINED_MOTION.
 
-    use_pointcloud:                         true                       # Bridge the discovered native point-cloud topic into depth/color/points when available.
-    use_object_detection:                   true                       # Bridge the optional object-detection topic when the source graph exposes it.
     use_tf_static:                          true                       # Bridge the native static transforms published by the D555 ROS graph.
 
     # -- Service bridge selection ---------------------------------------------

@@ -45,7 +45,8 @@ private:
     const std::string & target_topic_name,
     const std::string & type_name,
     bool enabled,
-    bool monitor_enabled);
+    bool monitor_enabled,
+    const domain_bridge::TopicBridgeOptions & bridge_options = domain_bridge::TopicBridgeOptions());
   void registerMonitorSubscription(std::size_t topic_index);
   void topicMessageCb(std::size_t topic_index);
 

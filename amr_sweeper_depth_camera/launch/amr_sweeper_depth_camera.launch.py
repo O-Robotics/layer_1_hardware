@@ -87,38 +87,10 @@ def _discover_camera_id(topics: list[str], source_root_namespace: str, source_ca
     return next(iter(matches))
 
 
-def _discover_optional_pointcloud_topic(topics: list[str], source_camera_root: str) -> str:
-    candidates = [
-        topic for topic in topics
-        if topic.startswith(source_camera_root) and (
-            "points" in topic.lower() or "pointcloud" in topic.lower() or "pcl" in topic.lower()
-        )
-    ]
-    if not candidates:
-        return ""
-
-    priority_suffixes = (
-        "/depth/color/points",
-        "_Depth_Color_Points",
-        "_DepthColorPoints",
-        "_Points",
-        "_PCL",
-    )
-    for suffix in priority_suffixes:
-        for topic in candidates:
-            if topic.endswith(suffix):
-                return topic
-
-    if len(candidates) == 1:
-        return candidates[0]
-    return ""
-
-
 def _build_bridged_topic_preview(
     source_root_namespace: str,
     source_camera_id: str,
     params: dict,
-    source_pointcloud_topic: str,
 ) -> str:
     source_camera_root = f"{source_root_namespace}/{source_camera_id}"
     preview_topics = []
@@ -162,8 +134,6 @@ def _build_bridged_topic_preview(
                 f"{source_camera_root}_CompressedColor/camera_info",
             ]
         )
-    if params.get("use_pointcloud", False) and source_pointcloud_topic:
-        preview_topics.append(source_pointcloud_topic)
 
     return "\n".join(preview_topics)
 
@@ -222,7 +192,6 @@ def _launch_setup(context, *args, **kwargs):
     camera_domain_id_value = int(LaunchConfiguration("camera_domain_id").perform(context))
     workspace_domain_id_value = int(LaunchConfiguration("workspace_domain_id").perform(context))
     source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
-    source_pointcloud_topic_value = ""
     if use_domain_bridge_value:
         source_root_namespace_value = _normalize_namespace(
             LaunchConfiguration("source_root_namespace").perform(context)
@@ -240,11 +209,6 @@ def _launch_setup(context, *args, **kwargs):
                 source_root_namespace_value,
                 source_camera_model_value,
             )
-        source_camera_root_value = f"{source_root_namespace_value}/{source_camera_id_value}"
-        source_pointcloud_topic_value = _discover_optional_pointcloud_topic(
-            source_topics,
-            source_camera_root_value,
-        )
 
     bridged_topic_preview = ""
     if use_domain_bridge_value and source_camera_id_value:
@@ -252,7 +216,6 @@ def _launch_setup(context, *args, **kwargs):
             _normalize_namespace(LaunchConfiguration("source_root_namespace").perform(context)),
             source_camera_id_value,
             depth_camera_params,
-            source_pointcloud_topic_value,
         )
 
     depth_camera_params.update(
@@ -263,7 +226,7 @@ def _launch_setup(context, *args, **kwargs):
                 LaunchConfiguration("source_root_namespace").perform(context)
             ),
             "source_camera_id": source_camera_id_value,
-            "source_pointcloud_topic": source_pointcloud_topic_value,
+            "source_pointcloud_topic": "",
             "target_namespace_root": namespace_value,
         }
     )

@@ -293,122 +293,79 @@ void DepthCameraNode::configureTopicBridges()
   const bool use_infra1 = get_or_declare_bool("use_infra1", true);
   const bool use_infra2 = get_or_declare_bool("use_infra2", true);
   const bool use_motion = get_or_declare_bool("use_motion", true);
-  const bool use_pointcloud = get_or_declare_bool("use_pointcloud", true);
-  const bool use_object_detection = get_or_declare_bool("use_object_detection", true);
+  auto sensor_bridge_options = []() {
+      domain_bridge::TopicBridgeOptions options;
+      domain_bridge::QosOptions qos_options;
+      qos_options.reliability(rclcpp::ReliabilityPolicy::BestEffort);
+      qos_options.durability(rclcpp::DurabilityPolicy::Volatile);
+      qos_options.history(rclcpp::HistoryPolicy::KeepLast);
+      qos_options.depth(10);
+      options.qos_options(qos_options);
+      options.wait_for_publisher(false);
+      return options;
+    };
+
+  auto tf_static_bridge_options = []() {
+      domain_bridge::TopicBridgeOptions options;
+      domain_bridge::QosOptions qos_options;
+      qos_options.reliability(rclcpp::ReliabilityPolicy::Reliable);
+      qos_options.durability(rclcpp::DurabilityPolicy::TransientLocal);
+      qos_options.history(rclcpp::HistoryPolicy::KeepLast);
+      qos_options.depth(1);
+      options.qos_options(qos_options);
+      options.wait_for_publisher(false);
+      return options;
+    };
 
   addTopicBridge(
     joinName(source_camera_root, "tf_static"),
     joinName(target_namespace_root_, "tf_static"),
-    "tf2_msgs/msg/TFMessage", use_tf_static, false);
+    "tf2_msgs/msg/TFMessage", use_tf_static, false, tf_static_bridge_options());
   addTopicBridge(
     source_camera_root + "_Color",
     joinName(target_namespace_root_, "color/image_raw"),
-    "sensor_msgs/msg/Image", use_color, use_color);
+    "sensor_msgs/msg/Image", use_color, use_color, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Color/camera_info",
     joinName(target_namespace_root_, "color/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_color, use_color);
-  addTopicBridge(
-    source_camera_root + "_Color/metadata",
-    joinName(target_namespace_root_, "color/metadata"),
-    "realsense2_camera_msgs/msg/Metadata", use_color, false);
-  addTopicBridge(
-    source_camera_root + "_Color/metadata_legacy",
-    joinName(target_namespace_root_, "color/metadata_legacy"),
-    "std_msgs/msg/String", use_color, false);
+    "sensor_msgs/msg/CameraInfo", use_color, use_color, sensor_bridge_options());
   addTopicBridge(
     // Keep compressed color separately switchable so downstream consumers can opt out of raw color.
     source_camera_root + "_CompressedColor",
     joinName(target_namespace_root_, "color/image_raw/compressed"),
-    "sensor_msgs/msg/CompressedImage", use_compressed_color, use_compressed_color);
+    "sensor_msgs/msg/CompressedImage", use_compressed_color, use_compressed_color, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_CompressedColor/camera_info",
     joinName(target_namespace_root_, "color/image_raw/compressed/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_compressed_color, false);
-  addTopicBridge(
-    source_camera_root + "_CompressedColor/metadata",
-    joinName(target_namespace_root_, "color/image_raw/compressed/metadata"),
-    "realsense2_camera_msgs/msg/Metadata", use_compressed_color, false);
-  addTopicBridge(
-    source_camera_root + "_CompressedColor/metadata_legacy",
-    joinName(target_namespace_root_, "color/image_raw/compressed/metadata_legacy"),
-    "std_msgs/msg/String", use_compressed_color, false);
+    "sensor_msgs/msg/CameraInfo", use_compressed_color, false, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Depth",
     joinName(target_namespace_root_, "depth"),
-    "sensor_msgs/msg/Image", use_depth, use_depth);
+    "sensor_msgs/msg/Image", use_depth, use_depth, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Depth/camera_info",
     joinName(target_namespace_root_, "depth/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_depth, use_depth);
-  addTopicBridge(
-    source_camera_root + "_Depth/metadata",
-    joinName(target_namespace_root_, "depth/metadata"),
-    "realsense2_camera_msgs/msg/Metadata", use_depth, false);
-  addTopicBridge(
-    source_camera_root + "_Depth/metadata_legacy",
-    joinName(target_namespace_root_, "depth/metadata_legacy"),
-    "std_msgs/msg/String", use_depth, false);
+    "sensor_msgs/msg/CameraInfo", use_depth, use_depth, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_1",
     joinName(target_namespace_root_, "infra1/image_rect_raw"),
-    "sensor_msgs/msg/Image", use_infra1, use_infra1);
+    "sensor_msgs/msg/Image", use_infra1, use_infra1, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_1/camera_info",
     joinName(target_namespace_root_, "infra1/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_infra1, use_infra1);
-  addTopicBridge(
-    source_camera_root + "_Infrared_1/metadata",
-    joinName(target_namespace_root_, "infra1/metadata"),
-    "realsense2_camera_msgs/msg/Metadata", use_infra1, false);
-  addTopicBridge(
-    source_camera_root + "_Infrared_1/metadata_legacy",
-    joinName(target_namespace_root_, "infra1/metadata_legacy"),
-    "std_msgs/msg/String", use_infra1, false);
+    "sensor_msgs/msg/CameraInfo", use_infra1, use_infra1, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_2",
     joinName(target_namespace_root_, "infra2/image_rect_raw"),
-    "sensor_msgs/msg/Image", use_infra2, use_infra2);
+    "sensor_msgs/msg/Image", use_infra2, use_infra2, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Infrared_2/camera_info",
     joinName(target_namespace_root_, "infra2/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_infra2, use_infra2);
-  addTopicBridge(
-    source_camera_root + "_Infrared_2/metadata",
-    joinName(target_namespace_root_, "infra2/metadata"),
-    "realsense2_camera_msgs/msg/Metadata", use_infra2, false);
-  addTopicBridge(
-    source_camera_root + "_Infrared_2/metadata_legacy",
-    joinName(target_namespace_root_, "infra2/metadata_legacy"),
-    "std_msgs/msg/String", use_infra2, false);
+    "sensor_msgs/msg/CameraInfo", use_infra2, use_infra2, sensor_bridge_options());
   addTopicBridge(
     source_camera_root + "_Motion",
     joinName(target_namespace_root_, "motion/imu"),
-    "sensor_msgs/msg/Imu", use_motion, use_motion);
-  addTopicBridge(
-    source_camera_root + "_Motion/camera_info",
-    joinName(target_namespace_root_, "motion/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_motion, false);
-  addTopicBridge(
-    source_camera_root + "_Motion/metadata",
-    joinName(target_namespace_root_, "motion/metadata"),
-    "realsense2_camera_msgs/msg/Metadata", use_motion, false);
-  addTopicBridge(
-    source_camera_root + "_Motion/metadata_legacy",
-    joinName(target_namespace_root_, "motion/metadata_legacy"),
-    "std_msgs/msg/String", use_motion, false);
-  if (use_pointcloud && !source_pointcloud_topic_.empty()) {
-    addTopicBridge(
-      source_pointcloud_topic_,
-      joinName(target_namespace_root_, "depth/color/points"),
-      "sensor_msgs/msg/PointCloud2", true, true);
-  } else if (use_pointcloud) {
-    skipped_bridge_topics_.push_back("pointcloud (native source topic was not discovered)");
-  }
-  addTopicBridge(
-    source_camera_root + "_ObjectDetection",
-    joinName(target_namespace_root_, "object_detection"),
-    "vision_msgs/msg/Detection2DArray", use_object_detection, false);
+    "sensor_msgs/msg/Imu", use_motion, use_motion, sensor_bridge_options());
 }
 
 void DepthCameraNode::addTopicBridge(
@@ -416,7 +373,8 @@ void DepthCameraNode::addTopicBridge(
   const std::string & target_topic_name,
   const std::string & type_name,
   bool enabled,
-  bool monitor_enabled)
+  bool monitor_enabled,
+  const domain_bridge::TopicBridgeOptions & bridge_options)
 {
   TopicSpec topic;
   topic.source_topic_name = source_topic_name;
@@ -434,7 +392,7 @@ void DepthCameraNode::addTopicBridge(
       skipped_bridge_topics_.push_back(
         stored_topic.source_topic_name + " (" + stored_topic.type_name + ")");
     } else {
-      domain_bridge::TopicBridgeOptions options;
+      domain_bridge::TopicBridgeOptions options = bridge_options;
       options.remap_name(stored_topic.target_topic_name);
       bridge_.bridge_topic(
         stored_topic.source_topic_name,
