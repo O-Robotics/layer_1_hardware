@@ -312,7 +312,8 @@ sensor_msgs::msg::PointCloud2 DepthCameraNode::buildPointCloudMessage(
         static_cast<int>(texcoords[i].v * static_cast<float>(color_height)),
         0,
         std::max(color_height - 1, 0));
-      const std::size_t offset = static_cast<std::size_t>((y * color_row_stride) + (x * color_pixel_stride));
+      const std::size_t offset = static_cast<std::size_t>(
+        (y * color_row_stride) + (x * color_pixel_stride));
       red = color_data[offset + 0];
       green = color_data[offset + 1];
       blue = color_data[offset + 2];
@@ -323,7 +324,9 @@ sensor_msgs::msg::PointCloud2 DepthCameraNode::buildPointCloudMessage(
   return message;
 }
 
-void DepthCameraNode::publishMotionFrame(const rs2::motion_frame & motion_frame, const rclcpp::Time & stamp)
+void DepthCameraNode::publishMotionFrame(
+  const rs2::motion_frame & motion_frame,
+  const rclcpp::Time & stamp)
 {
   if (!imu_pub_) {
     return;
@@ -392,7 +395,10 @@ void DepthCameraNode::captureLoop()
               color_frame_id_,
               stamp));
           color_info_pub_->publish(
-            buildCameraInfo(color_frame.get_profile().as<rs2::video_stream_profile>(), color_frame_id_, stamp));
+            buildCameraInfo(
+              color_frame.get_profile().as<rs2::video_stream_profile>(),
+              color_frame_id_,
+              stamp));
         }
       }
 
@@ -406,7 +412,10 @@ void DepthCameraNode::captureLoop()
               depth_frame_id_,
               stamp));
           depth_info_pub_->publish(
-            buildCameraInfo(depth_frame.get_profile().as<rs2::video_stream_profile>(), depth_frame_id_, stamp));
+            buildCameraInfo(
+              depth_frame.get_profile().as<rs2::video_stream_profile>(),
+              depth_frame_id_,
+              stamp));
         }
       }
 
@@ -420,7 +429,10 @@ void DepthCameraNode::captureLoop()
               infra1_frame_id_,
               stamp));
           infra1_info_pub_->publish(
-            buildCameraInfo(infra1_frame.get_profile().as<rs2::video_stream_profile>(), infra1_frame_id_, stamp));
+            buildCameraInfo(
+              infra1_frame.get_profile().as<rs2::video_stream_profile>(),
+              infra1_frame_id_,
+              stamp));
         }
       }
 
@@ -434,7 +446,10 @@ void DepthCameraNode::captureLoop()
               infra2_frame_id_,
               stamp));
           infra2_info_pub_->publish(
-            buildCameraInfo(infra2_frame.get_profile().as<rs2::video_stream_profile>(), infra2_frame_id_, stamp));
+            buildCameraInfo(
+              infra2_frame.get_profile().as<rs2::video_stream_profile>(),
+              infra2_frame_id_,
+              stamp));
         }
       }
 

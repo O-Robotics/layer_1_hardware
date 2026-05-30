@@ -1,7 +1,7 @@
 // Copyright (c) 2026 O-Robotics
 
-#ifndef AMR_SWEEPER_DEPTH_CAMERA__DEPTH_CAMERA_NODE_HPP_
-#define AMR_SWEEPER_DEPTH_CAMERA__DEPTH_CAMERA_NODE_HPP_
+#ifndef DEPTH_CAMERA_NODE_HPP_
+#define DEPTH_CAMERA_NODE_HPP_
 
 #include <atomic>
 #include <memory>
@@ -102,4 +102,4 @@ private:
 
 }  // namespace amr_sweeper_depth_camera
 
-#endif  // AMR_SWEEPER_DEPTH_CAMERA__DEPTH_CAMERA_NODE_HPP_
+#endif  // DEPTH_CAMERA_NODE_HPP_

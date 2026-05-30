@@ -1,3 +1,5 @@
+# Copyright (c) 2026 O-Robotics
+
 import math
 from pathlib import Path
 
@@ -57,7 +59,9 @@ def _launch_setup(context, *args, **kwargs):
         LaunchConfiguration("internal_namespace").perform(context)
     )
     native_camera_name_value = f"{camera_name_value}_native"
-    depth_camera_params = _load_ros_parameter_file(LaunchConfiguration("params_file").perform(context))
+    depth_camera_params = _load_ros_parameter_file(
+        LaunchConfiguration("params_file").perform(context)
+    )
     laserscan_params = _load_ros_parameter_file(
         LaunchConfiguration("laserscan_params_file").perform(context)
     )
@@ -123,7 +127,10 @@ def _launch_setup(context, *args, **kwargs):
             depth_camera_params,
             {
                 "camera_name": native_camera_name_value,
-                "use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool),
+                "use_sim_time": ParameterValue(
+                    LaunchConfiguration("use_sim_time"),
+                    value_type=bool,
+                ),
             },
         ],
     )
@@ -201,7 +208,10 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper/depth_camera"),
-        DeclareLaunchArgument("internal_namespace", default_value="amr_sweeper_internal/depth_camera"),
+        DeclareLaunchArgument(
+            "internal_namespace",
+            default_value="amr_sweeper_internal/depth_camera",
+        ),
         DeclareLaunchArgument("log_level", default_value="info"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("camera_domain_id", default_value="5"),

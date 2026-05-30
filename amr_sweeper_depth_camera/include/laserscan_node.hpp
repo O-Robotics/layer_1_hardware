@@ -1,7 +1,7 @@
 // Copyright (c) 2026 O-Robotics
 
-#ifndef AMR_SWEEPER_DEPTH_CAMERA__LASERSCAN_NODE_HPP_
-#define AMR_SWEEPER_DEPTH_CAMERA__LASERSCAN_NODE_HPP_
+#ifndef LASERSCAN_NODE_HPP_
+#define LASERSCAN_NODE_HPP_
 
 #include <cmath>
 #include <cstdint>
@@ -80,7 +80,8 @@ private:
         const double angle = -std::atan2(
           static_cast<double>(u - center_x) * constant_x,
           unit_scaling);
-        const int index = static_cast<int>((angle - scan_msg->angle_min) / scan_msg->angle_increment);
+        const int index = static_cast<int>(
+          (angle - scan_msg->angle_min) / scan_msg->angle_increment);
         if (index < 0 || index >= static_cast<int>(scan_msg->ranges.size())) {
           continue;
         }
@@ -123,4 +124,4 @@ private:
 
 }  // namespace amr_sweeper_depth_camera
 
-#endif  // AMR_SWEEPER_DEPTH_CAMERA__LASERSCAN_NODE_HPP_
+#endif  // LASERSCAN_NODE_HPP_

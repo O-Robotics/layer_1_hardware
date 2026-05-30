@@ -51,6 +51,9 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  file(GLOB_RECURSE AMENT_LINT_AUTO_FILE_EXCLUDE
+    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+    "src/realsense-ros/*")
   ament_lint_auto_find_test_dependencies()
 endif()
 
