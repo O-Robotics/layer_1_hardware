@@ -17,18 +17,18 @@
     depth_module.infra1_format:      Y8
     depth_module.infra2_format:      Y8
 
-    enable_accel:                    true
-    enable_gyro:                     true
-    accel_fps:                       100
-    gyro_fps:                        200
-    unite_imu_method:                1             # Publish the combined ~/imu topic that we remap to motion/imu.
+    enable_motion:                   true          # D555 DDS devices expose combined IMU samples on ~/motion/sample.
+    enable_accel:                    false
+    enable_gyro:                     false
+    motion_fps:                      100
     motion_module.global_time_enabled: false
 
-    enable_sync:                     true
+    enable_sync:                     false
     pointcloud.enable:               true
     pointcloud.stream_filter:        2
     pointcloud.stream_index_filter:  0
-    align_depth.enable:              true
+    align_depth.enable:              false
 
-    publish_tf:                      true
+    hold_back_imu_for_frames:        false
+    publish_tf:                      false
     tf_publish_rate:                 0.0

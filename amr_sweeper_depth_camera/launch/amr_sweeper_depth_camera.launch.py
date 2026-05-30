@@ -52,7 +52,10 @@ def _stringify_launch_argument(value):
 
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
-    camera_namespace_value, camera_name_value = _split_namespace(namespace_value)
+    _, camera_name_value = _split_namespace(namespace_value)
+    internal_namespace_value = _normalize_namespace(
+        LaunchConfiguration("internal_namespace").perform(context)
+    )
     native_camera_name_value = f"{camera_name_value}_native"
     depth_camera_params = _load_ros_parameter_file(LaunchConfiguration("params_file").perform(context))
     laserscan_params = _load_ros_parameter_file(
@@ -101,7 +104,9 @@ def _launch_setup(context, *args, **kwargs):
         msg=(
             "amr_sweeper_depth_camera: launching realsense2_camera wrapper under "
             f"{namespace_value} with internal native topics under "
-            f"{camera_namespace_value}/{native_camera_name_value}. "
+            f"{internal_namespace_value}/{native_camera_name_value}. "
+            "The bundled realsense-ros subtree under amr_sweeper_depth_camera/src/realsense-ros "
+            "must be present in the workspace. "
             "ROS_DOMAIN_ID 5 is expected for the camera process. "
             "TODO: keep custom wrapper development deferred until we actually need it again."
         )
@@ -110,9 +115,9 @@ def _launch_setup(context, *args, **kwargs):
     realsense_node = Node(
         package="realsense2_camera",
         executable="realsense2_camera_node",
-        namespace=camera_namespace_value,
+        namespace=internal_namespace_value,
         name=native_camera_name_value,
-        output="screen",
+        output="log",
         arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
         parameters=[
             depth_camera_params,
@@ -123,7 +128,7 @@ def _launch_setup(context, *args, **kwargs):
         ],
     )
 
-    native_root = _join_namespace(camera_namespace_value, native_camera_name_value)
+    native_root = _join_namespace(internal_namespace_value, native_camera_name_value)
     topic_bridge_node = Node(
         package="amr_sweeper_depth_camera",
         executable="topic_bridge_node",
@@ -196,6 +201,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper/depth_camera"),
+        DeclareLaunchArgument("internal_namespace", default_value="amr_sweeper_internal/depth_camera"),
         DeclareLaunchArgument("log_level", default_value="info"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("camera_domain_id", default_value="5"),

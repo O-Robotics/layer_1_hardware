@@ -3,7 +3,7 @@
 <package format="3">
   <name>amr_sweeper_depth_camera</name>
   <version>0.0.1</version>
-  <description>Launch wrapper around realsense2_camera plus the AMR Sweeper laser scan pipeline.</description>
+  <description>Launch wrapper around the bundled realsense2_camera subtree plus the AMR Sweeper laser scan pipeline.</description>
 
   <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
 
