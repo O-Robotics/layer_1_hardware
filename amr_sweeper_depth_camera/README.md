@@ -5,20 +5,20 @@ ros2 launch amr_sweeper_depth_camera amr_sweeper_depth_camera.launch.py
 ```
 
 ## Purpose
-This package is now a thin wrapper around `realsense2_camera` plus the local `laserscan_node`. It keeps the existing AMR Sweeper-facing topic contract under `/amr_sweeper/depth_camera/...` while relying on the bundled `realsense-ros` subtree at `src/realsense-ros/` for the RealSense driver itself.
+This package is now a thin wrapper around `realsense2_camera` plus the local `laserscan_node`. The RealSense driver publishes directly under `/amr_sweeper/depth_camera/...` while relying on the bundled `realsense-ros` subtree at `src/realsense-ros/` for the driver itself.
 
 ## Main Outputs
 - `/amr_sweeper/depth_camera/color/image_raw`
 - `/amr_sweeper/depth_camera/color/camera_info`
-- `/amr_sweeper/depth_camera/depth/image`
+- `/amr_sweeper/depth_camera/depth/image_rect_raw`
 - `/amr_sweeper/depth_camera/depth/camera_info`
 - `/amr_sweeper/depth_camera/depth/color/points`
-- `/amr_sweeper/depth_camera/motion/imu`
+- `/amr_sweeper/depth_camera/motion/sample`
 - `/amr_sweeper/depth_camera/scan`
 
 ## Notes
-- The native `realsense2_camera_node` runs on an internal namespace under `/amr_sweeper_internal/depth_camera/...` so the public AMR namespace stays small and predictable.
-- The wrapper bridge republishes only the few native topics that differ from the AMR Sweeper contract, mainly `depth/image_rect_raw -> depth/image` and `motion/sample -> motion/imu`.
+- The `realsense2_camera_node` now runs directly in the configured camera namespace. The default namespace still resolves to `/amr_sweeper/depth_camera`.
+- There is no topic bridge in the launch flow anymore, so consumers should use the native RealSense topic names such as `depth/image_rect_raw` and `motion/sample`.
 - `config/amr_sweeper_depth_camera.yaml` now uses `realsense2_camera` parameter names.
 - `camera_domain_id` is kept only as an informational compatibility argument because the D555 side is still expected to run with `ROS_DOMAIN_ID=5`.
 - The default config now prefers the D555 DDS motion stream over the separate accel/gyro path and disables aligned-depth publishing to reduce runtime noise.
