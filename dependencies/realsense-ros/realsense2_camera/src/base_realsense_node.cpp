@@ -740,7 +740,12 @@ bool BaseRealSenseNode::setBaseTime(double frame_time, rs2_timestamp_domain time
 
     if (time_domain == RS2_TIMESTAMP_DOMAIN_HARDWARE_CLOCK)
     {
-        ROS_INFO_ONCE("Frame time domain is HARDWARE_CLOCK. Timestamp resets are possible.");
+        static bool logged_hardware_clock_notice = false;
+        if (!logged_hardware_clock_notice)
+        {
+            ROS_INFO("Frame time domain is HARDWARE_CLOCK. Timestamp resets are possible.");
+            logged_hardware_clock_notice = true;
+        }
         _ros_time_base = _node.now();
         _camera_time_base = frame_time;
         return true;

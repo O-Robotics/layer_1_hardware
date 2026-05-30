@@ -4,12 +4,12 @@
     enable_color:                    true
     rgb_camera.color_profile:        896x504x30
     rgb_camera.color_format:         RGB8
-    rgb_camera.global_time_enabled:  false
+    rgb_camera.global_time_enabled:  true
 
     enable_depth:                    true
     depth_module.depth_profile:      896x504x30
     depth_module.depth_format:       Z16
-    depth_module.global_time_enabled: false
+    depth_module.global_time_enabled: true
 
     enable_infra1:                   false
     enable_infra2:                   false
@@ -21,7 +21,7 @@
     enable_accel:                    false
     enable_gyro:                     false
     motion_fps:                      100
-    motion_module.global_time_enabled: false
+    motion_module.global_time_enabled: true
 
     enable_sync:                     false
     pointcloud.enable:               true
