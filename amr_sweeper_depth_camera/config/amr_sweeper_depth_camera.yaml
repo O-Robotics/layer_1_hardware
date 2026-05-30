@@ -4,10 +4,12 @@
     enable_color:                    true
     rgb_camera.color_profile:        896x504x30
     rgb_camera.color_format:         RGB8
+    rgb_camera.global_time_enabled:  false
 
     enable_depth:                    true
     depth_module.depth_profile:      896x504x30
     depth_module.depth_format:       Z16
+    depth_module.global_time_enabled: false
 
     enable_infra1:                   false
     enable_infra2:                   false
@@ -20,6 +22,7 @@
     accel_fps:                       100
     gyro_fps:                        200
     unite_imu_method:                1             # Publish the combined ~/imu topic that we remap to motion/imu.
+    motion_module.global_time_enabled: false
 
     enable_sync:                     true
     pointcloud.enable:               true
