@@ -2,12 +2,12 @@
   ros__parameters:
     serial_no:                       ""            # Leave empty to auto-select the detected D555.
     enable_color:                    true
-    rgb_camera.color_profile:        896x504x30
+    rgb_camera.color_profile:        448x252x5
     rgb_camera.color_format:         RGB8
     rgb_camera.global_time_enabled:  true
 
     enable_depth:                    true
-    depth_module.depth_profile:      896x504x30
+    depth_module.depth_profile:      640x360x30
     depth_module.depth_format:       Z16
     depth_module.global_time_enabled: true
 
