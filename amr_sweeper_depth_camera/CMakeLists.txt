@@ -51,6 +51,11 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  set(AMENT_LINT_AUTO_EXCLUDE
+    ament_cmake_copyright
+    ament_cmake_lint_cmake
+    ament_cmake_pep257
+    ament_cmake_xmllint)
   file(GLOB_RECURSE AMENT_LINT_AUTO_FILE_EXCLUDE
     RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "src/realsense-ros/*")

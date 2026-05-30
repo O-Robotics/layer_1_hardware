@@ -41,8 +41,7 @@ std::array<double, 12> projectionFromIntrinsics(const rs2_intrinsics & intrinsic
 
 float packRgb(uint8_t red, uint8_t green, uint8_t blue)
 {
-  union
-  {
+  union {
     std::uint32_t rgba;
     float packed;
   } value{};
