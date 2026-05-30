@@ -46,6 +46,20 @@ def generate_launch_description():
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     battery_params_file = LaunchConfiguration("battery_params_file")
     system_info_params_file = LaunchConfiguration("system_info_params_file")
+    depth_camera_params_file = LaunchConfiguration("depth_camera_params_file")
+    depth_camera_use_laserscan = LaunchConfiguration("depth_camera_use_laserscan")
+    depth_camera_laserscan_params_file = LaunchConfiguration("depth_camera_laserscan_params_file")
+    depth_camera_image_topic = LaunchConfiguration("depth_camera_image_topic")
+    depth_camera_info_topic = LaunchConfiguration("depth_camera_info_topic")
+    depth_camera_frame = LaunchConfiguration("depth_camera_frame")
+    depth_camera_scan_topic = LaunchConfiguration("depth_camera_scan_topic")
+    depth_camera_output_frame = LaunchConfiguration("depth_camera_output_frame")
+    depth_camera_range_min = LaunchConfiguration("depth_camera_range_min")
+    depth_camera_range_max = LaunchConfiguration("depth_camera_range_max")
+    depth_camera_scan_height = LaunchConfiguration("depth_camera_scan_height")
+    depth_camera_scan_tilt_angle_deg = LaunchConfiguration("depth_camera_scan_tilt_angle_deg")
+    depth_camera_scan_time = LaunchConfiguration("depth_camera_scan_time")
+    depth_camera_camera_domain_id = LaunchConfiguration("depth_camera_camera_domain_id")
     imu_device_path = LaunchConfiguration("imu_device_path")
     imu_port = LaunchConfiguration("imu_port")
     imu_baud = LaunchConfiguration("imu_baud")
@@ -95,6 +109,28 @@ def generate_launch_description():
         "config",
         "amr_sweeper_system_info.yaml",
     ])))
+    ld.add_action(DeclareLaunchArgument("depth_camera_params_file", default_value=PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_depth_camera"),
+        "config",
+        "amr_sweeper_depth_camera.yaml",
+    ])))
+    ld.add_action(DeclareLaunchArgument("depth_camera_use_laserscan", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("depth_camera_laserscan_params_file", default_value=PathJoinSubstitution([
+        FindPackageShare("amr_sweeper_depth_camera"),
+        "config",
+        "laserscan.yaml",
+    ])))
+    ld.add_action(DeclareLaunchArgument("depth_camera_image_topic", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_info_topic", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_frame", default_value="depth_camera_link"))
+    ld.add_action(DeclareLaunchArgument("depth_camera_scan_topic", default_value="scan"))
+    ld.add_action(DeclareLaunchArgument("depth_camera_output_frame", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_range_min", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_range_max", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_scan_height", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_scan_tilt_angle_deg", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_scan_time", default_value=""))
+    ld.add_action(DeclareLaunchArgument("depth_camera_camera_domain_id", default_value="5"))
     ld.add_action(DeclareLaunchArgument("imu_device_path", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
     ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
@@ -178,6 +214,20 @@ def generate_launch_description():
                     "namespace": depth_camera_namespace,
                     "log_level": log_level,
                     "use_sim_time": use_sim_time,
+                    "camera_domain_id": depth_camera_camera_domain_id,
+                    "params_file": depth_camera_params_file,
+                    "use_laserscan": depth_camera_use_laserscan,
+                    "laserscan_params_file": depth_camera_laserscan_params_file,
+                    "depth_image_topic": depth_camera_image_topic,
+                    "depth_camera_info_topic": depth_camera_info_topic,
+                    "depth_camera_frame": depth_camera_frame,
+                    "scan_topic": depth_camera_scan_topic,
+                    "output_frame": depth_camera_output_frame,
+                    "range_min": depth_camera_range_min,
+                    "range_max": depth_camera_range_max,
+                    "scan_height": depth_camera_scan_height,
+                    "scan_tilt_angle_deg": depth_camera_scan_tilt_angle_deg,
+                    "scan_time": depth_camera_scan_time,
                 }.items(),
                 condition=IfCondition(use_amr_sweeper_depth_camera),
             ),
