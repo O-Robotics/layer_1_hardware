@@ -64,7 +64,7 @@ void ProfilesManager::registerSensorQOSParam(std::string template_name,
                     {
                         qos_string_to_qos(parameter.get_value<std::string>());
                         *param = parameter.get_value<std::string>();
-                        ROS_WARN_STREAM("re-enable the stream for the change to take effect.");
+                        ROS_INFO_STREAM("Re-enable the stream for this change to take effect.");
                     }
                     catch(const std::exception& e)
                     {
@@ -474,7 +474,7 @@ void VideoProfilesManager::registerVideoSensorParams(std::set<stream_index_pair>
                                     _height[stream_type] = temp_height;
                                     _fps[stream_type] = temp_fps;
                                     found = true;
-                                    ROS_WARN_STREAM("re-enable the stream for the change to take effect.");
+                                    ROS_INFO_STREAM("Re-enable the stream for this change to take effect.");
                                     break;
                                 }
                             }
@@ -638,7 +638,7 @@ void MotionProfilesManager::registerFPSParams()
                         {
                             *(_fps[sip]) = next_fps;
                             found = true;
-                            ROS_WARN_STREAM("re-enable the stream for the change to take effect.");
+                            ROS_INFO_STREAM("Re-enable the stream for this change to take effect.");
                             break;
                         }
                     }
@@ -660,4 +660,3 @@ void MotionProfilesManager::registerFPSParams()
 
     }
 }
-

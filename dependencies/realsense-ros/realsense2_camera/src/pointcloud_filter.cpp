@@ -49,7 +49,7 @@ void PointcloudFilter::setParameters()
                 {
                     qos_string_to_qos(parameter.get_value<std::string>());
                     _pointcloud_qos = parameter.get_value<std::string>();
-                    ROS_WARN_STREAM("re-enable the stream for the change to take effect.");
+                    ROS_INFO_STREAM("Re-enable the stream for this change to take effect.");
                 }
                 catch(const std::exception& e)
                 {

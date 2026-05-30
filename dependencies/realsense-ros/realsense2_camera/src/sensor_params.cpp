@@ -190,7 +190,16 @@ void SensorParams::set_parameter(rs2::options sensor, rs2_option option, const s
     }
     catch(const std::exception& ex)
     {
-        ROS_ERROR_STREAM("An error has occurred while calling sensor for: " << option_name << ":" << ex.what());
+        const std::string error_message(ex.what());
+        if (error_message.find("use rs2_get_option_value to get rect values") != std::string::npos ||
+            error_message.find("Not Implemented") != std::string::npos)
+        {
+            ROS_DEBUG_STREAM("Skipping unsupported sensor option registration for "
+                             << option_name << ": " << error_message);
+            return;
+        }
+        ROS_ERROR_STREAM("An error has occurred while calling sensor for: "
+                         << option_name << ":" << error_message);
         return;
     }
 
