@@ -3,15 +3,19 @@
 #ifndef AMR_SWEEPER_DEPTH_CAMERA__DEPTH_CAMERA_NODE_HPP_
 #define AMR_SWEEPER_DEPTH_CAMERA__DEPTH_CAMERA_NODE_HPP_
 
-#include <cstddef>
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
-#include <vector>
+#include <thread>
 
-#include <domain_bridge/domain_bridge.hpp>
-#include <rcl_interfaces/srv/set_parameters_atomically.hpp>
+#include <librealsense2/rs.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 namespace amr_sweeper_depth_camera
 {
@@ -20,108 +24,80 @@ class DepthCameraNode final : public rclcpp::Node
 {
 public:
   explicit DepthCameraNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-
-  domain_bridge::DomainBridge & bridge();
+  ~DepthCameraNode() override;
 
 private:
-  struct TopicSpec
+  struct StreamProfile
   {
-    std::string source_topic_name;
-    std::string target_topic_name;
-    std::string type_name;
-    bool bridge_enabled{true};
-    bool monitor_enabled{false};
-    bool received{false};
-    rclcpp::Time last_message_time{0, 0, RCL_ROS_TIME};
-    rclcpp::SubscriptionBase::SharedPtr subscription;
+    int width{0};
+    int height{0};
+    int fps{0};
   };
 
-  void configureBridge();
-  void configureSourceStreamControl();
-  void configureServiceBridges();
-  void configureTopicBridges();
-  void addTopicBridge(
-    const std::string & source_topic_name,
-    const std::string & target_topic_name,
-    const std::string & type_name,
-    bool enabled,
-    bool monitor_enabled,
-    const domain_bridge::TopicBridgeOptions & bridge_options = domain_bridge::TopicBridgeOptions());
-  void registerMonitorSubscription(std::size_t topic_index);
-  void topicMessageCb(std::size_t topic_index);
+  void configureParameters();
+  void configurePublishers();
+  void startPipeline();
+  void stopPipeline();
+  void captureLoop();
 
-  template<typename ServiceT>
-  void bridgeService(const std::string & suffix, bool enabled);
+  sensor_msgs::msg::CameraInfo buildCameraInfo(
+    const rs2::video_stream_profile & profile,
+    const std::string & frame_id,
+    const rclcpp::Time & stamp) const;
+  sensor_msgs::msg::Image buildImageMessage(
+    const rs2::video_frame & frame,
+    const std::string & encoding,
+    const std::string & frame_id,
+    const rclcpp::Time & stamp) const;
+  sensor_msgs::msg::PointCloud2 buildPointCloudMessage(
+    const rs2::depth_frame & depth_frame,
+    const rs2::video_frame & color_frame,
+    const rclcpp::Time & stamp);
+  void publishMotionFrame(const rs2::motion_frame & motion_frame, const rclcpp::Time & stamp);
 
-  static std::string normalizeRoot(const std::string & root);
-  static std::string joinName(const std::string & root, const std::string & suffix);
-  static std::string packageNameFromType(const std::string & type_name);
-  bool interfacePackageAvailable(const std::string & type_name) const;
+  std::string serial_no_;
+  bool use_color_{true};
+  bool use_depth_{true};
+  bool use_infra1_{false};
+  bool use_infra2_{false};
+  bool use_motion_{true};
+  bool publish_pointcloud_{true};
+  bool align_depth_to_color_{true};
+  int wait_for_frames_timeout_ms_{2000};
+  StreamProfile color_profile_{848, 480, 15};
+  StreamProfile depth_profile_{848, 480, 15};
+  StreamProfile infra_profile_{848, 480, 15};
+  int accel_fps_{100};
+  int gyro_fps_{200};
+  std::string color_frame_id_{"depth_camera_color_optical_frame"};
+  std::string depth_frame_id_{"depth_camera_depth_optical_frame"};
+  std::string infra1_frame_id_{"depth_camera_depth_optical_frame"};
+  std::string infra2_frame_id_{"depth_camera_depth_optical_frame"};
+  std::string imu_frame_id_{"depth_camera_imu_frame"};
+  std::string pointcloud_frame_id_{"depth_camera_color_optical_frame"};
 
-  void watchdogTimerCb();
-  void enterFatalState(const std::string & message);
-  void reportFullOutage(const std::string & message);
-  void logEscalatingFullOutage(int count, const std::string & message);
-  bool allTopicsHealthy() const;
-  void markRecoveredIfHealthy(const char * recovery_message);
-  void resetFullOutageCounters();
-  bool shouldLogIssue(const std::string & level, const std::string & message);
-  bool isTopicStale(const rclcpp::Time & last_message_time) const;
-  bool startupGraceActive() const;
-  bool waitingForInitialTopics() const;
-  std::size_t externalSubscriberCount(const TopicSpec & topic) const;
-  bool isTopicDemanded(const TopicSpec & topic) const;
-  std::vector<std::size_t> collectDemandedTopics() const;
-  std::vector<std::size_t> collectUnhealthyTopics() const;
-  std::string buildHealthMessage(
-    const std::vector<std::size_t> & unhealthy_topics,
-    const std::vector<std::size_t> & healthy_topics) const;
-  void queueSourceBoolParameter(
-    const std::string & parameter_name,
-    bool value);
-  void queueSourceStringParameter(
-    const std::string & parameter_name,
-    const std::string & value);
-  void sourceStreamControlTimerCb();
-  static std::string normalizeOptionalParameterName(const std::string & parameter_name);
+  rs2::pipeline pipeline_;
+  rs2::config pipeline_config_;
+  std::optional<rs2::pipeline_profile> pipeline_profile_;
+  std::unique_ptr<rs2::align> align_to_color_processor_;
+  rs2::pointcloud pointcloud_processor_;
+  std::atomic<bool> running_{false};
+  std::thread capture_thread_;
+  std::mutex imu_mutex_;
+  sensor_msgs::msg::Imu latest_imu_;
+  bool have_accel_{false};
+  bool have_gyro_{false};
 
-  std::size_t source_domain_id_{5};
-  std::size_t target_domain_id_{0};
-  std::string source_root_namespace_{"/realsense"};
-  std::string source_camera_id_;
-  std::string source_pointcloud_topic_;
-  std::string target_namespace_root_{"/amr_sweeper/depth_camera"};
-
-  bool enable_watchdog_{true};
-  bool watchdog_shutdown_on_fatal_{false};
-  bool fatal_error_{false};
-  bool was_healthy_{false};
-
-  rclcpp::Time startup_time_{0, 0, RCL_ROS_TIME};
-  double stale_data_timeout_sec_{8.0};
-  double startup_grace_sec_{12.0};
-  int reconnect_attempt_interval_ms_{1000};
-  int retry_attempts_before_error_{3};
-  int fatal_after_consecutive_errors_{10};
-  int max_reconnect_attempts_{10};
-  int full_outage_attempt_count_{0};
-  int full_outage_count_{0};
-  std::string last_issue_log_level_;
-  std::string last_issue_message_;
-
-  domain_bridge::DomainBridge bridge_;
-  std::vector<TopicSpec> monitored_topics_;
-  std::vector<std::string> skipped_bridge_topics_;
-  rclcpp::TimerBase::SharedPtr watchdog_timer_;
-  bool apply_source_stream_control_on_startup_{false};
-  int source_stream_control_attempts_{0};
-  int source_stream_control_max_attempts_{5};
-  int source_stream_control_retry_interval_ms_{1000};
-  bool source_stream_control_applied_{false};
-  std::vector<rclcpp::Parameter> source_stream_control_parameters_;
-  rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedPtr
-    source_stream_control_client_;
-  rclcpp::TimerBase::SharedPtr source_stream_control_timer_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr color_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr color_info_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr depth_info_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr infra1_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr infra1_info_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr infra2_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr infra2_info_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;
 };
 
 }  // namespace amr_sweeper_depth_camera

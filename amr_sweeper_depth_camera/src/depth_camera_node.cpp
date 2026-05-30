@@ -3,848 +3,477 @@
 #include "depth_camera_node.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
-#include <sstream>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <memory>
 #include <string>
+#include <thread>
 #include <utility>
+#include <vector>
 
-#include <ament_index_cpp/ament_index_cpp/get_package_prefix.hpp>
-#include <domain_bridge/domain_bridge_options.hpp>
-#include <domain_bridge/service_bridge_options.hpp>
-#include <domain_bridge/topic_bridge_options.hpp>
-#include <rcl_interfaces/srv/describe_parameters.hpp>
-#include <rcl_interfaces/srv/get_parameter_types.hpp>
-#include <rcl_interfaces/srv/get_parameters.hpp>
-#include <rcl_interfaces/srv/list_parameters.hpp>
-#include <rcl_interfaces/srv/set_parameters.hpp>
-#include <rcl_interfaces/srv/set_parameters_atomically.hpp>
-#include <rclcpp/executors/single_threaded_executor.hpp>
-#include <rclcpp/serialized_message.hpp>
-#include <realsense2_camera_msgs/srv/application_config_read.hpp>
-#include <realsense2_camera_msgs/srv/application_config_write.hpp>
-#include <realsense2_camera_msgs/srv/calib_config_read.hpp>
-#include <realsense2_camera_msgs/srv/calib_config_write.hpp>
-#include <realsense2_camera_msgs/srv/device_info.hpp>
-#include <realsense2_camera_msgs/srv/hardware_monitor_command_send.hpp>
-#include <realsense2_camera_msgs/srv/safety_interface_config_read.hpp>
-#include <realsense2_camera_msgs/srv/safety_interface_config_write.hpp>
-#include <realsense2_camera_msgs/srv/safety_preset_read.hpp>
-#include <realsense2_camera_msgs/srv/safety_preset_write.hpp>
-#include <std_srvs/srv/empty.hpp>
-#include <std_srvs/srv/trigger.hpp>
+#include <sensor_msgs/image_encodings.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 namespace amr_sweeper_depth_camera
 {
 
-DepthCameraNode::DepthCameraNode(const rclcpp::NodeOptions & options)
-: rclcpp::Node("depth_camera", options),
-  bridge_([]() {
-    domain_bridge::DomainBridgeOptions bridge_options;
-    bridge_options.name("amr_sweeper_depth_camera_bridge");
-    return bridge_options;
-  }())
+namespace
 {
-  source_domain_id_ = static_cast<std::size_t>(declare_parameter<int>("camera_domain_id", 5));
-  target_domain_id_ = static_cast<std::size_t>(declare_parameter<int>("workspace_domain_id", 0));
-  source_root_namespace_ = normalizeRoot(
-    declare_parameter<std::string>("source_root_namespace", "/realsense"));
-  source_camera_id_ = declare_parameter<std::string>("source_camera_id", "");
-  source_pointcloud_topic_ = declare_parameter<std::string>("source_pointcloud_topic", "");
-  target_namespace_root_ = normalizeRoot(
-    declare_parameter<std::string>("target_namespace_root", get_namespace()));
 
-  enable_watchdog_ = declare_parameter("enable_watchdog", true);
-  watchdog_shutdown_on_fatal_ = declare_parameter("watchdog_shutdown_on_fatal", false);
-  stale_data_timeout_sec_ = declare_parameter("stale_data_timeout_sec", 8.0);
-  startup_grace_sec_ = declare_parameter("startup_grace_sec", 12.0);
-  reconnect_attempt_interval_ms_ = declare_parameter("reconnect_attempt_interval_ms", 1000);
-  retry_attempts_before_error_ = declare_parameter("retry_attempts_before_error", 3);
-  fatal_after_consecutive_errors_ = declare_parameter("fatal_after_consecutive_errors", 10);
-  max_reconnect_attempts_ = declare_parameter("max_reconnect_attempts", 10);
+constexpr auto kCaptureRetryDelay = std::chrono::milliseconds(500);
 
-  stale_data_timeout_sec_ = std::max(stale_data_timeout_sec_, 0.1);
-  startup_grace_sec_ = std::max(startup_grace_sec_, 0.0);
-  reconnect_attempt_interval_ms_ = std::max(reconnect_attempt_interval_ms_, 1);
-  retry_attempts_before_error_ = std::max(retry_attempts_before_error_, 1);
-  fatal_after_consecutive_errors_ = std::max(fatal_after_consecutive_errors_, 1);
-  max_reconnect_attempts_ = std::max(max_reconnect_attempts_, 0);
+std::array<double, 9> identityRotation()
+{
+  return {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+}
 
-  startup_time_ = now();
-  configureBridge();
-  configureSourceStreamControl();
+std::array<double, 12> projectionFromIntrinsics(const rs2_intrinsics & intrinsics)
+{
+  return {
+    intrinsics.fx, 0.0, intrinsics.ppx, 0.0,
+    0.0, intrinsics.fy, intrinsics.ppy, 0.0,
+    0.0, 0.0, 1.0, 0.0};
+}
 
-  if (!skipped_bridge_topics_.empty()) {
+float packRgb(uint8_t red, uint8_t green, uint8_t blue)
+{
+  union
+  {
+    std::uint32_t rgba;
+    float packed;
+  } value{};
+  value.rgba = (static_cast<std::uint32_t>(red) << 16) |
+    (static_cast<std::uint32_t>(green) << 8) |
+    static_cast<std::uint32_t>(blue);
+  return value.packed;
+}
+
+}  // namespace
+
+DepthCameraNode::DepthCameraNode(const rclcpp::NodeOptions & options)
+: rclcpp::Node("depth_camera", options)
+{
+  configureParameters();
+  configurePublishers();
+
+  // TODO(alfol): resurrect the previous cross-domain custom wrapper work once the
+  // direct librealsense path is stable enough for production.
+  startPipeline();
+}
+
+DepthCameraNode::~DepthCameraNode()
+{
+  stopPipeline();
+}
+
+void DepthCameraNode::configureParameters()
+{
+  serial_no_ = declare_parameter<std::string>("serial_no", "");
+  use_color_ = declare_parameter("use_color", true);
+  use_depth_ = declare_parameter("use_depth", true);
+  use_infra1_ = declare_parameter("use_infra1", false);
+  use_infra2_ = declare_parameter("use_infra2", false);
+  use_motion_ = declare_parameter("use_motion", true);
+  publish_pointcloud_ = declare_parameter("publish_pointcloud", true);
+  align_depth_to_color_ = declare_parameter("align_depth_to_color", true);
+  wait_for_frames_timeout_ms_ = std::max(
+    declare_parameter("wait_for_frames_timeout_ms", 2000),
+    100);
+
+  color_profile_.width = declare_parameter("color_width", 848);
+  color_profile_.height = declare_parameter("color_height", 480);
+  color_profile_.fps = declare_parameter("color_fps", 15);
+  depth_profile_.width = declare_parameter("depth_width", 848);
+  depth_profile_.height = declare_parameter("depth_height", 480);
+  depth_profile_.fps = declare_parameter("depth_fps", 15);
+  infra_profile_.width = declare_parameter("infra_width", 848);
+  infra_profile_.height = declare_parameter("infra_height", 480);
+  infra_profile_.fps = declare_parameter("infra_fps", 15);
+  accel_fps_ = declare_parameter("accel_fps", 100);
+  gyro_fps_ = declare_parameter("gyro_fps", 200);
+
+  color_frame_id_ = declare_parameter("color_frame_id", color_frame_id_);
+  depth_frame_id_ = declare_parameter("depth_frame_id", depth_frame_id_);
+  infra1_frame_id_ = declare_parameter("infra1_frame_id", infra1_frame_id_);
+  infra2_frame_id_ = declare_parameter("infra2_frame_id", infra2_frame_id_);
+  imu_frame_id_ = declare_parameter("imu_frame_id", imu_frame_id_);
+  pointcloud_frame_id_ = declare_parameter("pointcloud_frame_id", pointcloud_frame_id_);
+
+  if (!use_color_ && publish_pointcloud_) {
     RCLCPP_WARN(
       get_logger(),
-      "Skipping optional bridge topics due to unavailable interfaces: %s",
-      [&]() {
-        std::ostringstream stream;
-        for (std::size_t i = 0; i < skipped_bridge_topics_.size(); ++i) {
-          if (i > 0) {
-            stream << ", ";
-          }
-          stream << skipped_bridge_topics_[i];
-        }
-        return stream.str();
-      }().c_str());
+      "Disabling pointcloud output because /depth/color/points depends on the color stream.");
+    publish_pointcloud_ = false;
   }
-
-  if (enable_watchdog_) {
-    watchdog_timer_ = create_wall_timer(
-      std::chrono::milliseconds(reconnect_attempt_interval_ms_),
-      std::bind(&DepthCameraNode::watchdogTimerCb, this));
+  if (!use_depth_ && publish_pointcloud_) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Disabling pointcloud output because /depth/color/points depends on the depth stream.");
+    publish_pointcloud_ = false;
   }
 }
 
-domain_bridge::DomainBridge & DepthCameraNode::bridge()
+void DepthCameraNode::configurePublishers()
 {
-  return bridge_;
-}
+  const auto qos = rclcpp::SensorDataQoS();
 
-void DepthCameraNode::configureBridge()
-{
-  configureTopicBridges();
-  configureServiceBridges();
-}
-
-void DepthCameraNode::configureSourceStreamControl()
-{
-  apply_source_stream_control_on_startup_ = declare_parameter(
-    "apply_source_stream_control_on_startup", false);
-  const bool apply_source_profiles_on_startup = declare_parameter(
-    "apply_source_profiles_on_startup", false);
-  source_stream_control_retry_interval_ms_ = std::max(
-    static_cast<int>(declare_parameter("source_stream_control_retry_interval_ms", 1000L)),
-    100);
-  source_stream_control_max_attempts_ = std::max(
-    static_cast<int>(declare_parameter("source_stream_control_max_attempts", 5L)),
-    1);
-
-  const auto get_or_declare_bool =
-    [this](const char * name, bool default_value)
-    {
-      if (has_parameter(name)) {
-        return get_parameter(name).as_bool();
-      }
-      return declare_parameter(name, default_value);
-    };
-
-  const auto get_or_declare_string =
-    [this](const char * name, const std::string & default_value)
-    {
-      if (has_parameter(name)) {
-        return get_parameter(name).as_string();
-      }
-      return declare_parameter(name, default_value);
-    };
-
-  const auto queue_stream_parameters =
-    [this, &get_or_declare_bool, &get_or_declare_string, apply_source_profiles_on_startup](
-      const std::string & use_parameter_name, const std::string & default_enable_parameter_name,
-      const std::string & profile_name_parameter_name,
-      const std::string & profile_parameter_parameter_name,
-      const std::string & default_profile_parameter_name)
-    {
-      const bool enabled = get_or_declare_bool(use_parameter_name.c_str(), true);
-      const std::string profile_parameter_name = normalizeOptionalParameterName(
-        get_or_declare_string(
-          profile_parameter_parameter_name.c_str(),
-          default_profile_parameter_name));
-      const std::string profile = get_or_declare_string(
-        profile_name_parameter_name.c_str(),
-        std::string(""));
-
-      queueSourceBoolParameter(default_enable_parameter_name, enabled);
-      if (enabled && apply_source_profiles_on_startup) {
-        queueSourceStringParameter(profile_parameter_name, profile);
-      }
-    };
-
-  const bool use_color = get_or_declare_bool("use_color", true);
-  const bool use_compressed_color = get_or_declare_bool("use_compressed_color", true);
-  const bool source_color_enabled = use_color || use_compressed_color;
-  const std::string color_profile_name = normalizeOptionalParameterName(
-    get_or_declare_string("color_profile_name", std::string("rgb_camera.profile")));
-  const std::string color_profile_parameter = get_or_declare_string(
-    "color_profile_parameter", std::string(""));
-  const std::string compressed_color_profile_name = normalizeOptionalParameterName(
-    get_or_declare_string("compressed_color_profile_name", std::string("rgb_camera.profile")));
-  const std::string compressed_color_profile_parameter = get_or_declare_string(
-    "compressed_color_profile_parameter", std::string(""));
-
-  queueSourceBoolParameter("enable_color", source_color_enabled);
-  if (source_color_enabled && apply_source_profiles_on_startup) {
-    if (use_color) {
-      queueSourceStringParameter(color_profile_name, color_profile_parameter);
-      if (use_compressed_color &&
-        color_profile_name == compressed_color_profile_name &&
-        !compressed_color_profile_parameter.empty() &&
-        compressed_color_profile_parameter != color_profile_parameter)
-      {
-        RCLCPP_WARN(
-          get_logger(),
-          "Compressed color profile '%s' differs from raw color profile '%s' but both map to '%s'; "
-          "keeping the raw color profile to match the native RGB stream.",
-          compressed_color_profile_parameter.c_str(),
-          color_profile_parameter.c_str(),
-          color_profile_name.c_str());
-      }
-    } else {
-      queueSourceStringParameter(
-        compressed_color_profile_name,
-        compressed_color_profile_parameter);
-    }
+  if (use_color_) {
+    color_pub_ = create_publisher<sensor_msgs::msg::Image>("color/image_raw", qos);
+    color_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>("color/camera_info", qos);
   }
-
-  queue_stream_parameters(
-    "use_depth",
-    "enable_depth",
-    "depth_profile_name",
-    "depth_profile_parameter",
-    "depth_module.depth_profile");
-  queue_stream_parameters(
-    "use_infra1",
-    "enable_infra1",
-    "infra1_profile_name",
-    "infra1_profile_parameter",
-    "depth_module.infra1_profile");
-  queue_stream_parameters(
-    "use_infra2",
-    "enable_infra2",
-    "infra2_profile_name",
-    "infra2_profile_parameter",
-    "depth_module.infra2_profile");
-  queue_stream_parameters(
-    "use_motion",
-    "enable_motion",
-    "motion_profile_name",
-    "motion_profile_parameter",
-    "motion_module.profile");
-
-  if (!apply_source_stream_control_on_startup_ || source_stream_control_parameters_.empty()) {
-    return;
+  if (use_depth_) {
+    depth_pub_ = create_publisher<sensor_msgs::msg::Image>("depth/image", qos);
+    depth_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>("depth/camera_info", qos);
   }
-
-  source_stream_control_client_ = create_client<rcl_interfaces::srv::SetParametersAtomically>(
-    joinName(target_namespace_root_, "set_parameters_atomically"));
-  source_stream_control_timer_ = create_wall_timer(
-    std::chrono::milliseconds(source_stream_control_retry_interval_ms_),
-    std::bind(&DepthCameraNode::sourceStreamControlTimerCb, this));
-}
-
-void DepthCameraNode::configureServiceBridges()
-{
-  bridgeService<rcl_interfaces::srv::DescribeParameters>(
-    "describe_parameters", declare_parameter("bridge_describe_parameters", true));
-  bridgeService<realsense2_camera_msgs::srv::ApplicationConfigRead>(
-    "application_config_read", declare_parameter("bridge_application_config_read", true));
-  bridgeService<realsense2_camera_msgs::srv::ApplicationConfigWrite>(
-    "application_config_write", declare_parameter("bridge_application_config_write", true));
-  bridgeService<realsense2_camera_msgs::srv::CalibConfigRead>(
-    "calib_config_read", declare_parameter("bridge_calib_config_read", true));
-  bridgeService<realsense2_camera_msgs::srv::CalibConfigWrite>(
-    "calib_config_write", declare_parameter("bridge_calib_config_write", true));
-  bridgeService<realsense2_camera_msgs::srv::DeviceInfo>(
-    "get_device_info", declare_parameter("bridge_get_device_info", true));
-  bridgeService<std_srvs::srv::Trigger>(
-    "get_device_info_std", declare_parameter("bridge_get_device_info_std", true));
-  bridgeService<rcl_interfaces::srv::GetParameterTypes>(
-    "get_parameter_types", declare_parameter("bridge_get_parameter_types", true));
-  bridgeService<rcl_interfaces::srv::GetParameters>(
-    "get_parameters", declare_parameter("bridge_get_parameters", true));
-  bridgeService<realsense2_camera_msgs::srv::HardwareMonitorCommandSend>(
-    "hardware_monitor_command", declare_parameter("bridge_hardware_monitor_command", true));
-  bridgeService<std_srvs::srv::Trigger>(
-    "help", declare_parameter("bridge_help", true));
-  bridgeService<std_srvs::srv::Empty>(
-    "hw_reset", declare_parameter("bridge_hw_reset", true));
-  bridgeService<rcl_interfaces::srv::ListParameters>(
-    "list_parameters", declare_parameter("bridge_list_parameters", true));
-  bridgeService<realsense2_camera_msgs::srv::SafetyInterfaceConfigRead>(
-    "safety_interface_config_read",
-    declare_parameter("bridge_safety_interface_config_read", true));
-  bridgeService<realsense2_camera_msgs::srv::SafetyInterfaceConfigWrite>(
-    "safety_interface_config_write",
-    declare_parameter("bridge_safety_interface_config_write", true));
-  bridgeService<realsense2_camera_msgs::srv::SafetyPresetRead>(
-    "safety_preset_read", declare_parameter("bridge_safety_preset_read", true));
-  bridgeService<realsense2_camera_msgs::srv::SafetyPresetWrite>(
-    "safety_preset_write", declare_parameter("bridge_safety_preset_write", true));
-  bridgeService<rcl_interfaces::srv::SetParameters>(
-    "set_parameters", declare_parameter("bridge_set_parameters", true));
-  bridgeService<rcl_interfaces::srv::SetParametersAtomically>(
-    "set_parameters_atomically", declare_parameter("bridge_set_parameters_atomically", true));
-}
-
-void DepthCameraNode::configureTopicBridges()
-{
-  const std::string source_camera_root = joinName(source_root_namespace_, source_camera_id_);
-  const auto get_or_declare_bool =
-    [this](const char * name, bool default_value)
-    {
-      if (has_parameter(name)) {
-        return get_parameter(name).as_bool();
-      }
-      return declare_parameter(name, default_value);
-    };
-
-  const bool use_tf_static = get_or_declare_bool("use_tf_static", true);
-  const bool use_color = get_or_declare_bool("use_color", true);
-  const bool use_compressed_color = get_or_declare_bool("use_compressed_color", true);
-  const bool use_depth = get_or_declare_bool("use_depth", true);
-  const bool use_infra1 = get_or_declare_bool("use_infra1", true);
-  const bool use_infra2 = get_or_declare_bool("use_infra2", true);
-  const bool use_motion = get_or_declare_bool("use_motion", true);
-  auto sensor_bridge_options = []() {
-      domain_bridge::TopicBridgeOptions options;
-      domain_bridge::QosOptions qos_options;
-      qos_options.reliability(rclcpp::ReliabilityPolicy::BestEffort);
-      qos_options.durability(rclcpp::DurabilityPolicy::Volatile);
-      qos_options.history(rclcpp::HistoryPolicy::KeepLast);
-      qos_options.depth(10);
-      options.qos_options(qos_options);
-      options.wait_for_subscription(true);
-      options.wait_for_publisher(false);
-      options.auto_remove(domain_bridge::TopicBridgeOptions::AutoRemove::OnNoSubscription);
-      return options;
-    };
-
-  auto tf_static_bridge_options = []() {
-      domain_bridge::TopicBridgeOptions options;
-      domain_bridge::QosOptions qos_options;
-      qos_options.reliability(rclcpp::ReliabilityPolicy::Reliable);
-      qos_options.durability(rclcpp::DurabilityPolicy::TransientLocal);
-      qos_options.history(rclcpp::HistoryPolicy::KeepLast);
-      qos_options.depth(1);
-      options.qos_options(qos_options);
-      options.wait_for_subscription(true);
-      options.wait_for_publisher(false);
-      options.auto_remove(domain_bridge::TopicBridgeOptions::AutoRemove::OnNoSubscription);
-      return options;
-    };
-
-  addTopicBridge(
-    joinName(source_camera_root, "tf_static"),
-    joinName(target_namespace_root_, "tf_static"),
-    "tf2_msgs/msg/TFMessage", use_tf_static, false, tf_static_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Color",
-    joinName(target_namespace_root_, "color/image"),
-    "sensor_msgs/msg/Image", use_color, use_color, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Color/camera_info",
-    joinName(target_namespace_root_, "color/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_color, use_color, sensor_bridge_options());
-  addTopicBridge(
-    // Keep compressed color separately switchable so downstream consumers can opt out of raw color.
-    source_camera_root + "_CompressedColor",
-    joinName(target_namespace_root_, "compressed/image"),
-    "sensor_msgs/msg/CompressedImage", use_compressed_color, use_compressed_color, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_CompressedColor/camera_info",
-    joinName(target_namespace_root_, "compressed/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_compressed_color, false, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Depth",
-    joinName(target_namespace_root_, "depth/image"),
-    "sensor_msgs/msg/Image", use_depth, use_depth, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Depth/camera_info",
-    joinName(target_namespace_root_, "depth/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_depth, use_depth, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Infrared_1",
-    joinName(target_namespace_root_, "infra1/image"),
-    "sensor_msgs/msg/Image", use_infra1, use_infra1, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Infrared_1/camera_info",
-    joinName(target_namespace_root_, "infra1/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_infra1, use_infra1, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Infrared_2",
-    joinName(target_namespace_root_, "infra2/image"),
-    "sensor_msgs/msg/Image", use_infra2, use_infra2, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Infrared_2/camera_info",
-    joinName(target_namespace_root_, "infra2/camera_info"),
-    "sensor_msgs/msg/CameraInfo", use_infra2, use_infra2, sensor_bridge_options());
-  addTopicBridge(
-    source_camera_root + "_Motion",
-    joinName(target_namespace_root_, "motion/imu"),
-    "sensor_msgs/msg/Imu", use_motion, use_motion, sensor_bridge_options());
-}
-
-void DepthCameraNode::addTopicBridge(
-  const std::string & source_topic_name,
-  const std::string & target_topic_name,
-  const std::string & type_name,
-  bool enabled,
-  bool monitor_enabled,
-  const domain_bridge::TopicBridgeOptions & bridge_options)
-{
-  TopicSpec topic;
-  topic.source_topic_name = source_topic_name;
-  topic.target_topic_name = target_topic_name;
-  topic.type_name = type_name;
-  topic.bridge_enabled = enabled;
-  topic.monitor_enabled = monitor_enabled;
-  monitored_topics_.push_back(topic);
-
-  TopicSpec & stored_topic = monitored_topics_.back();
-  if (stored_topic.bridge_enabled) {
-    if (!interfacePackageAvailable(stored_topic.type_name)) {
-      stored_topic.bridge_enabled = false;
-      stored_topic.monitor_enabled = false;
-      skipped_bridge_topics_.push_back(
-        stored_topic.source_topic_name + " (" + stored_topic.type_name + ")");
-    } else {
-      domain_bridge::TopicBridgeOptions options = bridge_options;
-      options.remap_name(stored_topic.target_topic_name);
-      bridge_.bridge_topic(
-        stored_topic.source_topic_name,
-        stored_topic.type_name,
-        source_domain_id_,
-        target_domain_id_,
-        options);
-    }
+  if (use_infra1_) {
+    infra1_pub_ = create_publisher<sensor_msgs::msg::Image>("infra1/image", qos);
+    infra1_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>("infra1/camera_info", qos);
   }
-
-  if (enable_watchdog_ && stored_topic.monitor_enabled) {
-    registerMonitorSubscription(monitored_topics_.size() - 1);
+  if (use_infra2_) {
+    infra2_pub_ = create_publisher<sensor_msgs::msg::Image>("infra2/image", qos);
+    infra2_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>("infra2/camera_info", qos);
+  }
+  if (use_motion_) {
+    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>("motion/imu", qos);
+  }
+  if (publish_pointcloud_) {
+    pointcloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("depth/color/points", qos);
   }
 }
 
-void DepthCameraNode::registerMonitorSubscription(std::size_t topic_index)
+void DepthCameraNode::startPipeline()
 {
-  auto & topic = monitored_topics_[topic_index];
-  topic.subscription = create_generic_subscription(
-    topic.target_topic_name,
-    topic.type_name,
-    rclcpp::SensorDataQoS(),
-    [this, topic_index](std::shared_ptr<rclcpp::SerializedMessage>) {
-      topicMessageCb(topic_index);
-    });
+  if (use_color_) {
+    pipeline_config_.enable_stream(
+      RS2_STREAM_COLOR,
+      color_profile_.width,
+      color_profile_.height,
+      RS2_FORMAT_RGB8,
+      color_profile_.fps);
+  }
+  if (use_depth_) {
+    pipeline_config_.enable_stream(
+      RS2_STREAM_DEPTH,
+      depth_profile_.width,
+      depth_profile_.height,
+      RS2_FORMAT_Z16,
+      depth_profile_.fps);
+  }
+  if (use_infra1_) {
+    pipeline_config_.enable_stream(
+      RS2_STREAM_INFRARED,
+      1,
+      infra_profile_.width,
+      infra_profile_.height,
+      RS2_FORMAT_Y8,
+      infra_profile_.fps);
+  }
+  if (use_infra2_) {
+    pipeline_config_.enable_stream(
+      RS2_STREAM_INFRARED,
+      2,
+      infra_profile_.width,
+      infra_profile_.height,
+      RS2_FORMAT_Y8,
+      infra_profile_.fps);
+  }
+  if (use_motion_) {
+    pipeline_config_.enable_stream(RS2_STREAM_ACCEL, RS2_FORMAT_MOTION_XYZ32F, accel_fps_);
+    pipeline_config_.enable_stream(RS2_STREAM_GYRO, RS2_FORMAT_MOTION_XYZ32F, gyro_fps_);
+  }
+  if (!serial_no_.empty()) {
+    pipeline_config_.enable_device(serial_no_);
+  }
+
+  running_.store(true);
+  capture_thread_ = std::thread(&DepthCameraNode::captureLoop, this);
 }
 
-void DepthCameraNode::topicMessageCb(std::size_t topic_index)
+void DepthCameraNode::stopPipeline()
 {
-  if (topic_index >= monitored_topics_.size()) {
-    return;
+  running_.store(false);
+  if (capture_thread_.joinable()) {
+    capture_thread_.join();
   }
-
-  auto & topic = monitored_topics_[topic_index];
-  topic.last_message_time = now();
-  topic.received = true;
-  markRecoveredIfHealthy("Depth camera topics are healthy again.");
-}
-
-std::string DepthCameraNode::normalizeRoot(const std::string & root)
-{
-  if (root.empty()) {
-    return "/";
-  }
-
-  std::string normalized = root;
-  if (normalized.front() != '/') {
-    normalized.insert(normalized.begin(), '/');
-  }
-  while (normalized.size() > 1 && normalized.back() == '/') {
-    normalized.pop_back();
-  }
-  return normalized;
-}
-
-std::string DepthCameraNode::joinName(const std::string & root, const std::string & suffix)
-{
-  const std::string normalized_root = normalizeRoot(root);
-  if (normalized_root == "/") {
-    return normalized_root + suffix;
-  }
-  return normalized_root + "/" + suffix;
-}
-
-std::string DepthCameraNode::packageNameFromType(const std::string & type_name)
-{
-  const std::size_t separator = type_name.find('/');
-  if (separator == std::string::npos) {
-    return {};
-  }
-  return type_name.substr(0, separator);
-}
-
-std::string DepthCameraNode::normalizeOptionalParameterName(const std::string & parameter_name)
-{
-  if (parameter_name.empty()) {
-    return {};
-  }
-
-  std::string normalized = parameter_name;
-  while (!normalized.empty() && normalized.front() == '/') {
-    normalized.erase(normalized.begin());
-  }
-  return normalized;
-}
-
-void DepthCameraNode::queueSourceBoolParameter(
-  const std::string & parameter_name,
-  bool value)
-{
-  if (parameter_name.empty()) {
-    return;
-  }
-  const auto existing = std::find_if(
-    source_stream_control_parameters_.begin(),
-    source_stream_control_parameters_.end(),
-    [&parameter_name](const rclcpp::Parameter & parameter) {
-      return parameter.get_name() == parameter_name;
-    });
-  if (existing != source_stream_control_parameters_.end()) {
-    *existing = rclcpp::Parameter(parameter_name, value);
-    return;
-  }
-  source_stream_control_parameters_.emplace_back(parameter_name, value);
-}
-
-void DepthCameraNode::queueSourceStringParameter(
-  const std::string & parameter_name,
-  const std::string & value)
-{
-  if (parameter_name.empty() || value.empty()) {
-    return;
-  }
-  const auto existing = std::find_if(
-    source_stream_control_parameters_.begin(),
-    source_stream_control_parameters_.end(),
-    [&parameter_name](const rclcpp::Parameter & parameter) {
-      return parameter.get_name() == parameter_name;
-    });
-  if (existing != source_stream_control_parameters_.end()) {
-    *existing = rclcpp::Parameter(parameter_name, value);
-    return;
-  }
-  source_stream_control_parameters_.emplace_back(parameter_name, value);
-}
-
-void DepthCameraNode::sourceStreamControlTimerCb()
-{
-  if (source_stream_control_applied_ || !source_stream_control_client_ || !source_stream_control_timer_) {
-    return;
-  }
-
-  if (!source_stream_control_client_->wait_for_service(std::chrono::seconds(0))) {
-    ++source_stream_control_attempts_;
-    if (source_stream_control_attempts_ >= source_stream_control_max_attempts_) {
+  if (pipeline_profile_.has_value()) {
+    try {
+      pipeline_.stop();
+    } catch (const rs2::error & error) {
       RCLCPP_WARN(
         get_logger(),
-        "Skipping startup stream control because '%s' did not become available after %d attempts.",
-        joinName(target_namespace_root_, "set_parameters_atomically").c_str(),
-        source_stream_control_attempts_);
-      source_stream_control_timer_->cancel();
+        "Error while stopping RealSense pipeline: %s",
+        error.what());
     }
+    pipeline_profile_.reset();
+  }
+}
+
+sensor_msgs::msg::CameraInfo DepthCameraNode::buildCameraInfo(
+  const rs2::video_stream_profile & profile,
+  const std::string & frame_id,
+  const rclcpp::Time & stamp) const
+{
+  const rs2_intrinsics intrinsics = profile.get_intrinsics();
+
+  sensor_msgs::msg::CameraInfo info;
+  info.header.stamp = stamp;
+  info.header.frame_id = frame_id;
+  info.width = static_cast<std::uint32_t>(intrinsics.width);
+  info.height = static_cast<std::uint32_t>(intrinsics.height);
+  info.k = {
+    intrinsics.fx, 0.0, intrinsics.ppx,
+    0.0, intrinsics.fy, intrinsics.ppy,
+    0.0, 0.0, 1.0};
+  info.p = projectionFromIntrinsics(intrinsics);
+  info.r = identityRotation();
+  info.distortion_model = "plumb_bob";
+  info.d.assign(
+    intrinsics.coeffs,
+    intrinsics.coeffs + std::size(intrinsics.coeffs));
+  return info;
+}
+
+sensor_msgs::msg::Image DepthCameraNode::buildImageMessage(
+  const rs2::video_frame & frame,
+  const std::string & encoding,
+  const std::string & frame_id,
+  const rclcpp::Time & stamp) const
+{
+  sensor_msgs::msg::Image message;
+  message.header.stamp = stamp;
+  message.header.frame_id = frame_id;
+  message.height = frame.get_height();
+  message.width = frame.get_width();
+  message.encoding = encoding;
+  message.is_bigendian = false;
+  message.step = static_cast<sensor_msgs::msg::Image::_step_type>(frame.get_stride_in_bytes());
+  const auto * raw = static_cast<const std::uint8_t *>(frame.get_data());
+  message.data.assign(raw, raw + (message.step * message.height));
+  return message;
+}
+
+sensor_msgs::msg::PointCloud2 DepthCameraNode::buildPointCloudMessage(
+  const rs2::depth_frame & depth_frame,
+  const rs2::video_frame & color_frame,
+  const rclcpp::Time & stamp)
+{
+  pointcloud_processor_.map_to(color_frame);
+  const rs2::points points = pointcloud_processor_.calculate(depth_frame);
+  const auto vertices = points.get_vertices();
+  const auto texcoords = points.get_texture_coordinates();
+
+  sensor_msgs::msg::PointCloud2 message;
+  message.header.stamp = stamp;
+  message.header.frame_id = pointcloud_frame_id_;
+  message.height = 1;
+  message.width = points.size();
+  message.is_bigendian = false;
+  message.is_dense = false;
+
+  sensor_msgs::PointCloud2Modifier modifier(message);
+  modifier.setPointCloud2Fields(
+    4,
+    "x", 1, sensor_msgs::msg::PointField::FLOAT32,
+    "y", 1, sensor_msgs::msg::PointField::FLOAT32,
+    "z", 1, sensor_msgs::msg::PointField::FLOAT32,
+    "rgb", 1, sensor_msgs::msg::PointField::FLOAT32);
+  modifier.resize(points.size());
+
+  sensor_msgs::PointCloud2Iterator<float> iter_x(message, "x");
+  sensor_msgs::PointCloud2Iterator<float> iter_y(message, "y");
+  sensor_msgs::PointCloud2Iterator<float> iter_z(message, "z");
+  sensor_msgs::PointCloud2Iterator<float> iter_rgb(message, "rgb");
+
+  const auto * color_data = static_cast<const std::uint8_t *>(color_frame.get_data());
+  const int color_width = color_frame.get_width();
+  const int color_height = color_frame.get_height();
+  const int color_pixel_stride = color_frame.get_bytes_per_pixel();
+  const int color_row_stride = color_frame.get_stride_in_bytes();
+
+  for (std::size_t i = 0; i < points.size(); ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_rgb) {
+    const auto & vertex = vertices[i];
+    *iter_x = vertex.x;
+    *iter_y = vertex.y;
+    *iter_z = vertex.z;
+
+    uint8_t red = 0;
+    uint8_t green = 0;
+    uint8_t blue = 0;
+    if (std::isfinite(vertex.z)) {
+      const int x = std::clamp(
+        static_cast<int>(texcoords[i].u * static_cast<float>(color_width)),
+        0,
+        std::max(color_width - 1, 0));
+      const int y = std::clamp(
+        static_cast<int>(texcoords[i].v * static_cast<float>(color_height)),
+        0,
+        std::max(color_height - 1, 0));
+      const std::size_t offset = static_cast<std::size_t>((y * color_row_stride) + (x * color_pixel_stride));
+      red = color_data[offset + 0];
+      green = color_data[offset + 1];
+      blue = color_data[offset + 2];
+    }
+    *iter_rgb = packRgb(red, green, blue);
+  }
+
+  return message;
+}
+
+void DepthCameraNode::publishMotionFrame(const rs2::motion_frame & motion_frame, const rclcpp::Time & stamp)
+{
+  if (!imu_pub_) {
     return;
   }
 
-  auto request =
-    std::make_shared<rcl_interfaces::srv::SetParametersAtomically::Request>();
-  request->parameters.reserve(source_stream_control_parameters_.size());
-  for (const auto & parameter : source_stream_control_parameters_) {
-    request->parameters.push_back(parameter.to_parameter_msg());
+  const auto motion = motion_frame.get_motion_data();
+  std::scoped_lock lock(imu_mutex_);
+  latest_imu_.header.stamp = stamp;
+  latest_imu_.header.frame_id = imu_frame_id_;
+
+  if (motion_frame.get_profile().stream_type() == RS2_STREAM_ACCEL) {
+    latest_imu_.linear_acceleration.x = motion.x;
+    latest_imu_.linear_acceleration.y = motion.y;
+    latest_imu_.linear_acceleration.z = motion.z;
+    have_accel_ = true;
+  } else if (motion_frame.get_profile().stream_type() == RS2_STREAM_GYRO) {
+    latest_imu_.angular_velocity.x = motion.x;
+    latest_imu_.angular_velocity.y = motion.y;
+    latest_imu_.angular_velocity.z = motion.z;
+    have_gyro_ = true;
   }
 
-  source_stream_control_applied_ = true;
-  source_stream_control_timer_->cancel();
-  source_stream_control_client_->async_send_request(
-    request,
-    [this](rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedFuture future) {
-      try {
-        const auto response = future.get();
-        if (!response->result.successful) {
-          RCLCPP_WARN(
-            get_logger(),
-            "Source stream control request was rejected: %s",
-            response->result.reason.c_str());
-          return;
+  if (!have_accel_ || !have_gyro_) {
+    return;
+  }
+
+  latest_imu_.orientation_covariance[0] = -1.0;
+  latest_imu_.angular_velocity_covariance = {
+    0.001, 0.0, 0.0,
+    0.0, 0.001, 0.0,
+    0.0, 0.0, 0.001};
+  latest_imu_.linear_acceleration_covariance = {
+    0.01, 0.0, 0.0,
+    0.0, 0.01, 0.0,
+    0.0, 0.0, 0.01};
+  imu_pub_->publish(latest_imu_);
+}
+
+void DepthCameraNode::captureLoop()
+{
+  while (running_.load()) {
+    try {
+      if (!pipeline_profile_.has_value()) {
+        pipeline_profile_.emplace(pipeline_.start(pipeline_config_));
+        if (align_depth_to_color_ && use_color_ && use_depth_) {
+          align_to_color_processor_ = std::make_unique<rs2::align>(RS2_STREAM_COLOR);
         }
-        RCLCPP_INFO(
-          get_logger(),
-          "Applied %zu startup source stream control parameter(s) to the D555.",
-          source_stream_control_parameters_.size());
-      } catch (const std::exception & exception) {
-        RCLCPP_WARN(
-          get_logger(),
-          "Failed to apply startup source stream control parameters: %s",
-          exception.what());
+        RCLCPP_INFO(get_logger(), "RealSense pipeline started.");
       }
-    });
-}
 
-bool DepthCameraNode::interfacePackageAvailable(const std::string & type_name) const
-{
-  const std::string package_name = packageNameFromType(type_name);
-  if (package_name.empty()) {
-    return false;
-  }
-
-  try {
-    (void)ament_index_cpp::get_package_prefix(package_name);
-    return true;
-  } catch (const ament_index_cpp::PackageNotFoundError &) {
-    return false;
-  }
-}
-
-bool DepthCameraNode::isTopicStale(const rclcpp::Time & last_message_time) const
-{
-  return (now() - last_message_time).seconds() > stale_data_timeout_sec_;
-}
-
-bool DepthCameraNode::startupGraceActive() const
-{
-  if (startup_grace_sec_ <= 0.0) {
-    return false;
-  }
-  return (now() - startup_time_).seconds() < startup_grace_sec_;
-}
-
-std::size_t DepthCameraNode::externalSubscriberCount(const TopicSpec & topic) const
-{
-  std::size_t subscribers = count_subscribers(topic.target_topic_name);
-  if (topic.subscription && subscribers > 0U) {
-    --subscribers;
-  }
-  return subscribers;
-}
-
-bool DepthCameraNode::isTopicDemanded(const TopicSpec & topic) const
-{
-  if (!topic.monitor_enabled) {
-    return false;
-  }
-  return externalSubscriberCount(topic) > 0U;
-}
-
-bool DepthCameraNode::waitingForInitialTopics() const
-{
-  for (const auto & topic : monitored_topics_) {
-    if (isTopicDemanded(topic) && !topic.received) {
-      return true;
-    }
-  }
-  return false;
-}
-
-std::vector<std::size_t> DepthCameraNode::collectDemandedTopics() const
-{
-  std::vector<std::size_t> demanded_topics;
-  demanded_topics.reserve(monitored_topics_.size());
-  for (std::size_t index = 0; index < monitored_topics_.size(); ++index) {
-    if (isTopicDemanded(monitored_topics_[index])) {
-      demanded_topics.push_back(index);
-    }
-  }
-  return demanded_topics;
-}
-
-std::vector<std::size_t> DepthCameraNode::collectUnhealthyTopics() const
-{
-  std::vector<std::size_t> unhealthy_topics;
-  for (const std::size_t index : collectDemandedTopics()) {
-    const auto & topic = monitored_topics_[index];
-    if (!topic.received || isTopicStale(topic.last_message_time)) {
-      unhealthy_topics.push_back(index);
-    }
-  }
-  return unhealthy_topics;
-}
-
-bool DepthCameraNode::allTopicsHealthy() const
-{
-  return collectUnhealthyTopics().empty();
-}
-
-std::string DepthCameraNode::buildHealthMessage(
-  const std::vector<std::size_t> & unhealthy_topics,
-  const std::vector<std::size_t> & healthy_topics) const
-{
-  std::ostringstream issue;
-  issue << "Depth camera topics are unavailable or stale";
-
-  if (!unhealthy_topics.empty()) {
-    issue << "; unhealthy: ";
-    for (std::size_t index = 0; index < unhealthy_topics.size(); ++index) {
-      const auto & topic = monitored_topics_[unhealthy_topics[index]];
-      if (index > 0) {
-        issue << ", ";
+      const rs2::frameset raw_frames = pipeline_.wait_for_frames(wait_for_frames_timeout_ms_);
+      const rclcpp::Time stamp = now();
+      for (const rs2::frame & frame : raw_frames) {
+        if (auto motion_frame = frame.as<rs2::motion_frame>()) {
+          publishMotionFrame(motion_frame, stamp);
+        }
       }
-      issue << "'" << topic.target_topic_name << "'";
-      issue << (topic.received ? " (stale)" : " (no messages yet)");
-    }
-  }
 
-  if (!healthy_topics.empty()) {
-    issue << "; healthy: ";
-    for (std::size_t index = 0; index < healthy_topics.size(); ++index) {
-      if (index > 0) {
-        issue << ", ";
+      if (use_color_) {
+        const auto color_frame = raw_frames.get_color_frame();
+        if (color_frame && color_pub_ && color_info_pub_) {
+          color_pub_->publish(
+            buildImageMessage(
+              color_frame,
+              sensor_msgs::image_encodings::RGB8,
+              color_frame_id_,
+              stamp));
+          color_info_pub_->publish(
+            buildCameraInfo(color_frame.get_profile().as<rs2::video_stream_profile>(), color_frame_id_, stamp));
+        }
       }
-      issue << "'" << monitored_topics_[healthy_topics[index]].target_topic_name << "'";
-    }
-  }
 
-  return issue.str();
-}
-
-void DepthCameraNode::watchdogTimerCb()
-{
-  if (fatal_error_) {
-    return;
-  }
-
-  const auto demanded_topics = collectDemandedTopics();
-  if (demanded_topics.empty()) {
-    resetFullOutageCounters();
-    was_healthy_ = false;
-    return;
-  }
-
-  if (startupGraceActive() && waitingForInitialTopics()) {
-    return;
-  }
-
-  const auto unhealthy_topics = collectUnhealthyTopics();
-  if (unhealthy_topics.empty()) {
-    markRecoveredIfHealthy("Depth camera topics are healthy again.");
-    return;
-  }
-
-  was_healthy_ = false;
-
-  std::vector<std::size_t> healthy_topics;
-  healthy_topics.reserve(demanded_topics.size() - unhealthy_topics.size());
-  for (const std::size_t index : demanded_topics) {
-    if (std::find(unhealthy_topics.begin(), unhealthy_topics.end(), index) == unhealthy_topics.end()) {
-      healthy_topics.push_back(index);
-    }
-  }
-
-  const std::string issue_message = buildHealthMessage(unhealthy_topics, healthy_topics);
-  if (!healthy_topics.empty()) {
-    resetFullOutageCounters();
-    if (shouldLogIssue("warn", issue_message)) {
-      RCLCPP_WARN(get_logger(), "%s", issue_message.c_str());
-    }
-    return;
-  }
-
-  reportFullOutage(issue_message);
-}
-
-void DepthCameraNode::enterFatalState(const std::string & message)
-{
-  fatal_error_ = true;
-  if (shouldLogIssue("fatal", message)) {
-    RCLCPP_FATAL(get_logger(), "%s", message.c_str());
-  }
-  if (!watchdog_shutdown_on_fatal_) {
-    RCLCPP_WARN(
-      get_logger(),
-      "Watchdog fatal shutdown is paused by parameter; keeping depth_camera_node alive for inspection.");
-    return;
-  }
-  if (watchdog_timer_) {
-    watchdog_timer_->cancel();
-  }
-  rclcpp::shutdown();
-}
-
-void DepthCameraNode::reportFullOutage(const std::string & message)
-{
-  ++full_outage_count_;
-  ++full_outage_attempt_count_;
-
-  if (max_reconnect_attempts_ > 0 && full_outage_attempt_count_ >= max_reconnect_attempts_) {
-    enterFatalState(
-      message + ". Reached reconnect limit after " + std::to_string(full_outage_attempt_count_) +
-      " attempts");
-    return;
-  }
-
-  logEscalatingFullOutage(full_outage_count_, message);
-}
-
-void DepthCameraNode::logEscalatingFullOutage(int count, const std::string & message)
-{
-  if (count < retry_attempts_before_error_) {
-    if (shouldLogIssue("warn", message)) {
-      RCLCPP_WARN(get_logger(), "%s", message.c_str());
-    }
-    return;
-  }
-
-  if (count < fatal_after_consecutive_errors_) {
-    if (count == retry_attempts_before_error_) {
-      const std::string error_message =
-        message + ". Escalating after " + std::to_string(count) + " consecutive full outages";
-      if (shouldLogIssue("error", error_message)) {
-        RCLCPP_ERROR(get_logger(), "%s", error_message.c_str());
+      if (use_depth_) {
+        const auto depth_frame = raw_frames.get_depth_frame();
+        if (depth_frame && depth_pub_ && depth_info_pub_) {
+          depth_pub_->publish(
+            buildImageMessage(
+              depth_frame,
+              sensor_msgs::image_encodings::TYPE_16UC1,
+              depth_frame_id_,
+              stamp));
+          depth_info_pub_->publish(
+            buildCameraInfo(depth_frame.get_profile().as<rs2::video_stream_profile>(), depth_frame_id_, stamp));
+        }
       }
-      return;
+
+      if (use_infra1_) {
+        const auto infra1_frame = raw_frames.get_infrared_frame(1);
+        if (infra1_frame && infra1_pub_ && infra1_info_pub_) {
+          infra1_pub_->publish(
+            buildImageMessage(
+              infra1_frame,
+              sensor_msgs::image_encodings::MONO8,
+              infra1_frame_id_,
+              stamp));
+          infra1_info_pub_->publish(
+            buildCameraInfo(infra1_frame.get_profile().as<rs2::video_stream_profile>(), infra1_frame_id_, stamp));
+        }
+      }
+
+      if (use_infra2_) {
+        const auto infra2_frame = raw_frames.get_infrared_frame(2);
+        if (infra2_frame && infra2_pub_ && infra2_info_pub_) {
+          infra2_pub_->publish(
+            buildImageMessage(
+              infra2_frame,
+              sensor_msgs::image_encodings::MONO8,
+              infra2_frame_id_,
+              stamp));
+          infra2_info_pub_->publish(
+            buildCameraInfo(infra2_frame.get_profile().as<rs2::video_stream_profile>(), infra2_frame_id_, stamp));
+        }
+      }
+
+      if (publish_pointcloud_ && pointcloud_pub_) {
+        const rs2::frameset pointcloud_frames =
+          (align_to_color_processor_ != nullptr) ? align_to_color_processor_->process(raw_frames) :
+          raw_frames;
+        const auto depth_frame = pointcloud_frames.get_depth_frame();
+        const auto color_frame = pointcloud_frames.get_color_frame();
+        if (depth_frame && color_frame) {
+          pointcloud_pub_->publish(buildPointCloudMessage(depth_frame, color_frame, stamp));
+        }
+      }
+    } catch (const rs2::error & error) {
+      RCLCPP_ERROR_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        5000,
+        "RealSense pipeline error: %s",
+        error.what());
+      if (pipeline_profile_.has_value()) {
+        try {
+          pipeline_.stop();
+        } catch (const rs2::error &) {
+          // Best effort while we retry.
+        }
+        pipeline_profile_.reset();
+      }
+      std::this_thread::sleep_for(kCaptureRetryDelay);
+    } catch (const std::exception & error) {
+      RCLCPP_ERROR_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        5000,
+        "Depth camera wrapper error: %s",
+        error.what());
+      std::this_thread::sleep_for(kCaptureRetryDelay);
     }
-    if (shouldLogIssue("error", message)) {
-      RCLCPP_ERROR(get_logger(), "%s", message.c_str());
-    }
-    return;
   }
-
-  enterFatalState(
-    message + ". Reached fatal threshold after " + std::to_string(count) +
-    " consecutive full outages");
-}
-
-void DepthCameraNode::markRecoveredIfHealthy(const char * recovery_message)
-{
-  if (!allTopicsHealthy() || was_healthy_) {
-    return;
-  }
-
-  if (full_outage_count_ > 0 || full_outage_attempt_count_ > 0) {
-    RCLCPP_INFO(get_logger(), "%s", recovery_message);
-  }
-  resetFullOutageCounters();
-  was_healthy_ = true;
-}
-
-void DepthCameraNode::resetFullOutageCounters()
-{
-  full_outage_attempt_count_ = 0;
-  full_outage_count_ = 0;
-  fatal_error_ = false;
-  last_issue_log_level_.clear();
-  last_issue_message_.clear();
-}
-
-bool DepthCameraNode::shouldLogIssue(const std::string & level, const std::string & message)
-{
-  if (last_issue_log_level_ == level && last_issue_message_ == message) {
-    return false;
-  }
-  last_issue_log_level_ = level;
-  last_issue_message_ = message;
-  return true;
-}
-
-template<typename ServiceT>
-void DepthCameraNode::bridgeService(const std::string & suffix, bool enabled)
-{
-  if (!enabled) {
-    return;
-  }
-
-  const std::string source_camera_root = joinName("/", source_camera_id_);
-  domain_bridge::ServiceBridgeOptions options;
-  options.remap_name(joinName(target_namespace_root_, suffix));
-  bridge_.bridge_service<ServiceT>(
-    joinName(source_camera_root, suffix), source_domain_id_, target_domain_id_, options);
 }
 
 }  // namespace amr_sweeper_depth_camera
@@ -852,13 +481,8 @@ void DepthCameraNode::bridgeService(const std::string & suffix, bool enabled)
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-
   auto node = std::make_shared<amr_sweeper_depth_camera::DepthCameraNode>();
-  rclcpp::executors::SingleThreadedExecutor executor;
-  executor.add_node(node);
-  node->bridge().add_to_executor(executor);
-  executor.spin();
-
+  rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
 }

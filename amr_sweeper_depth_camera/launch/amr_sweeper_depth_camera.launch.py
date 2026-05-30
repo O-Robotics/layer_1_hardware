@@ -1,15 +1,13 @@
 import math
-import os
 from pathlib import Path
-import re
-import subprocess
 
 import yaml
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, GroupAction, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
@@ -17,6 +15,16 @@ from launch_ros.substitutions import FindPackageShare
 def _normalize_namespace(namespace: str) -> str:
     cleaned = namespace.strip().strip("/")
     return f"/{cleaned}" if cleaned else "/"
+
+
+def _split_namespace(namespace: str) -> tuple[str, str]:
+    normalized = _normalize_namespace(namespace)
+    parts = [part for part in normalized.split("/") if part]
+    if not parts:
+        raise RuntimeError("Depth camera namespace must not resolve to '/'.")
+    if len(parts) == 1:
+        return "/", parts[0]
+    return "/" + "/".join(parts[:-1]), parts[-1]
 
 
 def _load_ros_parameter_file(path: str) -> dict:
@@ -30,116 +38,15 @@ def _load_ros_parameter_file(path: str) -> dict:
     return data
 
 
-def _list_topics_for_domain(
-    domain_id: int,
-    *,
-    use_daemon: bool = False,
-    spin_time_seconds: float = 3.0,
-    attempts: int = 3,
-) -> list[str]:
-    env = dict(os.environ)
-    env["ROS_DOMAIN_ID"] = str(domain_id)
-    command = ["ros2", "topic", "list"]
-    if not use_daemon:
-        command.extend(["--no-daemon", "--spin-time", str(spin_time_seconds)])
-
-    last_error = None
-    for _ in range(max(1, attempts)):
-        try:
-            result = subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=max(10.0, spin_time_seconds + 2.0),
-                env=env,
-            )
-            return [line.strip() for line in result.stdout.splitlines() if line.strip()]
-        except subprocess.CalledProcessError as exc:
-            last_error = exc
-
-    if last_error is not None:
-        raise last_error
-    return []
-
-
-def _discover_camera_id(topics: list[str], source_root_namespace: str, source_camera_model: str) -> str:
-    escaped_root = re.escape(source_root_namespace.rstrip("/"))
-    escaped_model = re.escape(source_camera_model)
-    pattern = re.compile(
-        rf"^{escaped_root}/(?P<camera_id>{escaped_model}_[^/_]+)"
-        rf"(?:/tf_static|_Color(?:/.*)?|_CompressedColor(?:/.*)?|_Depth(?:/.*)?|"
-        rf"_Infrared_1(?:/.*)?|_Infrared_2(?:/.*)?|_Motion(?:/.*)?|_ObjectDetection(?:/.*)?)$"
-    )
-
-    matches = {match.group("camera_id") for topic in topics if (match := pattern.match(topic))}
-    if not matches:
-        raise RuntimeError(
-            f"Could not find a {source_camera_model} camera under '{source_root_namespace}' "
-            "on the source ROS domain."
-        )
-    if len(matches) > 1:
-        raise RuntimeError(
-            "Found multiple candidate depth cameras on the source ROS domain: "
-            + ", ".join(sorted(matches))
-            + ". Set source_camera_id explicitly."
-        )
-    return next(iter(matches))
-
-
-def _build_bridged_topic_preview(
-    source_root_namespace: str,
-    source_camera_id: str,
-    params: dict,
-) -> str:
-    source_camera_root = f"{source_root_namespace}/{source_camera_id}"
-    preview_topics = []
-
-    if params.get("use_tf_static", True):
-        preview_topics.append(f"{source_camera_root}/tf_static")
-    if params.get("use_color", True):
-        preview_topics.extend(
-            [
-                f"{source_camera_root}_Color",
-                f"{source_camera_root}_Color/camera_info",
-            ]
-        )
-    if params.get("use_depth", True):
-        preview_topics.extend(
-            [
-                f"{source_camera_root}_Depth",
-                f"{source_camera_root}_Depth/camera_info",
-            ]
-        )
-    if params.get("use_infra1", False):
-        preview_topics.extend(
-            [
-                f"{source_camera_root}_Infrared_1",
-                f"{source_camera_root}_Infrared_1/camera_info",
-            ]
-        )
-    if params.get("use_infra2", False):
-        preview_topics.extend(
-            [
-                f"{source_camera_root}_Infrared_2",
-                f"{source_camera_root}_Infrared_2/camera_info",
-            ]
-        )
-    if params.get("use_motion", False):
-        preview_topics.append(f"{source_camera_root}_Motion")
-    if params.get("use_compressed_color", False):
-        preview_topics.extend(
-            [
-                f"{source_camera_root}_CompressedColor",
-                f"{source_camera_root}_CompressedColor/camera_info",
-            ]
-        )
-
-    return "\n".join(preview_topics)
+def _stringify_launch_argument(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
 
 
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
+    camera_namespace_value, camera_name_value = _split_namespace(namespace_value)
     depth_camera_params = _load_ros_parameter_file(LaunchConfiguration("params_file").perform(context))
     laserscan_params = _load_ros_parameter_file(
         LaunchConfiguration("laserscan_params_file").perform(context)
@@ -183,61 +90,44 @@ def _launch_setup(context, *args, **kwargs):
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
 
-    use_domain_bridge_value = (
-        LaunchConfiguration("use_domain_bridge").perform(context).strip().lower() in ("1", "true", "yes", "on")
-    )
-    use_laserscan_value = (
-        LaunchConfiguration("use_laserscan").perform(context).strip().lower() in ("1", "true", "yes", "on")
-    )
-    camera_domain_id_value = int(LaunchConfiguration("camera_domain_id").perform(context))
-    workspace_domain_id_value = int(LaunchConfiguration("workspace_domain_id").perform(context))
-    source_camera_id_value = LaunchConfiguration("source_camera_id").perform(context).strip()
-    if use_domain_bridge_value:
-        source_root_namespace_value = _normalize_namespace(
-            LaunchConfiguration("source_root_namespace").perform(context)
-        )
-        source_camera_model_value = LaunchConfiguration("source_camera_model").perform(context)
-        source_topics = _list_topics_for_domain(
-            camera_domain_id_value,
-            use_daemon=False,
-            spin_time_seconds=3.0,
-            attempts=3,
-        )
-        if not source_camera_id_value:
-            source_camera_id_value = _discover_camera_id(
-                source_topics,
-                source_root_namespace_value,
-                source_camera_model_value,
-            )
+    realsense_launch_arguments = {
+        "camera_namespace": camera_namespace_value,
+        "camera_name": camera_name_value,
+        "log_level": LaunchConfiguration("log_level").perform(context),
+        "output": "screen",
+    }
+    for key, value in depth_camera_params.items():
+        realsense_launch_arguments[key] = _stringify_launch_argument(value)
 
-    bridged_topic_preview = ""
-    if use_domain_bridge_value and source_camera_id_value:
-        bridged_topic_preview = _build_bridged_topic_preview(
-            _normalize_namespace(LaunchConfiguration("source_root_namespace").perform(context)),
-            source_camera_id_value,
-            depth_camera_params,
-        )
-
-    depth_camera_params.update(
-        {
-            "camera_domain_id": camera_domain_id_value,
-            "workspace_domain_id": workspace_domain_id_value,
-            "source_root_namespace": _normalize_namespace(
-                LaunchConfiguration("source_root_namespace").perform(context)
-            ),
-            "source_camera_id": source_camera_id_value,
-            "source_pointcloud_topic": "",
-            "target_namespace_root": namespace_value,
-        }
-    )
+    realsense_topics = {
+        "depth_rect": f"{namespace_value}/depth/image_rect_raw",
+        "depth_image": f"{namespace_value}/depth/image",
+        "imu": f"{namespace_value}/imu",
+        "motion_imu": f"{namespace_value}/motion/imu",
+    }
 
     launch_summary = LogInfo(
         msg=(
-            "amr_sweeper_depth_camera: "
-            f"domain_bridge_path={camera_domain_id_value}->{workspace_domain_id_value}, "
-            f"source_camera={source_camera_id_value or (LaunchConfiguration('source_camera_model').perform(context) + '_<serial>')}, "
-            f"topics_to_be_bridged=\n{bridged_topic_preview}"
+            "amr_sweeper_depth_camera: launching realsense2_camera wrapper under "
+            f"{namespace_value} with ROS_DOMAIN_ID 5 expected for the camera process. "
+            "TODO: keep custom wrapper development deferred until we actually need it again."
         )
+    )
+
+    realsense_launch = GroupAction(
+        scoped=True,
+        actions=[
+            SetRemap(src=realsense_topics["depth_rect"], dst=realsense_topics["depth_image"]),
+            SetRemap(src=realsense_topics["imu"], dst=realsense_topics["motion_imu"]),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(PathJoinSubstitution([
+                    FindPackageShare("realsense2_camera"),
+                    "launch",
+                    "rs_launch.py",
+                ])),
+                launch_arguments=realsense_launch_arguments.items(),
+            ),
+        ],
     )
 
     laserscan_node = Node(
@@ -259,20 +149,6 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    depth_camera_node = Node(
-        package="amr_sweeper_depth_camera",
-        executable="depth_camera_node",
-        name="depth_camera",
-        namespace=namespace_value,
-        output="screen",
-        arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
-        parameters=[
-            depth_camera_params,
-            {"use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)},
-        ],
-        condition=IfCondition(LaunchConfiguration("use_domain_bridge")),
-    )
-
     laserscan_tf_node = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -292,12 +168,7 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    actions = [launch_summary]
-    if use_domain_bridge_value:
-        actions.append(depth_camera_node)
-    if use_laserscan_value:
-        actions.extend([laserscan_tf_node, laserscan_node])
-    return actions
+    return [launch_summary, realsense_launch, laserscan_tf_node, laserscan_node]
 
 
 def generate_launch_description():
@@ -316,12 +187,7 @@ def generate_launch_description():
         DeclareLaunchArgument("namespace", default_value="amr_sweeper/depth_camera"),
         DeclareLaunchArgument("log_level", default_value="info"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
-        DeclareLaunchArgument("use_domain_bridge", default_value="true"),
         DeclareLaunchArgument("camera_domain_id", default_value="5"),
-        DeclareLaunchArgument("workspace_domain_id", default_value="0"),
-        DeclareLaunchArgument("source_root_namespace", default_value="/realsense"),
-        DeclareLaunchArgument("source_camera_model", default_value="D555"),
-        DeclareLaunchArgument("source_camera_id", default_value=""),
         DeclareLaunchArgument("params_file", default_value=default_params_file),
         DeclareLaunchArgument("use_laserscan", default_value="true"),
         DeclareLaunchArgument(
