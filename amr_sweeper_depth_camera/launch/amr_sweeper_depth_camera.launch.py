@@ -3,17 +3,10 @@ from pathlib import Path
 
 import yaml
 from launch import LaunchDescription
-from launch.actions import (
-    DeclareLaunchArgument,
-    GroupAction,
-    IncludeLaunchDescription,
-    LogInfo,
-    OpaqueFunction,
-)
+from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node, SetRemap
+from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
@@ -96,22 +89,6 @@ def _launch_setup(context, *args, **kwargs):
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
 
-    realsense_launch_arguments = {
-        "camera_namespace": camera_namespace_value,
-        "camera_name": camera_name_value,
-        "log_level": LaunchConfiguration("log_level").perform(context),
-        "output": "screen",
-    }
-    for key, value in depth_camera_params.items():
-        realsense_launch_arguments[key] = _stringify_launch_argument(value)
-
-    realsense_topics = {
-        "depth_rect": f"{namespace_value}/depth/image_rect_raw",
-        "depth_image": f"{namespace_value}/depth/image",
-        "imu": f"{namespace_value}/imu",
-        "motion_imu": f"{namespace_value}/motion/imu",
-    }
-
     launch_summary = LogInfo(
         msg=(
             "amr_sweeper_depth_camera: launching realsense2_camera wrapper under "
@@ -120,19 +97,23 @@ def _launch_setup(context, *args, **kwargs):
         )
     )
 
-    realsense_launch = GroupAction(
-        scoped=True,
-        actions=[
-            SetRemap(src=realsense_topics["depth_rect"], dst=realsense_topics["depth_image"]),
-            SetRemap(src=realsense_topics["imu"], dst=realsense_topics["motion_imu"]),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(PathJoinSubstitution([
-                    FindPackageShare("realsense2_camera"),
-                    "launch",
-                    "rs_launch.py",
-                ])),
-                launch_arguments=realsense_launch_arguments.items(),
-            ),
+    realsense_node = Node(
+        package="realsense2_camera",
+        executable="realsense2_camera_node",
+        namespace=camera_namespace_value,
+        name=camera_name_value,
+        output="screen",
+        arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
+        parameters=[
+            depth_camera_params,
+            {
+                "camera_name": camera_name_value,
+                "use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool),
+            },
+        ],
+        remappings=[
+            ("depth/image_rect_raw", "depth/image"),
+            ("imu", "motion/imu"),
         ],
     )
 
@@ -174,7 +155,7 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    return [launch_summary, realsense_launch, laserscan_tf_node, laserscan_node]
+    return [launch_summary, realsense_node, laserscan_tf_node, laserscan_node]
 
 
 def generate_launch_description():
