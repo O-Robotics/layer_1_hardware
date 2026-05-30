@@ -47,6 +47,7 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - The default command launches the full layer 1 hardware bringup package.
 - This layer is intended for the physical AMR Sweeper robot, not simulation.
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
+- The vendored RealSense ROS packages live under `amr_sweeper_depth_camera/src/realsense-ros`, but `colcon` will only discover them when they are also exposed at the workspace root `src/`. Run `src/layer_1_hardware/amr_sweeper_depth_camera/scripts/ensure_workspace_links.sh` before `colcon build`, or use `./update.sh`, which now does this automatically.
 - Under the default robot root `/amr_sweeper`, package-owned sensor namespaces follow the package role, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras`, and `/amr_sweeper/depth_camera`.
 - When enabled, the GNSS NTRIP client runs inside `/amr_sweeper/gnss` and
   publishes RTCM on `/amr_sweeper/gnss/rtcm`.
