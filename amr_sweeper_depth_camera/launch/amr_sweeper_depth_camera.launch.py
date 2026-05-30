@@ -16,6 +16,13 @@ def _normalize_namespace(namespace: str) -> str:
     return f"/{cleaned}" if cleaned else "/"
 
 
+def _join_namespace(root: str, leaf: str) -> str:
+    normalized_root = _normalize_namespace(root)
+    if normalized_root == "/":
+        return f"/{leaf}"
+    return f"{normalized_root}/{leaf}"
+
+
 def _split_namespace(namespace: str) -> tuple[str, str]:
     normalized = _normalize_namespace(namespace)
     parts = [part for part in normalized.split("/") if part]
@@ -46,6 +53,7 @@ def _stringify_launch_argument(value):
 def _launch_setup(context, *args, **kwargs):
     namespace_value = _normalize_namespace(LaunchConfiguration("namespace").perform(context))
     camera_namespace_value, camera_name_value = _split_namespace(namespace_value)
+    native_camera_name_value = f"{camera_name_value}_native"
     depth_camera_params = _load_ros_parameter_file(LaunchConfiguration("params_file").perform(context))
     laserscan_params = _load_ros_parameter_file(
         LaunchConfiguration("laserscan_params_file").perform(context)
@@ -92,7 +100,9 @@ def _launch_setup(context, *args, **kwargs):
     launch_summary = LogInfo(
         msg=(
             "amr_sweeper_depth_camera: launching realsense2_camera wrapper under "
-            f"{namespace_value} with ROS_DOMAIN_ID 5 expected for the camera process. "
+            f"{namespace_value} with internal native topics under "
+            f"{camera_namespace_value}/{native_camera_name_value}. "
+            "ROS_DOMAIN_ID 5 is expected for the camera process. "
             "TODO: keep custom wrapper development deferred until we actually need it again."
         )
     )
@@ -101,19 +111,33 @@ def _launch_setup(context, *args, **kwargs):
         package="realsense2_camera",
         executable="realsense2_camera_node",
         namespace=camera_namespace_value,
-        name=camera_name_value,
+        name=native_camera_name_value,
         output="screen",
         arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
         parameters=[
             depth_camera_params,
             {
-                "camera_name": camera_name_value,
+                "camera_name": native_camera_name_value,
                 "use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool),
             },
         ],
+    )
+
+    native_root = _join_namespace(camera_namespace_value, native_camera_name_value)
+    topic_bridge_node = Node(
+        package="amr_sweeper_depth_camera",
+        executable="topic_bridge_node",
+        name="topic_bridge",
+        namespace=namespace_value,
+        output="screen",
+        arguments=["--ros-args", "--log-level", LaunchConfiguration("log_level")],
         remappings=[
-            ("depth/image_rect_raw", "depth/image"),
-            ("imu", "motion/imu"),
+            ("input/color/image_raw", f"{native_root}/color/image_raw"),
+            ("input/color/camera_info", f"{native_root}/color/camera_info"),
+            ("input/depth/image", f"{native_root}/depth/image_rect_raw"),
+            ("input/depth/camera_info", f"{native_root}/depth/camera_info"),
+            ("input/depth/color/points", f"{native_root}/depth/color/points"),
+            ("input/motion/imu", f"{native_root}/motion/sample"),
         ],
     )
 
@@ -155,7 +179,7 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration("use_laserscan")),
     )
 
-    return [launch_summary, realsense_node, laserscan_tf_node, laserscan_node]
+    return [launch_summary, realsense_node, topic_bridge_node, laserscan_tf_node, laserscan_node]
 
 
 def generate_launch_description():

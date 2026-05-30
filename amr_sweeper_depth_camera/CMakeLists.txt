@@ -15,6 +15,10 @@ add_executable(laserscan_node
   src/laserscan_node.cpp
 )
 
+add_executable(topic_bridge_node
+  src/topic_bridge_node.cpp
+)
+
 target_include_directories(laserscan_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -30,13 +34,18 @@ ament_target_dependencies(laserscan_node
   sensor_msgs
 )
 
+ament_target_dependencies(topic_bridge_node
+  rclcpp
+  sensor_msgs
+)
+
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
 )
 
 install(
-  TARGETS laserscan_node
+  TARGETS laserscan_node topic_bridge_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
