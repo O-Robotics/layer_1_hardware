@@ -3,6 +3,8 @@
 import math
 from pathlib import Path
 
+from ament_index_python.packages import PackageNotFoundError, get_package_prefix
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
@@ -46,7 +48,28 @@ def _load_ros_parameter_file(path: str) -> dict:
     return data
 
 
+def _verify_realsense_package_available() -> None:
+    try:
+        get_package_prefix('realsense2_camera')
+    except PackageNotFoundError as exc:
+        depth_camera_share = Path(get_package_share_directory('amr_sweeper_depth_camera'))
+        workspace_install = depth_camera_share.parents[1]
+        workspace_root = workspace_install.parent
+        raise RuntimeError(
+            'Required package "realsense2_camera" is not visible in the current ROS environment. '
+            f'This launch file is running from workspace "{workspace_root}", so first source '
+            f'"{workspace_install / "setup.bash"}". If the package still is not available, build '
+            'it in the same workspace with: '
+            '"colcon build --packages-select realsense2_camera_msgs '
+            'realsense2_camera amr_sweeper_depth_camera". '
+            'If you have multiple workspace copies, make sure you are launching from the same one '
+            'you built.'
+        ) from exc
+
+
 def _launch_setup(context, *args, **kwargs):
+    _verify_realsense_package_available()
+
     namespace_value = _normalize_namespace(LaunchConfiguration('namespace').perform(context))
     _, camera_name_value = _split_namespace(namespace_value)
     internal_namespace_value = _normalize_namespace(
