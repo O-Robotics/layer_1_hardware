@@ -9,8 +9,6 @@ find_package(ament_cmake REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS core)
 find_package(rclcpp REQUIRED)
-find_package(realsense2_camera REQUIRED)
-find_package(realsense2_camera_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
 add_executable(laserscan_node
