@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    serial_no:                       "''"          # Keep RealSense default empty-string quoting unless a specific serial is required.
+    serial_no:                       ""            # Leave empty to auto-select the detected D555.
     enable_color:                    true
     rgb_camera.color_profile:        896x504x30
     rgb_camera.color_format:         RGB8
