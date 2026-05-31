@@ -33,8 +33,11 @@ private:
   bool open_serial();
   void close_serial();
   bool configure_device();
+  bool configure_device_profile(int target_baud, double target_rate_hz);
+  bool revert_to_fallback_profile();
   bool establish_initial_connection();
   bool wait_for_valid_frames(std::chrono::milliseconds timeout);
+  bool confirm_stream_rate(double expected_hz, std::chrono::milliseconds timeout);
   bool send_unlock_command();
   bool send_command(uint8_t address, uint16_t value);
   bool reopen_serial_with_baud(int baud);
@@ -98,6 +101,9 @@ private:
   std::string fatal_error_message_;
   std::string last_serial_error_message_;
   bool saw_valid_frame_since_open_{false};
+  std::size_t validation_frame_count_{0};
+  rclcpp::Time validation_first_frame_time_{0, 0, RCL_SYSTEM_TIME};
+  rclcpp::Time validation_last_frame_time_{0, 0, RCL_SYSTEM_TIME};
 
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_acc_gyro_pub_;

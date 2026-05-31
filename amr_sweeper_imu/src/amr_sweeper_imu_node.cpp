@@ -22,6 +22,7 @@ constexpr std::size_t kFrameLength = 11;
 constexpr auto kCommandDelay = std::chrono::milliseconds(50);
 constexpr auto kBaudTransitionDelay = std::chrono::milliseconds(200);
 constexpr auto kFrameValidationTimeout = std::chrono::milliseconds(750);
+constexpr double kRateConfirmationTolerance = 0.6;
 
 speed_t baud_to_termios(int baud)
 {
@@ -468,6 +469,11 @@ void JY901ImuNode::reset_issue_counters()
 
 bool JY901ImuNode::configure_device()
 {
+  return configure_device_profile(baud_, publish_hz_);
+}
+
+bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_hz)
+{
   if (!configure_device_on_startup_ || device_config_applied_ || serial_fd_ < 0) {
     return true;
   }
@@ -480,15 +486,15 @@ bool JY901ImuNode::configure_device()
       "The driver expects acceleration, angular velocity, and either angle or quaternion packets to be enabled");
   }
 
-  const auto rate_code = rate_to_device_code(fallback_rate_hz_);
+  const auto rate_code = rate_to_device_code(target_rate_hz);
   if (!rate_code.has_value()) {
-    RCLCPP_ERROR(get_logger(), "Unsupported fallback_rate_hz: %.3f", fallback_rate_hz_);
+    RCLCPP_ERROR(get_logger(), "Unsupported target rate: %.3f", target_rate_hz);
     return false;
   }
 
-  const auto baud_code = baud_to_device_code(baud_);
+  const auto baud_code = baud_to_device_code(target_baud);
   if (!baud_code.has_value()) {
-    RCLCPP_ERROR(get_logger(), "Unsupported baud: %d", baud_);
+    RCLCPP_ERROR(get_logger(), "Unsupported baud: %d", target_baud);
     return false;
   }
 
@@ -524,14 +530,14 @@ bool JY901ImuNode::configure_device()
     save_ok = send_command(0x00, 0U);
   }
 
-  if (baud_ != active_baud_) {
+  if (target_baud != active_baud_) {
     std::this_thread::sleep_for(kBaudTransitionDelay);
-    if (reopen_serial_with_baud(baud_)) {
+    if (reopen_serial_with_baud(target_baud)) {
       if (save_configuration_ && !save_ok) {
         save_ok = send_command(0x00, 0U);
       }
     } else {
-      const int desired_baud = baud_;
+      const int desired_baud = target_baud;
       const int bootstrap_baud = fallback_baud_;
       active_baud_ = bootstrap_baud;
       if (open_serial()) {
@@ -561,6 +567,7 @@ bool JY901ImuNode::wait_for_valid_frames(std::chrono::milliseconds timeout)
 
   saw_valid_frame_since_open_ = false;
   frame_size_ = 0U;
+  validation_frame_count_ = 0;
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   std::array<uint8_t, 256> tmp{};
 
@@ -585,6 +592,79 @@ bool JY901ImuNode::wait_for_valid_frames(std::chrono::milliseconds timeout)
   return saw_valid_frame_since_open_;
 }
 
+bool JY901ImuNode::confirm_stream_rate(double expected_hz, std::chrono::milliseconds timeout)
+{
+  if (serial_fd_ < 0) {
+    return false;
+  }
+
+  saw_valid_frame_since_open_ = false;
+  frame_size_ = 0U;
+  validation_frame_count_ = 0;
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  std::array<uint8_t, 256> tmp{};
+
+  while (std::chrono::steady_clock::now() < deadline && !stop_requested_.load() && !fatal_error_.load()) {
+    const ssize_t bytes_read = ::read(serial_fd_, tmp.data(), tmp.size());
+    if (bytes_read > 0) {
+      for (ssize_t index = 0; index < bytes_read; ++index) {
+        parse_byte(tmp[static_cast<std::size_t>(index)]);
+      }
+      if (validation_frame_count_ >= 3) {
+        const double duration_s = (validation_last_frame_time_ - validation_first_frame_time_).seconds();
+        if (duration_s > 1e-6) {
+          const double observed_hz =
+            static_cast<double>(validation_frame_count_ - 1U) / duration_s;
+          if (observed_hz >= expected_hz * kRateConfirmationTolerance) {
+            return true;
+          }
+        }
+      }
+    } else if (bytes_read < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+      last_serial_error_message_ = errno_message(
+        "Serial read failure while confirming rate on '" + device_path_ + "'");
+      return false;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+
+  if (validation_frame_count_ >= 3) {
+    const double duration_s = (validation_last_frame_time_ - validation_first_frame_time_).seconds();
+    if (duration_s > 1e-6) {
+      const double observed_hz =
+        static_cast<double>(validation_frame_count_ - 1U) / duration_s;
+      return observed_hz >= expected_hz * kRateConfirmationTolerance;
+    }
+  }
+
+  return false;
+}
+
+bool JY901ImuNode::revert_to_fallback_profile()
+{
+  active_baud_ = fallback_baud_;
+  device_config_applied_ = false;
+  if (!open_serial()) {
+    return false;
+  }
+  if (!wait_for_valid_frames(kFrameValidationTimeout)) {
+    close_serial();
+    return false;
+  }
+  if (!configure_device_profile(fallback_baud_, fallback_rate_hz_)) {
+    close_serial();
+    return false;
+  }
+  if (!confirm_stream_rate(fallback_rate_hz_, std::chrono::milliseconds(1500))) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Fallback IMU profile %.1f Hz could not be confirmed; continuing with the recovered serial link.",
+      fallback_rate_hz_);
+  }
+  return true;
+}
+
 bool JY901ImuNode::establish_initial_connection()
 {
   const auto try_baud = [this](int baud, const char * label) {
@@ -603,11 +683,24 @@ bool JY901ImuNode::establish_initial_connection()
   };
 
   if (try_baud(baud_, "preferred")) {
-    if (!configure_device()) {
+    if (!configure_device_profile(baud_, publish_hz_)) {
       last_serial_error_message_ =
         "IMU opened at preferred baud, but device programming did not fully succeed";
       close_serial();
       return false;
+    }
+    if (!confirm_stream_rate(publish_hz_, std::chrono::milliseconds(1500))) {
+      RCLCPP_WARN(
+        get_logger(),
+        "Preferred IMU profile %d baud / %.1f Hz could not be confirmed. Reverting to fallback %.1f Hz.",
+        baud_,
+        publish_hz_,
+        fallback_rate_hz_);
+      if (!revert_to_fallback_profile()) {
+        last_serial_error_message_ =
+          "Preferred profile could not be confirmed and fallback profile recovery failed";
+        return false;
+      }
     }
     return true;
   }
@@ -631,11 +724,26 @@ bool JY901ImuNode::establish_initial_connection()
     return false;
   }
 
-  if (!configure_device()) {
+  if (!configure_device_profile(baud_, publish_hz_)) {
     last_serial_error_message_ =
       "IMU opened at bootstrap baud, but device programming did not fully succeed";
     close_serial();
     return false;
+  }
+
+  if (!confirm_stream_rate(publish_hz_, std::chrono::milliseconds(1500))) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Preferred IMU profile %d baud / %.1f Hz could not be confirmed after bootstrap recovery. "
+      "Reverting to fallback %.1f Hz.",
+      baud_,
+      publish_hz_,
+      fallback_rate_hz_);
+    if (!revert_to_fallback_profile()) {
+      last_serial_error_message_ =
+        "Preferred profile could not be confirmed after bootstrap recovery and fallback profile recovery failed";
+      return false;
+    }
   }
 
   return true;
@@ -720,6 +828,12 @@ void JY901ImuNode::parse_byte(uint8_t byte)
   }
 
   saw_valid_frame_since_open_ = true;
+  const auto now = get_clock()->now();
+  if (validation_frame_count_ == 0U) {
+    validation_first_frame_time_ = now;
+  }
+  validation_last_frame_time_ = now;
+  ++validation_frame_count_;
 
   const uint8_t type = frame_buf_[1];
   const int16_t d0 = read_i16_le(&frame_buf_[2]);
