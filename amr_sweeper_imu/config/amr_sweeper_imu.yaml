@@ -4,7 +4,7 @@
     port:                           /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0  # Deprecated alias kept for compatibility with older launch files.
     baud:                           115200        # Serial baud rate. Supported: 9600/19200/38400/57600/115200.
     imu_frame_id:                   imu_link      # Frame ID stamped on published IMU messages.
-    publish_hz:                     100.0         # Target IMU output rate in Hz and matching ROS publish cap after valid frames are parsed.
+    publish_hz:                     50.0          # Target IMU output rate in Hz and matching ROS publish cap after valid frames are parsed.
 
     # -- Serial supervision ----------------------------------------------------
     read_period_ms:                 2             # Serial polling period in milliseconds. Lower values retry reads more aggressively.
