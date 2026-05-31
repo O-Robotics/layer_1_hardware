@@ -140,8 +140,8 @@ JY901ImuNode::JY901ImuNode()
   max_reconnect_attempts_ = declare_parameter<int>("max_reconnect_attempts", 10);
   configure_device_on_startup_ = declare_parameter<bool>("configure_device_on_startup", true);
   save_configuration_ = declare_parameter<bool>("save_configuration", true);
-  device_bootstrap_baud_ = declare_parameter<int>("device_bootstrap_baud", 9600);
-  device_return_rate_hz_ = declare_parameter<double>("device_return_rate_hz", 10.0);
+  fallback_baud_ = declare_parameter<int>("fallback_baud", 9600);
+  fallback_rate_hz_ = declare_parameter<double>("fallback_rate_hz", 10.0);
   installation_direction_ = declare_parameter<std::string>("installation_direction", "horizontal");
   algorithm_mode_ = declare_parameter<std::string>("algorithm_mode", "nine_axis");
   gyroscope_auto_calibration_ = declare_parameter<bool>("gyroscope_auto_calibration", true);
@@ -201,7 +201,7 @@ JY901ImuNode::JY901ImuNode()
     max_reconnect_attempts_ = 0;
   }
   yaw_offset_rad_ = yaw_offset_deg_ * kDegToRad;
-  active_baud_ = configure_device_on_startup_ ? device_bootstrap_baud_ : baud_;
+  active_baud_ = configure_device_on_startup_ ? fallback_baud_ : baud_;
   if (orientation_covariance_.size() != 9) {
     RCLCPP_WARN(get_logger(), "orientation_covariance must have 9 elements; using defaults");
     orientation_covariance_ = {0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.05};
@@ -480,9 +480,9 @@ bool JY901ImuNode::configure_device()
       "The driver expects acceleration, angular velocity, and either angle or quaternion packets to be enabled");
   }
 
-  const auto rate_code = rate_to_device_code(device_return_rate_hz_);
+  const auto rate_code = rate_to_device_code(fallback_rate_hz_);
   if (!rate_code.has_value()) {
-    RCLCPP_ERROR(get_logger(), "Unsupported device_return_rate_hz: %.3f", device_return_rate_hz_);
+    RCLCPP_ERROR(get_logger(), "Unsupported fallback_rate_hz: %.3f", fallback_rate_hz_);
     return false;
   }
 
@@ -532,7 +532,7 @@ bool JY901ImuNode::configure_device()
       }
     } else {
       const int desired_baud = baud_;
-      const int bootstrap_baud = device_bootstrap_baud_;
+      const int bootstrap_baud = fallback_baud_;
       active_baud_ = bootstrap_baud;
       if (open_serial()) {
         RCLCPP_WARN(
@@ -612,7 +612,7 @@ bool JY901ImuNode::establish_initial_connection()
     return true;
   }
 
-  if (baud_ == device_bootstrap_baud_) {
+  if (baud_ == fallback_baud_) {
     return false;
   }
 
@@ -622,9 +622,9 @@ bool JY901ImuNode::establish_initial_connection()
     "Preferred IMU baud %d did not yield valid frames: %s. Falling back to bootstrap baud %d.",
     baud_,
     preferred_error.c_str(),
-    device_bootstrap_baud_);
+    fallback_baud_);
 
-  if (!try_baud(device_bootstrap_baud_, "bootstrap")) {
+  if (!try_baud(fallback_baud_, "bootstrap")) {
     last_serial_error_message_ =
       "Preferred baud failed (" + preferred_error + "); bootstrap baud also failed (" +
       last_serial_error_message_ + ")";

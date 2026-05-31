@@ -65,8 +65,8 @@ private:
   int max_reconnect_attempts_{10};
   bool configure_device_on_startup_{true};
   bool save_configuration_{true};
-  int device_bootstrap_baud_{9600};
-  double device_return_rate_hz_{10.0};
+  int fallback_baud_{9600};
+  double fallback_rate_hz_{10.0};
   std::string installation_direction_{"horizontal"};
   std::string algorithm_mode_{"nine_axis"};
   bool gyroscope_auto_calibration_{true};
