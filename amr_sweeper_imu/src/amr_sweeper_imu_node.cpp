@@ -21,6 +21,7 @@ constexpr double kDegToRad = kPi / 180.0;
 constexpr std::size_t kFrameLength = 11;
 constexpr auto kCommandDelay = std::chrono::milliseconds(50);
 constexpr auto kBaudTransitionDelay = std::chrono::milliseconds(200);
+constexpr auto kFrameValidationTimeout = std::chrono::milliseconds(750);
 
 speed_t baud_to_termios(int baud)
 {
@@ -130,11 +131,9 @@ JY901ImuNode::JY901ImuNode()
   device_path_ = declare_parameter<std::string>("device_path", kDefaultDevicePath);
   const auto legacy_port = declare_parameter<std::string>("port", kDefaultDevicePath);
   baud_ = declare_parameter<int>("baud", 9600);
-  fallback_baud_ = declare_parameter<int>("fallback_baud", 9600);
   frame_id_ = declare_parameter<std::string>("imu_frame_id", "imu_link");
   publish_hz_ = declare_parameter<double>("publish_hz", 10.0);
   read_period_ms_ = declare_parameter<int>("read_period_ms", 2);
-  frame_validation_timeout_ms_ = declare_parameter<int>("frame_validation_timeout_ms", 750);
   reconnect_attempt_interval_ms_ = declare_parameter<int>("reconnect_attempt_interval_ms", 1000);
   retry_attempts_before_error_ = declare_parameter<int>("retry_attempts_before_error", 3);
   fatal_after_consecutive_errors_ = declare_parameter<int>("fatal_after_consecutive_errors", 10);
@@ -143,7 +142,6 @@ JY901ImuNode::JY901ImuNode()
   save_configuration_ = declare_parameter<bool>("save_configuration", true);
   device_bootstrap_baud_ = declare_parameter<int>("device_bootstrap_baud", 9600);
   device_return_rate_hz_ = declare_parameter<double>("device_return_rate_hz", 10.0);
-  fallback_device_return_rate_hz_ = declare_parameter<double>("fallback_device_return_rate_hz", 20.0);
   installation_direction_ = declare_parameter<std::string>("installation_direction", "horizontal");
   algorithm_mode_ = declare_parameter<std::string>("algorithm_mode", "nine_axis");
   gyroscope_auto_calibration_ = declare_parameter<bool>("gyroscope_auto_calibration", true);
@@ -187,9 +185,6 @@ JY901ImuNode::JY901ImuNode()
   if (publish_hz_ < 1.0) {
     publish_hz_ = 1.0;
   }
-  if (frame_validation_timeout_ms_ < 100) {
-    frame_validation_timeout_ms_ = 100;
-  }
   if (read_period_ms_ < 1) {
     read_period_ms_ = 1;
   }
@@ -205,11 +200,8 @@ JY901ImuNode::JY901ImuNode()
   if (max_reconnect_attempts_ < 0) {
     max_reconnect_attempts_ = 0;
   }
-  if (fallback_baud_ <= 0) {
-    fallback_baud_ = 9600;
-  }
   yaw_offset_rad_ = yaw_offset_deg_ * kDegToRad;
-  active_baud_ = baud_;
+  active_baud_ = configure_device_on_startup_ ? device_bootstrap_baud_ : baud_;
   if (orientation_covariance_.size() != 9) {
     RCLCPP_WARN(get_logger(), "orientation_covariance must have 9 elements; using defaults");
     orientation_covariance_ = {0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.05};
@@ -226,7 +218,7 @@ JY901ImuNode::JY901ImuNode()
   if (!establish_initial_connection()) {
     report_connection_issue(
       last_serial_error_message_.empty() ?
-      "Failed to establish IMU serial connection for either preferred or fallback profile" :
+      "Failed to establish IMU serial device '" + device_path_ + "'" :
       last_serial_error_message_);
   } else {
     RCLCPP_INFO(get_logger(), "IMU configuration complete");
@@ -346,7 +338,6 @@ bool JY901ImuNode::send_command(uint8_t address, uint16_t value)
 
 bool JY901ImuNode::send_unlock_command()
 {
-  // Witmotion configuration writes must be preceded by the vendor unlock packet.
   return send_command(0x69, 0xB588);
 }
 
@@ -477,11 +468,6 @@ void JY901ImuNode::reset_issue_counters()
 
 bool JY901ImuNode::configure_device()
 {
-  return configure_device_profile(baud_, device_return_rate_hz_);
-}
-
-bool JY901ImuNode::configure_device_profile(int target_baud, double target_return_rate_hz)
-{
   if (!configure_device_on_startup_ || device_config_applied_ || serial_fd_ < 0) {
     return true;
   }
@@ -494,15 +480,15 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_retur
       "The driver expects acceleration, angular velocity, and either angle or quaternion packets to be enabled");
   }
 
-  const auto rate_code = rate_to_device_code(target_return_rate_hz);
+  const auto rate_code = rate_to_device_code(device_return_rate_hz_);
   if (!rate_code.has_value()) {
-    RCLCPP_ERROR(get_logger(), "Unsupported device_return_rate_hz: %.3f", target_return_rate_hz);
+    RCLCPP_ERROR(get_logger(), "Unsupported device_return_rate_hz: %.3f", device_return_rate_hz_);
     return false;
   }
 
-  const auto baud_code = baud_to_device_code(target_baud);
+  const auto baud_code = baud_to_device_code(baud_);
   if (!baud_code.has_value()) {
-    RCLCPP_ERROR(get_logger(), "Unsupported baud: %d", target_baud);
+    RCLCPP_ERROR(get_logger(), "Unsupported baud: %d", baud_);
     return false;
   }
 
@@ -538,18 +524,29 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_retur
     save_ok = send_command(0x00, 0U);
   }
 
-  if (!save_ok) {
-    return false;
-  }
-
-  if (target_baud != active_baud_ || std::fabs(target_return_rate_hz - device_return_rate_hz_) > 1e-6) {
-    RCLCPP_WARN(
-      get_logger(),
-      "Saved requested IMU profile %d baud / %.1f Hz while still connected at %d baud. "
-      "Witmotion documents that baud and return-rate changes take effect only after a module power-cycle.",
-      target_baud,
-      target_return_rate_hz,
-      active_baud_);
+  if (baud_ != active_baud_) {
+    std::this_thread::sleep_for(kBaudTransitionDelay);
+    if (reopen_serial_with_baud(baud_)) {
+      if (save_configuration_ && !save_ok) {
+        save_ok = send_command(0x00, 0U);
+      }
+    } else {
+      const int desired_baud = baud_;
+      const int bootstrap_baud = device_bootstrap_baud_;
+      active_baud_ = bootstrap_baud;
+      if (open_serial()) {
+        RCLCPP_WARN(
+          get_logger(),
+          "IMU accepted configuration writes, but baud %d was not active yet. A device restart may still be required.",
+          desired_baud);
+      } else {
+        RCLCPP_ERROR(
+          get_logger(),
+          "IMU baud transition failed and reconnect at bootstrap baud %d also failed",
+          bootstrap_baud);
+        return false;
+      }
+    }
   }
 
   device_config_applied_ = save_ok;
@@ -588,75 +585,69 @@ bool JY901ImuNode::wait_for_valid_frames(std::chrono::milliseconds timeout)
   return saw_valid_frame_since_open_;
 }
 
-bool JY901ImuNode::connect_with_profile(
-  int connect_baud,
-  int target_baud,
-  double target_return_rate_hz,
-  const std::string & profile_name)
-{
-  active_baud_ = connect_baud;
-  device_config_applied_ = false;
-
-  if (!open_serial()) {
-    return false;
-  }
-
-  if (!wait_for_valid_frames(std::chrono::milliseconds(frame_validation_timeout_ms_))) {
-    last_serial_error_message_ =
-      "No valid IMU frames received for profile '" + profile_name +
-      "' while listening at baud " + std::to_string(connect_baud);
-    close_serial();
-    return false;
-  }
-
-  if (!configure_device_profile(target_baud, target_return_rate_hz)) {
-    last_serial_error_message_ =
-      "Connected to IMU using profile '" + profile_name + "', but configuration failed";
-    close_serial();
-    return false;
-  }
-
-  if (!wait_for_valid_frames(std::chrono::milliseconds(frame_validation_timeout_ms_))) {
-    last_serial_error_message_ =
-      "IMU stopped producing valid frames after switching to profile '" + profile_name + "'";
-    close_serial();
-    return false;
-  }
-
-  baud_ = target_baud;
-  device_return_rate_hz_ = target_return_rate_hz;
-  return true;
-}
-
 bool JY901ImuNode::establish_initial_connection()
 {
-  if (connect_with_profile(baud_, baud_, device_return_rate_hz_, "preferred")) {
+  const auto try_baud = [this](int baud, const char * label) {
+    active_baud_ = baud;
+    if (!open_serial()) {
+      return false;
+    }
+    if (!wait_for_valid_frames(kFrameValidationTimeout)) {
+      last_serial_error_message_ =
+        "No valid IMU frames received while probing " + std::string(label) +
+        " baud " + std::to_string(baud);
+      close_serial();
+      return false;
+    }
     return true;
+  };
+
+  if (try_baud(baud_, "preferred")) {
+    if (!configure_device()) {
+      last_serial_error_message_ =
+        "IMU opened at preferred baud, but device programming did not fully succeed";
+      close_serial();
+      return false;
+    }
+    return true;
+  }
+
+  if (baud_ == device_bootstrap_baud_) {
+    return false;
   }
 
   const std::string preferred_error = last_serial_error_message_;
   RCLCPP_WARN(
     get_logger(),
-    "Preferred IMU profile %d baud / %.1f Hz was unavailable: %s. "
-    "Falling back to %d baud so the preferred profile can be written and applied after power-cycle.",
+    "Preferred IMU baud %d did not yield valid frames: %s. Falling back to bootstrap baud %d.",
     baud_,
-    device_return_rate_hz_,
     preferred_error.c_str(),
-    fallback_baud_);
+    device_bootstrap_baud_);
 
-  if (connect_with_profile(
-      fallback_baud_,
-      baud_,
-      device_return_rate_hz_,
-      "fallback"))
-  {
-    return true;
+  if (!try_baud(device_bootstrap_baud_, "bootstrap")) {
+    last_serial_error_message_ =
+      "Preferred baud failed (" + preferred_error + "); bootstrap baud also failed (" +
+      last_serial_error_message_ + ")";
+    return false;
   }
 
-  last_serial_error_message_ =
-    "Preferred profile failed (" + preferred_error + "); fallback also failed (" +
-    last_serial_error_message_ + ")";
-  return false;
+  if (!configure_device()) {
+    last_serial_error_message_ =
+      "IMU opened at bootstrap baud, but device programming did not fully succeed";
+    close_serial();
+    return false;
+  }
+
+  return true;
+}
+
+bool JY901ImuNode::reopen_serial_with_baud(int baud)
+{
+  active_baud_ = baud;
+  if (!open_serial()) {
+    return false;
+  }
+  return true;
 }
 
 void JY901ImuNode::read_serial()
@@ -728,6 +719,8 @@ void JY901ImuNode::parse_byte(uint8_t byte)
     return;
   }
 
+  saw_valid_frame_since_open_ = true;
+
   const uint8_t type = frame_buf_[1];
   const int16_t d0 = read_i16_le(&frame_buf_[2]);
   const int16_t d1 = read_i16_le(&frame_buf_[4]);
@@ -735,19 +728,16 @@ void JY901ImuNode::parse_byte(uint8_t byte)
 
   switch (type) {
     case 0x51:
-      saw_valid_frame_since_open_ = true;
       accel_[0] = static_cast<double>(d0) / 32768.0 * 16.0 * kGravity;
       accel_[1] = static_cast<double>(d1) / 32768.0 * 16.0 * kGravity;
       accel_[2] = static_cast<double>(d2) / 32768.0 * 16.0 * kGravity;
       break;
     case 0x52:
-      saw_valid_frame_since_open_ = true;
       gyro_[0] = static_cast<double>(d0) / 32768.0 * 2000.0 * kDegToRad;
       gyro_[1] = static_cast<double>(d1) / 32768.0 * 2000.0 * kDegToRad;
       gyro_[2] = static_cast<double>(d2) / 32768.0 * 2000.0 * kDegToRad;
       break;
     case 0x53:
-      saw_valid_frame_since_open_ = true;
       euler_deg_[0] = static_cast<double>(d0) / 32768.0 * 180.0;
       euler_deg_[1] = static_cast<double>(d1) / 32768.0 * 180.0;
       euler_deg_[2] = static_cast<double>(d2) / 32768.0 * 180.0;
@@ -756,7 +746,6 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       }
       break;
     case 0x59:
-      saw_valid_frame_since_open_ = true;
       quaternion_[0] = static_cast<double>(d0) / 32768.0;
       quaternion_[1] = static_cast<double>(d1) / 32768.0;
       quaternion_[2] = static_cast<double>(d2) / 32768.0;

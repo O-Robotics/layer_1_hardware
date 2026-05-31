@@ -33,16 +33,11 @@ private:
   bool open_serial();
   void close_serial();
   bool configure_device();
-  bool configure_device_profile(int target_baud, double target_return_rate_hz);
-  bool connect_with_profile(
-    int connect_baud,
-    int target_baud,
-    double target_return_rate_hz,
-    const std::string & profile_name);
   bool establish_initial_connection();
   bool wait_for_valid_frames(std::chrono::milliseconds timeout);
   bool send_unlock_command();
   bool send_command(uint8_t address, uint16_t value);
+  bool reopen_serial_with_baud(int baud);
   std::optional<uint8_t> baud_to_device_code(int baud) const;
   std::optional<uint8_t> rate_to_device_code(double hz) const;
   uint16_t build_return_content_mask() const;
@@ -61,11 +56,9 @@ private:
 
   std::string device_path_;
   int baud_{9600};
-  int fallback_baud_{9600};
   std::string frame_id_{"imu_link"};
   double publish_hz_{10.0};
   int read_period_ms_{2};
-  int frame_validation_timeout_ms_{750};
   int reconnect_attempt_interval_ms_{1000};
   int retry_attempts_before_error_{3};
   int fatal_after_consecutive_errors_{10};
@@ -74,7 +67,6 @@ private:
   bool save_configuration_{true};
   int device_bootstrap_baud_{9600};
   double device_return_rate_hz_{10.0};
-  double fallback_device_return_rate_hz_{20.0};
   std::string installation_direction_{"horizontal"};
   std::string algorithm_mode_{"nine_axis"};
   bool gyroscope_auto_calibration_{true};

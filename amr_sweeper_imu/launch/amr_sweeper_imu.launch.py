@@ -25,7 +25,7 @@ def generate_launch_description():
         description='Deprecated compatibility alias for device_path')
     declare_baud = DeclareLaunchArgument(
         name='baud',
-        default_value='115200',
+        default_value='9600',
         description='Baud rate for the JY901 IMU')
     declare_frame_id = DeclareLaunchArgument(
         name='imu_frame_id',
@@ -33,7 +33,7 @@ def generate_launch_description():
         description='Frame ID for published IMU messages')
     declare_publish_hz = DeclareLaunchArgument(
         name='publish_hz',
-        default_value='100.0',
+        default_value='10.0',
         description='Maximum IMU publish rate in Hz')
     declare_params_file = DeclareLaunchArgument(
         name='params_file',
