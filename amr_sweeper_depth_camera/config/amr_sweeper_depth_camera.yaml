@@ -1,34 +1,40 @@
 /**:
   ros__parameters:
-    serial_no:                       ""            # Leave empty to auto-select the detected D555.
-    enable_color:                    true
-    rgb_camera.color_profile:        448x252x5
-    rgb_camera.color_format:         RGB8
-    rgb_camera.global_time_enabled:  true
+    serial_no:                        ""             # Leave empty to auto-select the detected D555.
 
-    enable_depth:                    true
-    depth_module.depth_profile:      640x360x30
-    depth_module.depth_format:       Z16
+    # -- Color stream ----------------------------------------------------------
+    enable_color:                     true
+    rgb_camera.color_profile:         424x240x5     # Lower RGB resolution to keep USB and CPU load down during navigation.
+    rgb_camera.color_format:          RGB8
+    rgb_camera.global_time_enabled:   true
+
+    # -- Stereo depth + IR streams --------------------------------------------
+    enable_depth:                     true
+    depth_module.depth_profile:       424x240x15    # Reduce depth resolution and frame rate to avoid stream-profile conflicts and lower device load.
+    depth_module.depth_format:        Z16
     depth_module.global_time_enabled: true
 
-    enable_infra1:                   true
-    enable_infra2:                   true
-    depth_module.infra_profile:      640x360x30   # Must match the active depth_module profile when infrared streams are enabled.
-    depth_module.infra1_format:      Y8
-    depth_module.infra2_format:      Y8
+    enable_infra1:                    true
+    enable_infra2:                    true
+    depth_module.infra_profile:       424x240x15    # Must match the active depth_module profile when infrared streams are enabled.
+    depth_module.infra1_format:       Y8
+    depth_module.infra2_format:       Y8
 
-    enable_motion:                   true          # D555 DDS devices expose combined IMU samples on ~/motion/sample.
-    enable_accel:                    false
-    enable_gyro:                     false
-    motion_fps:                      100
+    # -- Motion stream ---------------------------------------------------------
+    enable_motion:                    true           # D555 DDS devices expose combined IMU samples on ~/motion/sample.
+    enable_accel:                     false
+    enable_gyro:                      false
+    motion_fps:                       100
     motion_module.global_time_enabled: true
 
-    enable_sync:                     false
-    pointcloud.enable:               true
-    pointcloud.stream_filter:        2
-    pointcloud.stream_index_filter:  0
-    align_depth.enable:              false
+    # -- Derived outputs -------------------------------------------------------
+    enable_sync:                      false
+    pointcloud.enable:                true
+    pointcloud.stream_filter:         2
+    pointcloud.stream_index_filter:   0
+    align_depth.enable:               false
 
-    hold_back_imu_for_frames:        false
-    publish_tf:                      false
-    tf_publish_rate:                 0.0
+    # -- TF / buffering --------------------------------------------------------
+    hold_back_imu_for_frames:         false
+    publish_tf:                       false
+    tf_publish_rate:                  0.0
