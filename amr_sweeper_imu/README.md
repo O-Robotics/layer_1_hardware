@@ -20,12 +20,11 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - `namespace`: default `amr_sweeper/imu`
 - `use_sim_time`: default `false`
 - `params_file`: default `config/amr_sweeper_imu.yaml`
-- `device_path`: default `/dev/imu_usb`
-- `port`: default `/dev/imu_usb` (deprecated compatibility alias)
-- `baud`: default `9600`
-- `imu_frame_id`: default `imu_link`
-- `publish_hz`: default `10.0`
-- `yaw_offset_deg`: default `0.0`
+- `device_path`: default empty, so the YAML value is used unless explicitly overridden
+- `port`: default empty (deprecated compatibility alias)
+- `baud`: default empty, so the YAML value is used unless explicitly overridden
+- `imu_frame_id`: default empty, so the YAML value is used unless explicitly overridden
+- `publish_hz`: default empty, so the YAML value is used unless explicitly overridden
 - `use_imu_node`: default `true`
 
 ## Overview

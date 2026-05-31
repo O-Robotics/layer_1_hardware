@@ -131,9 +131,9 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("depth_camera_scan_tilt_angle_deg", default_value=""))
     ld.add_action(DeclareLaunchArgument("depth_camera_scan_time", default_value=""))
     ld.add_action(DeclareLaunchArgument("depth_camera_camera_domain_id", default_value="5"))
-    ld.add_action(DeclareLaunchArgument("imu_device_path", default_value="/dev/imu_usb"))
-    ld.add_action(DeclareLaunchArgument("imu_port", default_value="/dev/imu_usb"))
-    ld.add_action(DeclareLaunchArgument("imu_baud", default_value="9600"))
+    ld.add_action(DeclareLaunchArgument("imu_device_path", default_value=""))
+    ld.add_action(DeclareLaunchArgument("imu_port", default_value=""))
+    ld.add_action(DeclareLaunchArgument("imu_baud", default_value=""))
     ld.add_action(DeclareLaunchArgument("imu_params_file", default_value=PathJoinSubstitution([
         FindPackageShare("amr_sweeper_imu"),
         "config",
