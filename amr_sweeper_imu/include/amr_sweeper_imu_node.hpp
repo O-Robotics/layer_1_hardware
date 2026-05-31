@@ -41,8 +41,8 @@ private:
     const std::string & profile_name);
   bool establish_initial_connection();
   bool wait_for_valid_frames(std::chrono::milliseconds timeout);
+  bool send_unlock_command();
   bool send_command(uint8_t address, uint16_t value);
-  bool reopen_serial_with_baud(int baud);
   std::optional<uint8_t> baud_to_device_code(int baud) const;
   std::optional<uint8_t> rate_to_device_code(double hz) const;
   uint16_t build_return_content_mask() const;

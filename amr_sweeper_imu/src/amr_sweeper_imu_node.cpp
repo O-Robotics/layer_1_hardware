@@ -344,6 +344,12 @@ bool JY901ImuNode::send_command(uint8_t address, uint16_t value)
   return true;
 }
 
+bool JY901ImuNode::send_unlock_command()
+{
+  // Witmotion configuration writes must be preceded by the vendor unlock packet.
+  return send_command(0x69, 0xB588);
+}
+
 std::optional<uint8_t> JY901ImuNode::baud_to_device_code(int baud) const
 {
   switch (baud) {
@@ -396,15 +402,6 @@ uint16_t JY901ImuNode::build_return_content_mask() const
   mask |= static_cast<uint16_t>(output_quaternion_) << 9;
   mask |= static_cast<uint16_t>(output_satellite_accuracy_) << 10;
   return mask;
-}
-
-bool JY901ImuNode::reopen_serial_with_baud(int baud)
-{
-  active_baud_ = baud;
-  if (!open_serial()) {
-    return false;
-  }
-  return true;
 }
 
 void JY901ImuNode::enter_fatal_state(const std::string & message)
@@ -524,6 +521,7 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_retur
     normalized_algorithm == "6axis";
 
   bool okay = true;
+  okay = send_unlock_command() && okay;
   okay = send_command(0x02, build_return_content_mask()) && okay;
   okay = send_command(0x03, rate_code.value()) && okay;
   okay = send_command(0x23, direction_value) && okay;
@@ -540,29 +538,18 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_retur
     save_ok = send_command(0x00, 0U);
   }
 
-  if (target_baud != active_baud_) {
-    std::this_thread::sleep_for(kBaudTransitionDelay);
-    if (reopen_serial_with_baud(target_baud)) {
-      if (save_configuration_ && !save_ok) {
-        save_ok = send_command(0x00, 0U);
-      }
-    } else {
-      const int desired_baud = target_baud;
-      const int bootstrap_baud = device_bootstrap_baud_;
-      active_baud_ = bootstrap_baud;
-      if (open_serial()) {
-        RCLCPP_WARN(
-          get_logger(),
-          "IMU accepted configuration writes, but baud %d was not active yet. A device restart may still be required.",
-          desired_baud);
-      } else {
-        RCLCPP_ERROR(
-          get_logger(),
-          "IMU baud transition failed and reconnect at bootstrap baud %d also failed",
-          bootstrap_baud);
-        return false;
-      }
-    }
+  if (!save_ok) {
+    return false;
+  }
+
+  if (target_baud != active_baud_ || std::fabs(target_return_rate_hz - device_return_rate_hz_) > 1e-6) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Saved requested IMU profile %d baud / %.1f Hz while still connected at %d baud. "
+      "Witmotion documents that baud and return-rate changes take effect only after a module power-cycle.",
+      target_baud,
+      target_return_rate_hz,
+      active_baud_);
   }
 
   device_config_applied_ = save_ok;
@@ -650,17 +637,17 @@ bool JY901ImuNode::establish_initial_connection()
   const std::string preferred_error = last_serial_error_message_;
   RCLCPP_WARN(
     get_logger(),
-    "Preferred IMU profile %d baud / %.1f Hz was unavailable: %s. Falling back to %d baud / %.1f Hz.",
+    "Preferred IMU profile %d baud / %.1f Hz was unavailable: %s. "
+    "Falling back to %d baud so the preferred profile can be written and applied after power-cycle.",
     baud_,
     device_return_rate_hz_,
     preferred_error.c_str(),
-    fallback_baud_,
-    fallback_device_return_rate_hz_);
+    fallback_baud_);
 
   if (connect_with_profile(
-      device_bootstrap_baud_,
       fallback_baud_,
-      fallback_device_return_rate_hz_,
+      baud_,
+      device_return_rate_hz_,
       "fallback"))
   {
     return true;
