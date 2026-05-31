@@ -13,7 +13,7 @@
 
     enable_infra1:                   true
     enable_infra2:                   true
-    depth_module.infra_profile:      896x504x30
+    depth_module.infra_profile:      640x360x30   # Must match the active depth_module profile when infrared streams are enabled.
     depth_module.infra1_format:      Y8
     depth_module.infra2_format:      Y8
 
