@@ -25,6 +25,22 @@
 
   <link name="depth_camera_depth_frame"/>
 
+  <joint name="depth_camera_infra1_frame_joint" type="fixed">
+    <parent link="depth_camera_link"/>
+    <child link="depth_camera_infra1_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="depth_camera_infra1_frame"/>
+
+  <joint name="depth_camera_infra2_frame_joint" type="fixed">
+    <parent link="depth_camera_link"/>
+    <child link="depth_camera_infra2_frame"/>
+    <origin xyz="0 -0.095 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="depth_camera_infra2_frame"/>
+
   <joint name="depth_camera_color_frame_joint" type="fixed">
     <parent link="depth_camera_link"/>
     <child link="depth_camera_color_frame"/>
@@ -56,6 +72,22 @@
   </joint>
 
   <link name="depth_camera_color_optical_frame"/>
+
+  <joint name="depth_camera_infra1_optical_joint" type="fixed">
+    <parent link="depth_camera_infra1_frame"/>
+    <child link="depth_camera_infra1_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <link name="depth_camera_infra1_optical_frame"/>
+
+  <joint name="depth_camera_infra2_optical_joint" type="fixed">
+    <parent link="depth_camera_infra2_frame"/>
+    <child link="depth_camera_infra2_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <link name="depth_camera_infra2_optical_frame"/>
 
   <joint name="depth_camera_optical_joint" type="fixed">
     <parent link="depth_camera_link"/>
