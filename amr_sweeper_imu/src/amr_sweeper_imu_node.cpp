@@ -875,11 +875,6 @@ void JY901ImuNode::parse_byte(uint8_t byte)
 void JY901ImuNode::maybe_publish()
 {
   const auto now = get_clock()->now();
-  const double period_s = 1.0 / publish_hz_;
-  if ((now - last_pub_time_).seconds() < period_s) {
-    return;
-  }
-
   ensure_publishers_created();
   last_pub_time_ = now;
 
