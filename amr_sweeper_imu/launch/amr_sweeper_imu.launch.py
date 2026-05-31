@@ -1,9 +1,50 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.actions import OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+
+
+def launch_setup(context, *args, **kwargs):
+    ns = LaunchConfiguration('namespace')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    params_file = LaunchConfiguration('params_file')
+    device_path = LaunchConfiguration('device_path').perform(context)
+    port = LaunchConfiguration('port').perform(context)
+    baud = LaunchConfiguration('baud').perform(context)
+    imu_frame_id = LaunchConfiguration('imu_frame_id').perform(context)
+    publish_hz = LaunchConfiguration('publish_hz').perform(context)
+    use_imu_node = LaunchConfiguration('use_imu_node')
+
+    parameters = [
+        params_file,
+        {'use_sim_time': use_sim_time},
+    ]
+
+    if device_path:
+        parameters.append({'device_path': device_path})
+    if port:
+        parameters.append({'port': port})
+    if baud:
+        parameters.append({'baud': int(baud)})
+    if imu_frame_id:
+        parameters.append({'imu_frame_id': imu_frame_id})
+    if publish_hz:
+        parameters.append({'publish_hz': float(publish_hz)})
+
+    imu_node = Node(
+        package='amr_sweeper_imu',
+        executable='imu_node',
+        name='imu_node',
+        namespace=ns,
+        parameters=parameters,
+        output='screen',
+        condition=IfCondition(use_imu_node),
+    )
+
+    return [imu_node]
 
 
 def generate_launch_description():
@@ -17,24 +58,24 @@ def generate_launch_description():
         description='Use ROS time if true')
     declare_device_path = DeclareLaunchArgument(
         name='device_path',
-        default_value='/dev/imu_usb',
-        description='Serial device path for the JY901 IMU')
+        default_value='',
+        description='Optional serial device path override for the JY901 IMU')
     declare_port = DeclareLaunchArgument(
         name='port',
-        default_value='/dev/imu_usb',
-        description='Deprecated compatibility alias for device_path')
+        default_value='',
+        description='Optional deprecated compatibility alias override for device_path')
     declare_baud = DeclareLaunchArgument(
         name='baud',
-        default_value='115200',
-        description='Baud rate for the JY901 IMU')
+        default_value='',
+        description='Optional baud override for the JY901 IMU')
     declare_frame_id = DeclareLaunchArgument(
         name='imu_frame_id',
-        default_value='imu_link',
-        description='Frame ID for published IMU messages')
+        default_value='',
+        description='Optional frame ID override for published IMU messages')
     declare_publish_hz = DeclareLaunchArgument(
         name='publish_hz',
-        default_value='100.0',
-        description='Maximum IMU publish rate in Hz')
+        default_value='',
+        description='Optional IMU publish-rate override in Hz')
     declare_params_file = DeclareLaunchArgument(
         name='params_file',
         default_value=PathJoinSubstitution([
@@ -49,34 +90,6 @@ def generate_launch_description():
         default_value='true',
         description='Launch imu_node')
 
-    ns = LaunchConfiguration('namespace')
-    use_sim_time = LaunchConfiguration('use_sim_time')
-    params_file = LaunchConfiguration('params_file')
-    device_path = LaunchConfiguration('device_path')
-    port = LaunchConfiguration('port')
-    baud = LaunchConfiguration('baud')
-    imu_frame_id = LaunchConfiguration('imu_frame_id')
-    publish_hz = LaunchConfiguration('publish_hz')
-    use_imu_node = LaunchConfiguration('use_imu_node')
-
-    imu_node = Node(
-        package='amr_sweeper_imu',
-        executable='imu_node',
-        name='imu_node',
-        namespace=ns,
-        parameters=[
-            params_file,
-            {'device_path': device_path},
-            {'port': port},
-            {'baud': baud},
-            {'imu_frame_id': imu_frame_id},
-            {'publish_hz': publish_hz},
-            {'use_sim_time': use_sim_time},
-        ],
-        output='screen',
-        condition=IfCondition(use_imu_node),
-    )
-
     return LaunchDescription(
         [
             declare_namespace,
@@ -88,6 +101,6 @@ def generate_launch_description():
             declare_publish_hz,
             declare_params_file,
             declare_use_imu_node,
-            imu_node,
+            OpaqueFunction(function=launch_setup),
         ]
     )
