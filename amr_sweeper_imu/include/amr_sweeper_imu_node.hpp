@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <chrono>
 #include <optional>
 #include <string>
 #include <vector>
@@ -29,6 +30,18 @@ public:
 private:
   static constexpr uint8_t kFrameHeader = 0x55;
   static constexpr std::size_t kFrameLength = 11;
+  static constexpr uint8_t kRegisterReadReply = 0x5F;
+
+  struct DeviceConfigurationSnapshot
+  {
+    uint16_t return_content_mask{0};
+    uint16_t rate_code{0};
+    uint16_t baud_code{0};
+    uint16_t led_off{0};
+    uint16_t orient{0};
+    uint16_t axis6{0};
+    uint16_t gyro_auto_calibration_time_ms{0};
+  };
 
   bool open_serial();
   void close_serial();
@@ -40,6 +53,22 @@ private:
   bool confirm_stream_rate(double expected_hz, std::chrono::milliseconds timeout);
   bool send_unlock_command();
   bool send_command(uint8_t address, uint16_t value);
+  bool send_read_command(uint8_t start_register);
+  std::optional<std::array<uint16_t, 4>> read_register_block(
+    uint8_t start_register,
+    std::chrono::milliseconds timeout);
+  std::optional<DeviceConfigurationSnapshot> read_device_configuration();
+  std::optional<DeviceConfigurationSnapshot> build_desired_device_configuration(
+    int target_baud,
+    double target_rate_hz) const;
+  std::vector<std::string> diff_device_configuration(
+    const DeviceConfigurationSnapshot & current,
+    const DeviceConfigurationSnapshot & desired) const;
+  void log_device_configuration(
+    const std::string & label,
+    const DeviceConfigurationSnapshot & config) const;
+  std::string describe_rate_code(uint16_t code) const;
+  std::string describe_baud_code(uint16_t code) const;
   bool reopen_serial_with_baud(int baud);
   std::optional<uint8_t> baud_to_device_code(int baud) const;
   std::optional<uint8_t> rate_to_device_code(double hz) const;

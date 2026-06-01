@@ -17,7 +17,7 @@
     save_configuration:             true          # Send the SAVE command after programming registers so changes persist across power cycles.
     installation_direction:         horizontal    # JY901 installation direction register: horizontal or vertical.
     algorithm_mode:                 nine_axis     # JY901 fusion mode: nine_axis or six_axis.
-    gyroscope_auto_calibration:     true          # Enable the JY901 gyroscope auto-calibration mode.
+    gyroscope_auto_calibration:     true          # Enable the JY901 gyroscope auto-calibration timer. true maps to 1000 ms, false disables it.
     led_enabled:                    false         # Leave the onboard LED enabled.
 
     # -- Packet outputs --------------------------------------------------------

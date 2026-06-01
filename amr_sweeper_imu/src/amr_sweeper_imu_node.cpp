@@ -5,9 +5,11 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <functional>
-#include <thread>
+#include <sstream>
 #include <cstring>
+#include <thread>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -22,6 +24,7 @@ constexpr std::size_t kFrameLength = 11;
 constexpr auto kCommandDelay = std::chrono::milliseconds(50);
 constexpr auto kBaudTransitionDelay = std::chrono::milliseconds(200);
 constexpr auto kFrameValidationTimeout = std::chrono::milliseconds(750);
+constexpr auto kRegisterReadTimeout = std::chrono::milliseconds(500);
 constexpr double kRateConfirmationTolerance = 0.6;
 
 speed_t baud_to_termios(int baud)
@@ -337,6 +340,30 @@ bool JY901ImuNode::send_command(uint8_t address, uint16_t value)
   return true;
 }
 
+bool JY901ImuNode::send_read_command(uint8_t start_register)
+{
+  if (serial_fd_ < 0) {
+    return false;
+  }
+
+  const std::array<uint8_t, 5> command{
+    0xFF,
+    0xAA,
+    0x27,
+    start_register,
+    0x00,
+  };
+
+  tcflush(serial_fd_, TCIFLUSH);
+  const ssize_t bytes_written = ::write(serial_fd_, command.data(), command.size());
+  if (bytes_written != static_cast<ssize_t>(command.size())) {
+    return false;
+  }
+
+  std::this_thread::sleep_for(kCommandDelay);
+  return true;
+}
+
 bool JY901ImuNode::send_unlock_command()
 {
   return send_command(0x69, 0xB588);
@@ -394,6 +421,247 @@ uint16_t JY901ImuNode::build_return_content_mask() const
   mask |= static_cast<uint16_t>(output_quaternion_) << 9;
   mask |= static_cast<uint16_t>(output_satellite_accuracy_) << 10;
   return mask;
+}
+
+std::optional<std::array<uint16_t, 4>> JY901ImuNode::read_register_block(
+  uint8_t start_register,
+  std::chrono::milliseconds timeout)
+{
+  if (!send_read_command(start_register)) {
+    return std::nullopt;
+  }
+
+  std::array<uint8_t, kFrameLength> response{};
+  std::size_t response_size = 0U;
+  std::array<uint8_t, 256> tmp{};
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+
+  while (std::chrono::steady_clock::now() < deadline && !stop_requested_.load() && !fatal_error_.load()) {
+    const ssize_t bytes_read = ::read(serial_fd_, tmp.data(), tmp.size());
+    if (bytes_read > 0) {
+      for (ssize_t index = 0; index < bytes_read; ++index) {
+        const uint8_t byte = tmp[static_cast<std::size_t>(index)];
+        if (response_size == 0U && byte != kFrameHeader) {
+          continue;
+        }
+
+        response[response_size++] = byte;
+        if (response_size < kFrameLength) {
+          continue;
+        }
+
+        response_size = 0U;
+        if (!valid_checksum(response)) {
+          continue;
+        }
+
+        if (response[1] != kRegisterReadReply) {
+          continue;
+        }
+
+        return std::array<uint16_t, 4>{
+          static_cast<uint16_t>(read_i16_le(&response[2])),
+          static_cast<uint16_t>(read_i16_le(&response[4])),
+          static_cast<uint16_t>(read_i16_le(&response[6])),
+          static_cast<uint16_t>(read_i16_le(&response[8])),
+        };
+      }
+    } else if (bytes_read < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+      last_serial_error_message_ = errno_message(
+        "Serial read failure while reading IMU registers on '" + device_path_ + "'");
+      return std::nullopt;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+
+  last_serial_error_message_ =
+    "Timed out while reading IMU registers starting at 0x" +
+    [&start_register]() {
+      std::ostringstream stream;
+      stream << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+             << static_cast<int>(start_register);
+      return stream.str();
+    }();
+  return std::nullopt;
+}
+
+std::optional<JY901ImuNode::DeviceConfigurationSnapshot> JY901ImuNode::read_device_configuration()
+{
+  const auto basic_block = read_register_block(0x02, kRegisterReadTimeout);
+  if (!basic_block.has_value()) {
+    return std::nullopt;
+  }
+
+  const auto led_block = read_register_block(0x1B, kRegisterReadTimeout);
+  if (!led_block.has_value()) {
+    return std::nullopt;
+  }
+
+  const auto orientation_block = read_register_block(0x23, kRegisterReadTimeout);
+  if (!orientation_block.has_value()) {
+    return std::nullopt;
+  }
+
+  const auto gyro_auto_calibration_block = read_register_block(0x63, kRegisterReadTimeout);
+  if (!gyro_auto_calibration_block.has_value()) {
+    return std::nullopt;
+  }
+
+  DeviceConfigurationSnapshot config;
+  config.return_content_mask = basic_block.value()[0];
+  config.rate_code = basic_block.value()[1];
+  config.baud_code = basic_block.value()[2];
+  config.led_off = led_block.value()[0];
+  config.orient = orientation_block.value()[0];
+  config.axis6 = orientation_block.value()[1];
+  config.gyro_auto_calibration_time_ms = gyro_auto_calibration_block.value()[0];
+  return config;
+}
+
+std::optional<JY901ImuNode::DeviceConfigurationSnapshot>
+JY901ImuNode::build_desired_device_configuration(int target_baud, double target_rate_hz) const
+{
+  const auto rate_code = rate_to_device_code(target_rate_hz);
+  if (!rate_code.has_value()) {
+    return std::nullopt;
+  }
+
+  const auto baud_code = baud_to_device_code(target_baud);
+  if (!baud_code.has_value()) {
+    return std::nullopt;
+  }
+
+  std::string normalized_algorithm = algorithm_mode_;
+  std::transform(
+    normalized_algorithm.begin(),
+    normalized_algorithm.end(),
+    normalized_algorithm.begin(),
+    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+  DeviceConfigurationSnapshot config;
+  config.return_content_mask = build_return_content_mask();
+  config.rate_code = rate_code.value();
+  config.baud_code = baud_code.value();
+  config.led_off = led_enabled_ ? 0U : 1U;
+  config.orient = installation_direction_ == "vertical" ? 1U : 0U;
+  config.axis6 =
+    normalized_algorithm == "six_axis" ||
+    normalized_algorithm == "6_axis" ||
+    normalized_algorithm == "6axis" ? 1U : 0U;
+  config.gyro_auto_calibration_time_ms = gyroscope_auto_calibration_ ? 1000U : 0U;
+  return config;
+}
+
+std::string JY901ImuNode::describe_rate_code(uint16_t code) const
+{
+  switch (code) {
+    case 0x01: return "0.1 Hz";
+    case 0x02: return "0.5 Hz";
+    case 0x03: return "1 Hz";
+    case 0x04: return "2 Hz";
+    case 0x05: return "5 Hz";
+    case 0x06: return "10 Hz";
+    case 0x07: return "20 Hz";
+    case 0x08: return "50 Hz";
+    case 0x09: return "100 Hz";
+    case 0x0A: return "125 Hz";
+    case 0x0B: return "200 Hz";
+    default: {
+      std::ostringstream stream;
+      stream << "unknown(0x" << std::hex << std::uppercase << code << ")";
+      return stream.str();
+    }
+  }
+}
+
+std::string JY901ImuNode::describe_baud_code(uint16_t code) const
+{
+  switch (code) {
+    case 0x00: return "2400";
+    case 0x01: return "4800";
+    case 0x02: return "9600";
+    case 0x03: return "19200";
+    case 0x04: return "38400";
+    case 0x05: return "57600";
+    case 0x06: return "115200";
+    case 0x07: return "230400";
+    case 0x08: return "460800";
+    case 0x09: return "921600";
+    default: {
+      std::ostringstream stream;
+      stream << "unknown(0x" << std::hex << std::uppercase << code << ")";
+      return stream.str();
+    }
+  }
+}
+
+void JY901ImuNode::log_device_configuration(
+  const std::string & label,
+  const DeviceConfigurationSnapshot & config) const
+{
+  RCLCPP_INFO(
+    get_logger(),
+    "%s return_content_mask=0x%04X rate=%s baud=%s led=%s orientation=%s algorithm=%s gyro_auto_calibration=%s (%u ms)",
+    label.c_str(),
+    config.return_content_mask,
+    describe_rate_code(config.rate_code).c_str(),
+    describe_baud_code(config.baud_code).c_str(),
+    config.led_off == 0U ? "enabled" : "disabled",
+    config.orient == 0U ? "horizontal" : "vertical",
+    config.axis6 == 0U ? "nine_axis" : "six_axis",
+    config.gyro_auto_calibration_time_ms == 0U ? "disabled" : "enabled",
+    static_cast<unsigned int>(config.gyro_auto_calibration_time_ms));
+}
+
+std::vector<std::string> JY901ImuNode::diff_device_configuration(
+  const DeviceConfigurationSnapshot & current,
+  const DeviceConfigurationSnapshot & desired) const
+{
+  std::vector<std::string> mismatches;
+
+  if (current.return_content_mask != desired.return_content_mask) {
+    std::ostringstream stream;
+    stream << "return_content_mask current=0x" << std::hex << std::uppercase
+           << current.return_content_mask << " desired=0x" << desired.return_content_mask;
+    mismatches.push_back(stream.str());
+  }
+  if (current.rate_code != desired.rate_code) {
+    mismatches.push_back(
+      "output_rate current=" + describe_rate_code(current.rate_code) +
+      " desired=" + describe_rate_code(desired.rate_code));
+  }
+  if (current.baud_code != desired.baud_code) {
+    mismatches.push_back(
+      "baud current=" + describe_baud_code(current.baud_code) +
+      " desired=" + describe_baud_code(desired.baud_code));
+  }
+  if (current.led_off != desired.led_off) {
+    mismatches.push_back(
+      std::string("led current=") + (current.led_off == 0U ? "enabled" : "disabled") +
+      " desired=" + (desired.led_off == 0U ? "enabled" : "disabled"));
+  }
+  if (current.orient != desired.orient) {
+    mismatches.push_back(
+      std::string("installation_direction current=") +
+      (current.orient == 0U ? "horizontal" : "vertical") +
+      " desired=" + (desired.orient == 0U ? "horizontal" : "vertical"));
+  }
+  if (current.axis6 != desired.axis6) {
+    mismatches.push_back(
+      std::string("algorithm_mode current=") +
+      (current.axis6 == 0U ? "nine_axis" : "six_axis") +
+      " desired=" + (desired.axis6 == 0U ? "nine_axis" : "six_axis"));
+  }
+  if (current.gyro_auto_calibration_time_ms != desired.gyro_auto_calibration_time_ms) {
+    std::ostringstream stream;
+    stream << "gyroscope_auto_calibration current="
+           << current.gyro_auto_calibration_time_ms << " ms desired="
+           << desired.gyro_auto_calibration_time_ms << " ms";
+    mismatches.push_back(stream.str());
+  }
+
+  return mismatches;
 }
 
 void JY901ImuNode::enter_fatal_state(const std::string & message)
@@ -486,41 +754,52 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
       "The driver expects acceleration, angular velocity, and either angle or quaternion packets to be enabled");
   }
 
-  const auto rate_code = rate_to_device_code(target_rate_hz);
-  if (!rate_code.has_value()) {
-    RCLCPP_ERROR(get_logger(), "Unsupported target rate: %.3f", target_rate_hz);
+  const auto desired_config = build_desired_device_configuration(target_baud, target_rate_hz);
+  if (!desired_config.has_value()) {
+    const auto rate_code = rate_to_device_code(target_rate_hz);
+    if (!rate_code.has_value()) {
+      RCLCPP_ERROR(get_logger(), "Unsupported target rate: %.3f", target_rate_hz);
+    } else {
+      RCLCPP_ERROR(get_logger(), "Unsupported baud: %d", target_baud);
+    }
     return false;
   }
 
-  const auto baud_code = baud_to_device_code(target_baud);
-  if (!baud_code.has_value()) {
-    RCLCPP_ERROR(get_logger(), "Unsupported baud: %d", target_baud);
+  const auto current_config = read_device_configuration();
+  if (!current_config.has_value()) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "Unable to read IMU configuration from device after opening serial: %s",
+      last_serial_error_message_.c_str());
     return false;
   }
 
-  const std::string normalized_direction =
-    installation_direction_ == "vertical" ? "vertical" : "horizontal";
-  const uint16_t direction_value = normalized_direction == "vertical" ? 1U : 0U;
+  log_device_configuration("Current IMU configuration:", current_config.value());
+  log_device_configuration("Requested IMU configuration:", desired_config.value());
 
-  std::string normalized_algorithm = algorithm_mode_;
-  std::transform(
-    normalized_algorithm.begin(),
-    normalized_algorithm.end(),
-    normalized_algorithm.begin(),
-    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-  const bool use_six_axis_algorithm =
-    normalized_algorithm == "six_axis" || normalized_algorithm == "6_axis" ||
-    normalized_algorithm == "6axis";
+  const auto mismatches = diff_device_configuration(current_config.value(), desired_config.value());
+  if (mismatches.empty()) {
+    RCLCPP_INFO(get_logger(), "IMU configuration already matches requested parameters");
+    device_config_applied_ = true;
+    return true;
+  }
 
-  bool okay = true;
-  okay = send_unlock_command() && okay;
-  okay = send_command(0x02, build_return_content_mask()) && okay;
-  okay = send_command(0x03, rate_code.value()) && okay;
-  okay = send_command(0x23, direction_value) && okay;
-  okay = send_command(0x24, use_six_axis_algorithm ? 1U : 0U) && okay;
-  okay = send_command(0x63, gyroscope_auto_calibration_ ? 0U : 1U) && okay;
-  okay = send_command(0x1B, led_enabled_ ? 0U : 1U) && okay;
-  okay = send_command(0x04, baud_code.value()) && okay;
+  RCLCPP_WARN(get_logger(), "IMU configuration differs from requested parameters; updating device");
+  for (const auto & mismatch : mismatches) {
+    RCLCPP_WARN(get_logger(), "  %s", mismatch.c_str());
+  }
+
+  bool okay = send_unlock_command();
+  okay = send_command(0x02, desired_config->return_content_mask) && okay;
+  okay = send_command(0x03, desired_config->rate_code) && okay;
+  okay = send_command(0x23, desired_config->orient) && okay;
+  okay = send_command(0x24, desired_config->axis6) && okay;
+  okay = send_command(0x63, desired_config->gyro_auto_calibration_time_ms) && okay;
+  okay = send_command(0x1B, desired_config->led_off) && okay;
+  const bool baud_changed = current_config->baud_code != desired_config->baud_code;
+  if (baud_changed) {
+    okay = send_command(0x04, desired_config->baud_code) && okay;
+  }
   if (!okay) {
     return false;
   }
@@ -530,7 +809,7 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
     save_ok = send_command(0x00, 0U);
   }
 
-  if (target_baud != active_baud_) {
+  if (baud_changed && target_baud != active_baud_) {
     std::this_thread::sleep_for(kBaudTransitionDelay);
     if (reopen_serial_with_baud(target_baud)) {
       if (save_configuration_ && !save_ok) {
@@ -555,8 +834,32 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
     }
   }
 
-  device_config_applied_ = save_ok;
-  return save_ok;
+  if (!save_ok) {
+    RCLCPP_ERROR(get_logger(), "Failed to save IMU configuration to persistent storage");
+    return false;
+  }
+
+  const auto verified_config = read_device_configuration();
+  if (!verified_config.has_value()) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "Unable to re-read IMU configuration after update: %s",
+      last_serial_error_message_.c_str());
+    return false;
+  }
+
+  log_device_configuration("Verified IMU configuration:", verified_config.value());
+  const auto remaining_mismatches =
+    diff_device_configuration(verified_config.value(), desired_config.value());
+  if (!remaining_mismatches.empty()) {
+    for (const auto & mismatch : remaining_mismatches) {
+      RCLCPP_ERROR(get_logger(), "IMU configuration verification failed: %s", mismatch.c_str());
+    }
+    return false;
+  }
+
+  device_config_applied_ = true;
+  return true;
 }
 
 bool JY901ImuNode::wait_for_valid_frames(std::chrono::milliseconds timeout)
