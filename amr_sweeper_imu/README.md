@@ -42,6 +42,7 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - For robot deployments, prefer a stable `/dev/serial/by-id/...` path in `device_path` if the IMU exposes one. The older `/dev/imu_usb` symlink still works as a compatibility path.
 - On startup the node reads back the JY901 configuration registers, prints the current device configuration, compares them against the YAML-backed desired configuration, and only updates the registers that differ before printing `IMU configuration complete`.
 - The package uses the bundled JY901 datasheet for the write-side register map and the newer official WIT standard protocol documentation for register readback (`0x27` read command and `0x5F` reply).
+- `gyroscope_auto_calibration` is treated as a command sent with `0x63`, not as a readable persistent configuration register, because that is how it is described in the bundled JY901 datasheet.
 - The driver can parse the IMU's native `0x59` quaternion packet and use it as the primary ROS orientation source when `output_quaternion` is enabled.
 - `yaw_offset_deg` applies a software yaw correction before publishing orientation, angular velocity, and linear acceleration. For a 180 degree yaw mounting mismatch, set `yaw_offset_deg: 180.0`.
 - If `baud` differs from the sensor's current baud, use `fallback_baud` to tell the node how to reach the sensor before reprogramming it. The datasheet notes that baud/rate related changes may require a module restart or re-power to fully take effect.

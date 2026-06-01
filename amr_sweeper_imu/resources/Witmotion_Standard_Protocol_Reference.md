@@ -32,7 +32,7 @@ Relevant registers for `amr_sweeper_imu`:
 - `0x23` `ORIENT` installation direction
 - `0x24` `AXIS6` algorithm selection
 - `0x27` `READADDR` register read command
-- `0x63` `Yaw` in the older PDF register map, but `0x63` is also used by the older bundled JY901 datasheet as the gyroscope automatic calibration configuration command in section `7.2.7`
+- `0x63` is used by the bundled JY901 datasheet section `7.2.7` as the gyroscope automatic calibration command. It should not be assumed to be a normal readable persistent configuration register in this package.
 
 Notes:
 

@@ -510,11 +510,6 @@ std::optional<JY901ImuNode::DeviceConfigurationSnapshot> JY901ImuNode::read_devi
     return std::nullopt;
   }
 
-  const auto gyro_auto_calibration_block = read_register_block(0x63, kRegisterReadTimeout);
-  if (!gyro_auto_calibration_block.has_value()) {
-    return std::nullopt;
-  }
-
   DeviceConfigurationSnapshot config;
   config.return_content_mask = basic_block.value()[0];
   config.rate_code = basic_block.value()[1];
@@ -522,7 +517,6 @@ std::optional<JY901ImuNode::DeviceConfigurationSnapshot> JY901ImuNode::read_devi
   config.led_off = led_block.value()[0];
   config.orient = orientation_block.value()[0];
   config.axis6 = orientation_block.value()[1];
-  config.gyroscope_auto_calibration_mode = gyro_auto_calibration_block.value()[0];
   return config;
 }
 
@@ -556,7 +550,6 @@ JY901ImuNode::build_desired_device_configuration(int target_baud, double target_
     normalized_algorithm == "six_axis" ||
     normalized_algorithm == "6_axis" ||
     normalized_algorithm == "6axis" ? 1U : 0U;
-  config.gyroscope_auto_calibration_mode = gyroscope_auto_calibration_ ? 0U : 1U;
   return config;
 }
 
@@ -658,9 +651,7 @@ void JY901ImuNode::log_device_configuration(
     << "baud=" << describe_baud_code(config.baud_code) << "\n"
     << "led=" << (config.led_off == 0U ? "enabled" : "disabled") << "\n"
     << "orientation=" << (config.orient == 0U ? "horizontal" : "vertical") << "\n"
-    << "algorithm=" << (config.axis6 == 0U ? "nine_axis" : "six_axis") << "\n"
-    << "gyro_auto_calibration="
-    << (config.gyroscope_auto_calibration_mode == 0U ? "enabled" : "disabled")
+    << "algorithm=" << (config.axis6 == 0U ? "nine_axis" : "six_axis")
     << std::endl;
 }
 
@@ -702,12 +693,6 @@ std::vector<std::string> JY901ImuNode::diff_device_configuration(
       std::string("algorithm_mode current=") +
       (current.axis6 == 0U ? "nine_axis" : "six_axis") +
       " desired=" + (desired.axis6 == 0U ? "nine_axis" : "six_axis"));
-  }
-  if (current.gyroscope_auto_calibration_mode != desired.gyroscope_auto_calibration_mode) {
-    mismatches.push_back(
-      std::string("gyroscope_auto_calibration current=") +
-      (current.gyroscope_auto_calibration_mode == 0U ? "enabled" : "disabled") +
-      " desired=" + (desired.gyroscope_auto_calibration_mode == 0U ? "enabled" : "disabled"));
   }
 
   return mismatches;
@@ -842,7 +827,6 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
   okay = send_command(0x03, desired_config->rate_code) && okay;
   okay = send_command(0x23, desired_config->orient) && okay;
   okay = send_command(0x24, desired_config->axis6) && okay;
-  okay = send_command(0x63, desired_config->gyroscope_auto_calibration_mode) && okay;
   okay = send_command(0x1B, desired_config->led_off) && okay;
   const bool baud_changed = current_config->baud_code != desired_config->baud_code;
   if (baud_changed) {
@@ -885,6 +869,12 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
   if (!save_ok) {
     RCLCPP_ERROR(get_logger(), "Failed to save IMU configuration to persistent storage");
     return false;
+  }
+
+  if (!send_command(0x63, gyroscope_auto_calibration_ ? 0U : 1U)) {
+    RCLCPP_WARN(
+      get_logger(),
+      "Failed to send gyroscope auto-calibration command. Continuing because the JY901 datasheet documents 0x63 as a command, not a readable persistent register.");
   }
 
   const auto verified_config = read_device_configuration();
