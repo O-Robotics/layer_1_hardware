@@ -45,3 +45,6 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - `yaw_offset_deg` applies a software yaw correction before publishing orientation, angular velocity, and linear acceleration. For a 180 degree yaw mounting mismatch, set `yaw_offset_deg: 180.0`.
 - If `baud` differs from the sensor's current baud, use `fallback_baud` to tell the node how to reach the sensor before reprogramming it.
 - Reconnect failures now follow a warn/error/fatal escalation pattern similar to the GNSS NTRIP client, using `retry_attempts_before_error`, `fatal_after_consecutive_errors`, and `max_reconnect_attempts`.
+
+## TODO
+- changing the baud rate does work, but it takes a few launches and are genrally unreliable. The process should be looked into and improved. 
