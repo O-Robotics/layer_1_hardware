@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iomanip>
 #include <functional>
+#include <iostream>
 #include <sstream>
 #include <cstring>
 #include <thread>
@@ -643,26 +644,19 @@ void JY901ImuNode::log_device_configuration(
   const std::string & label,
   const DeviceConfigurationSnapshot & config) const
 {
-  RCLCPP_INFO(
-    get_logger(),
-    "%s\n"
-    "return_content_mask=0x%04X [%s]\n"
-    "rate=%s\n"
-    "baud=%s\n"
-    "led=%s\n"
-    "orientation=%s\n"
-    "algorithm=%s\n"
-    "gyro_auto_calibration=%s (%u ms)",
-    label.c_str(),
-    config.return_content_mask,
-    describe_return_content_mask(config.return_content_mask).c_str(),
-    describe_rate_code(config.rate_code).c_str(),
-    describe_baud_code(config.baud_code).c_str(),
-    config.led_off == 0U ? "enabled" : "disabled",
-    config.orient == 0U ? "horizontal" : "vertical",
-    config.axis6 == 0U ? "nine_axis" : "six_axis",
-    config.gyro_auto_calibration_time_ms == 0U ? "disabled" : "enabled",
-    static_cast<unsigned int>(config.gyro_auto_calibration_time_ms));
+  RCLCPP_INFO(get_logger(), "%s", label.c_str());
+  std::cout
+    << "return_content_mask=0x" << std::uppercase << std::hex << std::setw(4) << std::setfill('0')
+    << config.return_content_mask << std::dec << " [" << describe_return_content_mask(config.return_content_mask) << "]\n"
+    << "rate=" << describe_rate_code(config.rate_code) << "\n"
+    << "baud=" << describe_baud_code(config.baud_code) << "\n"
+    << "led=" << (config.led_off == 0U ? "enabled" : "disabled") << "\n"
+    << "orientation=" << (config.orient == 0U ? "horizontal" : "vertical") << "\n"
+    << "algorithm=" << (config.axis6 == 0U ? "nine_axis" : "six_axis") << "\n"
+    << "gyro_auto_calibration="
+    << (config.gyro_auto_calibration_time_ms == 0U ? "disabled" : "enabled")
+    << " (" << static_cast<unsigned int>(config.gyro_auto_calibration_time_ms) << " ms)"
+    << std::endl;
 }
 
 std::vector<std::string> JY901ImuNode::diff_device_configuration(
@@ -829,7 +823,6 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
 
   const auto mismatches = diff_device_configuration(current_config.value(), desired_config.value());
   if (mismatches.empty()) {
-    RCLCPP_INFO(get_logger(), "IMU configuration already matches parameters");
     device_config_applied_ = true;
     return true;
   }
@@ -1229,6 +1222,10 @@ void JY901ImuNode::maybe_publish()
 {
   const auto now = get_clock()->now();
   ensure_publishers_created();
+  if (!publishing_started_logged_) {
+    RCLCPP_INFO(get_logger(), "IMU publishing topics");
+    publishing_started_logged_ = true;
+  }
   last_pub_time_ = now;
 
   const sensor_msgs::msg::Imu raw_msg = build_raw_imu_message(now);
