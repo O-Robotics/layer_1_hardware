@@ -227,6 +227,7 @@ JY901ImuNode::JY901ImuNode()
       last_serial_error_message_);
   } else {
     RCLCPP_INFO(get_logger(), "IMU configuration complete");
+    publishing_enabled_ = true;
     reset_issue_counters();
   }
 
@@ -1220,6 +1221,10 @@ void JY901ImuNode::parse_byte(uint8_t byte)
 
 void JY901ImuNode::maybe_publish()
 {
+  if (!publishing_enabled_) {
+    return;
+  }
+
   const auto now = get_clock()->now();
   ensure_publishers_created();
   if (!publishing_started_logged_) {

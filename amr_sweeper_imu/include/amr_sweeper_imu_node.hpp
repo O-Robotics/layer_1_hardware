@@ -122,6 +122,7 @@ private:
   int active_baud_{9600};
   bool termios_valid_{false};
   bool device_config_applied_{false};
+  bool publishing_enabled_{false};
   bool publishing_started_logged_{false};
   termios original_tty_{};
   std::atomic<bool> stop_requested_{false};
