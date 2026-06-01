@@ -67,6 +67,7 @@ private:
   void log_device_configuration(
     const std::string & label,
     const DeviceConfigurationSnapshot & config) const;
+  std::string describe_return_content_mask(uint16_t mask) const;
   std::string describe_rate_code(uint16_t code) const;
   std::string describe_baud_code(uint16_t code) const;
   bool reopen_serial_with_baud(int baud);

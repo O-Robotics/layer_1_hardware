@@ -575,6 +575,49 @@ std::string JY901ImuNode::describe_rate_code(uint16_t code) const
   }
 }
 
+std::string JY901ImuNode::describe_return_content_mask(uint16_t mask) const
+{
+  struct MaskBitDescription
+  {
+    uint16_t bit;
+    const char * label;
+  };
+
+  static constexpr std::array<MaskBitDescription, 11> descriptions{{
+    {static_cast<uint16_t>(1U << 0), "time"},
+    {static_cast<uint16_t>(1U << 1), "accel"},
+    {static_cast<uint16_t>(1U << 2), "gyro"},
+    {static_cast<uint16_t>(1U << 3), "angle"},
+    {static_cast<uint16_t>(1U << 4), "magnetic"},
+    {static_cast<uint16_t>(1U << 5), "port_status"},
+    {static_cast<uint16_t>(1U << 6), "pressure_height"},
+    {static_cast<uint16_t>(1U << 7), "gps_coordinates"},
+    {static_cast<uint16_t>(1U << 8), "gps_velocity"},
+    {static_cast<uint16_t>(1U << 9), "quaternion"},
+    {static_cast<uint16_t>(1U << 10), "satellite_accuracy"},
+  }};
+
+  std::ostringstream stream;
+  bool first = true;
+  for (const auto & description : descriptions) {
+    if ((mask & description.bit) == 0U) {
+      continue;
+    }
+
+    if (!first) {
+      stream << ", ";
+    }
+    stream << description.label;
+    first = false;
+  }
+
+  if (first) {
+    stream << "none";
+  }
+
+  return stream.str();
+}
+
 std::string JY901ImuNode::describe_baud_code(uint16_t code) const
 {
   switch (code) {
@@ -602,9 +645,17 @@ void JY901ImuNode::log_device_configuration(
 {
   RCLCPP_INFO(
     get_logger(),
-    "%s return_content_mask=0x%04X rate=%s baud=%s led=%s orientation=%s algorithm=%s gyro_auto_calibration=%s (%u ms)",
+    "%s\n"
+    "return_content_mask=0x%04X [%s]\n"
+    "rate=%s\n"
+    "baud=%s\n"
+    "led=%s\n"
+    "orientation=%s\n"
+    "algorithm=%s\n"
+    "gyro_auto_calibration=%s (%u ms)",
     label.c_str(),
     config.return_content_mask,
+    describe_return_content_mask(config.return_content_mask).c_str(),
     describe_rate_code(config.rate_code).c_str(),
     describe_baud_code(config.baud_code).c_str(),
     config.led_off == 0U ? "enabled" : "disabled",
@@ -775,11 +826,10 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
   }
 
   log_device_configuration("Current IMU configuration:", current_config.value());
-  log_device_configuration("Requested IMU configuration:", desired_config.value());
 
   const auto mismatches = diff_device_configuration(current_config.value(), desired_config.value());
   if (mismatches.empty()) {
-    RCLCPP_INFO(get_logger(), "IMU configuration already matches requested parameters");
+    RCLCPP_INFO(get_logger(), "IMU configuration already matches parameters");
     device_config_applied_ = true;
     return true;
   }
