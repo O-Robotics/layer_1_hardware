@@ -40,7 +40,7 @@ private:
     uint16_t led_off{0};
     uint16_t orient{0};
     uint16_t axis6{0};
-    uint16_t gyro_auto_calibration_time_ms{0};
+    uint16_t gyroscope_auto_calibration_mode{0};
   };
 
   bool open_serial();

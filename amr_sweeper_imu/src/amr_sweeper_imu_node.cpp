@@ -348,6 +348,11 @@ bool JY901ImuNode::send_read_command(uint8_t start_register)
     return false;
   }
 
+  // The newer WIT standard protocol requires unlocking before read/write access.
+  if (!send_unlock_command()) {
+    return false;
+  }
+
   const std::array<uint8_t, 5> command{
     0xFF,
     0xAA,
@@ -517,7 +522,7 @@ std::optional<JY901ImuNode::DeviceConfigurationSnapshot> JY901ImuNode::read_devi
   config.led_off = led_block.value()[0];
   config.orient = orientation_block.value()[0];
   config.axis6 = orientation_block.value()[1];
-  config.gyro_auto_calibration_time_ms = gyro_auto_calibration_block.value()[0];
+  config.gyroscope_auto_calibration_mode = gyro_auto_calibration_block.value()[0];
   return config;
 }
 
@@ -551,7 +556,7 @@ JY901ImuNode::build_desired_device_configuration(int target_baud, double target_
     normalized_algorithm == "six_axis" ||
     normalized_algorithm == "6_axis" ||
     normalized_algorithm == "6axis" ? 1U : 0U;
-  config.gyro_auto_calibration_time_ms = gyroscope_auto_calibration_ ? 1000U : 0U;
+  config.gyroscope_auto_calibration_mode = gyroscope_auto_calibration_ ? 0U : 1U;
   return config;
 }
 
@@ -655,8 +660,7 @@ void JY901ImuNode::log_device_configuration(
     << "orientation=" << (config.orient == 0U ? "horizontal" : "vertical") << "\n"
     << "algorithm=" << (config.axis6 == 0U ? "nine_axis" : "six_axis") << "\n"
     << "gyro_auto_calibration="
-    << (config.gyro_auto_calibration_time_ms == 0U ? "disabled" : "enabled")
-    << " (" << static_cast<unsigned int>(config.gyro_auto_calibration_time_ms) << " ms)"
+    << (config.gyroscope_auto_calibration_mode == 0U ? "enabled" : "disabled")
     << std::endl;
 }
 
@@ -699,12 +703,11 @@ std::vector<std::string> JY901ImuNode::diff_device_configuration(
       (current.axis6 == 0U ? "nine_axis" : "six_axis") +
       " desired=" + (desired.axis6 == 0U ? "nine_axis" : "six_axis"));
   }
-  if (current.gyro_auto_calibration_time_ms != desired.gyro_auto_calibration_time_ms) {
-    std::ostringstream stream;
-    stream << "gyroscope_auto_calibration current="
-           << current.gyro_auto_calibration_time_ms << " ms desired="
-           << desired.gyro_auto_calibration_time_ms << " ms";
-    mismatches.push_back(stream.str());
+  if (current.gyroscope_auto_calibration_mode != desired.gyroscope_auto_calibration_mode) {
+    mismatches.push_back(
+      std::string("gyroscope_auto_calibration current=") +
+      (current.gyroscope_auto_calibration_mode == 0U ? "enabled" : "disabled") +
+      " desired=" + (desired.gyroscope_auto_calibration_mode == 0U ? "enabled" : "disabled"));
   }
 
   return mismatches;
@@ -835,10 +838,11 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
 
   bool okay = send_unlock_command();
   okay = send_command(0x02, desired_config->return_content_mask) && okay;
+  const bool rate_changed = current_config->rate_code != desired_config->rate_code;
   okay = send_command(0x03, desired_config->rate_code) && okay;
   okay = send_command(0x23, desired_config->orient) && okay;
   okay = send_command(0x24, desired_config->axis6) && okay;
-  okay = send_command(0x63, desired_config->gyro_auto_calibration_time_ms) && okay;
+  okay = send_command(0x63, desired_config->gyroscope_auto_calibration_mode) && okay;
   okay = send_command(0x1B, desired_config->led_off) && okay;
   const bool baud_changed = current_config->baud_code != desired_config->baud_code;
   if (baud_changed) {
@@ -900,6 +904,12 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
       RCLCPP_ERROR(get_logger(), "IMU configuration verification failed: %s", mismatch.c_str());
     }
     return false;
+  }
+
+  if (baud_changed || rate_changed) {
+    RCLCPP_WARN(
+      get_logger(),
+      "The JY901 datasheet notes that baud/rate changes may still require a module restart or re-power to fully take effect.");
   }
 
   device_config_applied_ = true;
