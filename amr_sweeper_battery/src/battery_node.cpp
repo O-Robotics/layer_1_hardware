@@ -153,10 +153,11 @@ BatteryNode::BatteryNode()
     "Using interface %s, 29-bit IDs, prio=0x%02X, BMS=0x%02X, PC=0x%02X",
     can_interface_.c_str(), priority_, bms_addr_, pc_addr_);
 
+  const auto safety_stop_qos = rclcpp::QoS(10).reliable().transient_local();
   batt_pub_ = create_publisher<sensor_msgs::msg::BatteryState>("battery_state", 10);
   health_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>("battery_health", 10);
   safety_stop_pub_ = create_publisher<amr_sweeper_safety_msgs::msg::SafetyStop>(
-    safety_stop_topic_name_, 10);
+    safety_stop_topic_name_, safety_stop_qos);
 
   for (auto type : {
       ProtectionType::OverVoltage,
