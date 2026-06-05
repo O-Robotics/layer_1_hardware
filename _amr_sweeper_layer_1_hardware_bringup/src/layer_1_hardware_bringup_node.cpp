@@ -208,53 +208,58 @@ Layer1HardwareBringupNode::~Layer1HardwareBringupNode()
 
 void Layer1HardwareBringupNode::declare_parameters()
 {
-  declare_parameter("namespace", std::string("amr_sweeper"));
-  declare_parameter("log_level", std::string("info"));
-  declare_parameter("ublox_log_level", std::string("WARN"));
-  declare_parameter("use_sim_time", false);
-  declare_parameter(
-    "readiness_config_file",
-    std::string(""));
+  auto declare_if_missing =
+    [this](const std::string & name, const auto & default_value) {
+      if (!has_parameter(name)) {
+        declare_parameter(name, default_value);
+      }
+    };
 
-  declare_parameter("use_amr_sweeper_description", true);
-  declare_parameter("use_amr_sweeper_ros2_control", true);
-  declare_parameter("use_joint_broadcaster", true);
-  declare_parameter("use_amr_sweeper_battery", true);
-  declare_parameter("use_amr_sweeper_system_info", true);
-  declare_parameter("use_amr_sweeper_usb_cameras", true);
-  declare_parameter("use_amr_sweeper_depth_camera", true);
-  declare_parameter("use_amr_sweeper_imu", true);
-  declare_parameter("use_amr_sweeper_gnss", true);
-  declare_parameter("use_ntrip_client", true);
+  declare_if_missing("namespace", std::string("amr_sweeper"));
+  declare_if_missing("log_level", std::string("info"));
+  declare_if_missing("ublox_log_level", std::string("WARN"));
+  declare_if_missing("use_sim_time", false);
+  declare_if_missing("readiness_config_file", std::string(""));
 
-  declare_parameter("battery_can_interface", std::string("can0"));
-  declare_parameter("battery_params_file", std::string(""));
-  declare_parameter("system_info_params_file", std::string(""));
-  declare_parameter("depth_camera_params_file", std::string(""));
-  declare_parameter("depth_camera_use_laserscan", true);
-  declare_parameter("depth_camera_laserscan_params_file", std::string(""));
-  declare_parameter("depth_camera_image_topic", std::string(""));
-  declare_parameter("depth_camera_info_topic", std::string(""));
-  declare_parameter("depth_camera_frame", std::string("depth_camera_link"));
-  declare_parameter("depth_camera_scan_topic", std::string("scan"));
-  declare_parameter("depth_camera_output_frame", std::string(""));
-  declare_parameter("depth_camera_range_min", std::string(""));
-  declare_parameter("depth_camera_range_max", std::string(""));
-  declare_parameter("depth_camera_scan_height", std::string(""));
-  declare_parameter("depth_camera_scan_tilt_angle_deg", std::string(""));
-  declare_parameter("depth_camera_scan_time", std::string(""));
-  declare_parameter("depth_camera_camera_domain_id", std::string("5"));
-  declare_parameter("imu_device_path", std::string(""));
-  declare_parameter("imu_port", std::string(""));
-  declare_parameter("imu_baud", std::string(""));
-  declare_parameter("imu_params_file", std::string(""));
-  declare_parameter("gnss_frame_id", std::string("gnss_link"));
-  declare_parameter("ntrip_params_file", std::string(""));
-  declare_parameter("front_left_camera_enabled", false);
-  declare_parameter("front_right_camera_enabled", false);
-  declare_parameter("rear_left_camera_enabled", true);
-  declare_parameter("rear_right_camera_enabled", true);
-  declare_parameter("tools_camera_enabled", true);
+  declare_if_missing("use_amr_sweeper_description", true);
+  declare_if_missing("use_amr_sweeper_ros2_control", true);
+  declare_if_missing("use_joint_broadcaster", true);
+  declare_if_missing("use_amr_sweeper_battery", true);
+  declare_if_missing("use_amr_sweeper_system_info", true);
+  declare_if_missing("use_amr_sweeper_usb_cameras", true);
+  declare_if_missing("use_amr_sweeper_depth_camera", true);
+  declare_if_missing("use_amr_sweeper_imu", true);
+  declare_if_missing("use_amr_sweeper_gnss", true);
+  declare_if_missing("use_ntrip_client", true);
+
+  declare_if_missing("battery_can_interface", std::string("can0"));
+  declare_if_missing("battery_params_file", std::string(""));
+  declare_if_missing("system_info_params_file", std::string(""));
+  declare_if_missing("depth_camera_params_file", std::string(""));
+  declare_if_missing("depth_camera_use_laserscan", true);
+  declare_if_missing("depth_camera_laserscan_params_file", std::string(""));
+  declare_if_missing("depth_camera_image_topic", std::string(""));
+  declare_if_missing("depth_camera_info_topic", std::string(""));
+  declare_if_missing("depth_camera_frame", std::string("depth_camera_link"));
+  declare_if_missing("depth_camera_scan_topic", std::string("scan"));
+  declare_if_missing("depth_camera_output_frame", std::string(""));
+  declare_if_missing("depth_camera_range_min", std::string(""));
+  declare_if_missing("depth_camera_range_max", std::string(""));
+  declare_if_missing("depth_camera_scan_height", std::string(""));
+  declare_if_missing("depth_camera_scan_tilt_angle_deg", std::string(""));
+  declare_if_missing("depth_camera_scan_time", std::string(""));
+  declare_if_missing("depth_camera_camera_domain_id", std::string("5"));
+  declare_if_missing("imu_device_path", std::string(""));
+  declare_if_missing("imu_port", std::string(""));
+  declare_if_missing("imu_baud", std::string(""));
+  declare_if_missing("imu_params_file", std::string(""));
+  declare_if_missing("gnss_frame_id", std::string("gnss_link"));
+  declare_if_missing("ntrip_params_file", std::string(""));
+  declare_if_missing("front_left_camera_enabled", false);
+  declare_if_missing("front_right_camera_enabled", false);
+  declare_if_missing("rear_left_camera_enabled", true);
+  declare_if_missing("rear_right_camera_enabled", true);
+  declare_if_missing("tools_camera_enabled", true);
 }
 
 void Layer1HardwareBringupNode::build_stages()
