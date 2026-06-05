@@ -586,7 +586,7 @@ bool Layer1HardwareBringupNode::stage_has_started() const
 void Layer1HardwareBringupNode::start_current_stage()
 {
   const auto & stage = stages_[current_stage_index_];
-  RCLCPP_INFO(get_logger(), "Layer 1 stage: %s", stage.label.c_str());
+  RCLCPP_INFO(get_logger(), "%s", blue("Layer 1 stage: " + stage.label).c_str());
 
   for (const auto & command : stage.commands) {
     std::string err;
@@ -993,6 +993,11 @@ std::string Layer1HardwareBringupNode::shell_join(const std::vector<std::string>
     oss << shell_quote(tokens[index]);
   }
   return oss.str();
+}
+
+std::string Layer1HardwareBringupNode::blue(const std::string & text)
+{
+  return "\033[94m" + text + "\033[0m";
 }
 
 uint8_t Layer1HardwareBringupNode::parse_lifecycle_level(const std::string & raw)

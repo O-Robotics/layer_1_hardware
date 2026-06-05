@@ -105,6 +105,7 @@ private:
   std::string robot_namespace() const;
   static std::string shell_quote(const std::string & value);
   static std::string shell_join(const std::vector<std::string> & tokens);
+  static std::string blue(const std::string & text);
   static uint8_t parse_lifecycle_level(const std::string & raw);
   bool param_as_bool(const std::string & name) const;
   std::string param_as_string(const std::string & name) const;
