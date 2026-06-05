@@ -3,18 +3,20 @@
     update_rate: 30
     use_sim_time: false
 
-    diff_cont:
-      type: diff_drive_controller/DiffDriveController
+    drive_controller:
+      type: amr_sweeper_drive_controller/DriveController
 
-    controller_steadydrive:
-      type: velocity_controllers/JointGroupVelocityController
+    tool_controller:
+      type: amr_sweeper_tool_controller/ToolController
 
     joint_broad:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-/**/diff_cont:
+/**/drive_controller:
   ros__parameters:
-    type: diff_drive_controller/DiffDriveController
+    input_topic: cmd_vel_sweep_wheels
+    direct_command_topic: drive_controller/cmd_vel
+    odom_topic: drive_controller/odom
     publish_rate: 10.0
 
     left_wheel_names: ['LeftWheel_joint']
@@ -28,19 +30,18 @@
     wheel_separation_multiplier: 1.15
 
     position_feedback: false
-    tf_frame_prefix_enable: false
     odom_frame_id: odom
     base_frame_id: base_footprint
     enable_odom_tf: false
-    use_stamped_vel: true
+    command_timeout_sec: 0.5
+    direct_command_timeout_sec: 0.5
 
-/**/controller_steadydrive:
+/**/tool_controller:
   ros__parameters:
-    joints:
-      - LeftBrush_joint
-      - RightBrush_joint
-    command_interfaces:
-      - velocity
-    state_interfaces:
-      - position
-      - velocity
+    left_joint: LeftBrush_joint
+    right_joint: RightBrush_joint
+    input_topic: cmd_vel_sweep_tools
+    direct_command_topic: tool_controller/commands
+    max_tool_speed_rad_s: 35.0
+    command_timeout_sec: 0.5
+    direct_command_timeout_sec: 0.5

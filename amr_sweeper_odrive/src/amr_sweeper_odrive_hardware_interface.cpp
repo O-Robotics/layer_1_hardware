@@ -15,6 +15,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <linux/can.h>
@@ -35,9 +36,12 @@ namespace
 constexpr size_t LEFT_MOTOR_INDEX = 0;
 constexpr size_t RIGHT_MOTOR_INDEX = 1;
 constexpr double TWO_PI = 2.0 * M_PI;
+constexpr auto kReadinessPollPeriod = std::chrono::milliseconds(20);
+constexpr auto kMotorReadyTimeout = std::chrono::milliseconds(1500);
 
 enum ODriveAxisState
 {
+  AXIS_STATE_UNDEFINED = 0,
   AXIS_STATE_IDLE = 1,
   AXIS_STATE_CLOSED_LOOP_CONTROL = 8,
 };
@@ -139,6 +143,21 @@ struct GetEncoderEstimatesMessage
   {
     pos_estimate = can_get_signal_raw<float>(buf, 0, 32, true);
     vel_estimate = can_get_signal_raw<float>(buf, 32, 32, true);
+  }
+};
+
+struct ODriveHeartbeatMessage
+{
+  static constexpr uint8_t cmd_id = 0x01;
+  static constexpr uint8_t msg_length = 8;
+
+  uint32_t axis_error = 0;
+  uint8_t axis_state = AXIS_STATE_UNDEFINED;
+
+  void decode_buf(const uint8_t * buf)
+  {
+    axis_error = can_get_signal_raw<uint32_t>(buf, 0, 32, true);
+    axis_state = can_get_signal_raw<uint8_t>(buf, 32, 8, true);
   }
 };
 
@@ -834,6 +853,9 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
   node_ids_.resize(num_joints_);
   joint_telemetry_.resize(num_joints_);
   protection_states_.resize(num_joints_);
+  axis_error_states_.assign(num_joints_, 0);
+  axis_lifecycle_states_.assign(num_joints_, AXIS_STATE_UNDEFINED);
+  axis_heartbeat_received_.assign(num_joints_, false);
 
   if (num_joints_ != 2) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "Incorrect number of joints");
@@ -925,6 +947,15 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_configure(
       last_connection_error_message_.empty() ?
       "Failed to initialize SocketCAN on " + can_interface_ :
       last_connection_error_message_);
+    return CallbackReturn::ERROR;
+  }
+
+  std::string failure_reason;
+  if (!confirmMotorTelemetryReady(kMotorReadyTimeout, failure_reason)) {
+    RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
+    closeCanInterface();
+    last_connection_error_message_ = failure_reason;
+    return CallbackReturn::ERROR;
   }
   return CallbackReturn::SUCCESS;
 }
@@ -1001,6 +1032,13 @@ bool ODriveHardwareInterface::ensureCanInterface()
     for (size_t i = 0; i < num_joints_; ++i) {
       configureAxisForVelocity(i);
       (void)sendVelocityCommand(i, 0.0);
+    }
+    std::string failure_reason;
+    if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+      last_connection_error_message_ = failure_reason;
+      reportConnectionIssue(last_connection_error_message_);
+      closeCanInterface();
+      return false;
     }
   }
   return true;
@@ -1149,6 +1187,132 @@ void ODriveHardwareInterface::clearSafetyStopService(
   response->message = "ODrive safety stop cleared and axes re-enabled";
 }
 
+void ODriveHardwareInterface::resetReadinessTracking()
+{
+  std::fill(axis_heartbeat_received_.begin(), axis_heartbeat_received_.end(), false);
+  std::fill(axis_error_states_.begin(), axis_error_states_.end(), 0U);
+  std::fill(axis_lifecycle_states_.begin(), axis_lifecycle_states_.end(), AXIS_STATE_UNDEFINED);
+  for (auto & telemetry : joint_telemetry_) {
+    telemetry.has_position = false;
+    telemetry.has_speed = false;
+  }
+}
+
+bool ODriveHardwareInterface::confirmMotorTelemetryReady(
+  std::chrono::milliseconds timeout,
+  std::string & failure_reason)
+{
+  resetReadinessTracking();
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+
+  while (std::chrono::steady_clock::now() < deadline) {
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      if (!joint_telemetry_[i].has_position || !joint_telemetry_[i].has_speed) {
+        (void)requestAxisTelemetry(i, GetEncoderEstimatesMessage::cmd_id);
+      }
+    }
+
+    updateJointsFromHardware();
+    if (!impl_->can_intf.is_ready()) {
+      failure_reason = last_connection_error_message_.empty() ?
+        "ODrive telemetry readiness failed because the CAN interface disconnected" :
+        last_connection_error_message_;
+      return false;
+    }
+
+    const bool all_ready = std::all_of(
+      joint_telemetry_.begin(), joint_telemetry_.end(),
+      [](const JointTelemetry & telemetry) {
+        return telemetry.has_position && telemetry.has_speed;
+      });
+    if (all_ready) {
+      failure_reason.clear();
+      return true;
+    }
+
+    std::this_thread::sleep_for(kReadinessPollPeriod);
+  }
+
+  for (std::size_t i = 0; i < num_joints_; ++i) {
+    if (!joint_telemetry_[i].has_position || !joint_telemetry_[i].has_speed) {
+      failure_reason =
+        "ODrive joint '" + info_.joints[i].name + "' did not return encoder telemetry during configure";
+      return false;
+    }
+  }
+
+  failure_reason = "Timed out while confirming ODrive telemetry readiness";
+  return false;
+}
+
+bool ODriveHardwareInterface::confirmMotorsActive(
+  std::chrono::milliseconds timeout,
+  std::string & failure_reason)
+{
+  resetReadinessTracking();
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+
+  while (std::chrono::steady_clock::now() < deadline) {
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      if (!joint_telemetry_[i].has_position || !joint_telemetry_[i].has_speed) {
+        (void)requestAxisTelemetry(i, GetEncoderEstimatesMessage::cmd_id);
+      }
+    }
+
+    updateJointsFromHardware();
+    if (!impl_->can_intf.is_ready()) {
+      failure_reason = last_connection_error_message_.empty() ?
+        "ODrive activation readiness failed because the CAN interface disconnected" :
+        last_connection_error_message_;
+      return false;
+    }
+
+    bool all_ready = true;
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      if (!axis_heartbeat_received_[i]) {
+        all_ready = false;
+        continue;
+      }
+      if (axis_error_states_[i] != 0U) {
+        failure_reason =
+          "ODrive joint '" + info_.joints[i].name + "' reported axis_error=" +
+          std::to_string(axis_error_states_[i]) + " during activation";
+        return false;
+      }
+      if (axis_lifecycle_states_[i] != AXIS_STATE_CLOSED_LOOP_CONTROL) {
+        all_ready = false;
+      }
+      if (!joint_telemetry_[i].has_position || !joint_telemetry_[i].has_speed) {
+        all_ready = false;
+      }
+    }
+
+    if (all_ready) {
+      failure_reason.clear();
+      return true;
+    }
+
+    std::this_thread::sleep_for(kReadinessPollPeriod);
+  }
+
+  for (std::size_t i = 0; i < num_joints_; ++i) {
+    if (!axis_heartbeat_received_[i]) {
+      failure_reason =
+        "ODrive joint '" + info_.joints[i].name + "' did not publish a heartbeat during activation";
+      return false;
+    }
+    if (axis_lifecycle_states_[i] != AXIS_STATE_CLOSED_LOOP_CONTROL) {
+      failure_reason =
+        "ODrive joint '" + info_.joints[i].name +
+        "' did not reach CLOSED_LOOP_CONTROL during activation";
+      return false;
+    }
+  }
+
+  failure_reason = "Timed out while confirming ODrive activation readiness";
+  return false;
+}
+
 hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -1165,10 +1329,18 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
     position_states_[i] = 0.0;
     velocity_states_[i] = 0.0;
 
-    if (ensureCanInterface()) {
-      configureAxisForVelocity(i);
-      (void)sendVelocityCommand(i, 0.0);
+    if (!ensureCanInterface()) {
+      return CallbackReturn::ERROR;
     }
+    configureAxisForVelocity(i);
+    (void)sendVelocityCommand(i, 0.0);
+  }
+
+  std::string failure_reason;
+  if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+    RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
+    last_connection_error_message_ = failure_reason;
+    return CallbackReturn::ERROR;
   }
 
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System Successfully started!");
@@ -1637,6 +1809,17 @@ void ODriveHardwareInterface::processAxisFrame(size_t joint_index, const can_fra
   const uint8_t cmd = static_cast<uint8_t>(frame.can_id & 0x1f);
 
   switch (cmd) {
+    case ODriveHeartbeatMessage::cmd_id: {
+        if (frame.can_dlc < ODriveHeartbeatMessage::msg_length) {
+          return;
+        }
+        ODriveHeartbeatMessage msg;
+        msg.decode_buf(frame.data);
+        axis_error_states_[joint_index] = msg.axis_error;
+        axis_lifecycle_states_[joint_index] = msg.axis_state;
+        axis_heartbeat_received_[joint_index] = true;
+        return;
+      }
     case GetEncoderEstimatesMessage::cmd_id: {
         if (frame.can_dlc < GetEncoderEstimatesMessage::msg_length) {
           RCLCPP_WARN(rclcpp::get_logger(hw_name_), "message %u too short", static_cast<unsigned>(cmd));
@@ -1653,6 +1836,8 @@ void ODriveHardwareInterface::processAxisFrame(size_t joint_index, const can_fra
 
         position_states_[joint_index] = motor_position_rad / gear_ratios_[joint_index];
         velocity_states_[joint_index] = motor_velocity_rad_s / gear_ratios_[joint_index];
+        joint_telemetry_[joint_index].position_rad = position_states_[joint_index];
+        joint_telemetry_[joint_index].has_position = true;
         joint_telemetry_[joint_index].speed_rad_s = velocity_states_[joint_index];
         joint_telemetry_[joint_index].has_speed = true;
         return;

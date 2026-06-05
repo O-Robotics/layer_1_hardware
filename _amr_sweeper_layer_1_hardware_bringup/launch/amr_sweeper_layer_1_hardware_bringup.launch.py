@@ -4,11 +4,8 @@ from launch.actions import (
     DeclareLaunchArgument,
     GroupAction,
     IncludeLaunchDescription,
-    RegisterEventHandler,
-    TimerAction,
 )
-from launch.conditions import IfCondition, UnlessCondition
-from launch.event_handlers import OnProcessStart
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -35,7 +32,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
 
     use_amr_sweeper_description = LaunchConfiguration("use_amr_sweeper_description")
-    use_ros2_control = LaunchConfiguration("use_ros2_control")
+    use_amr_sweeper_ros2_control = LaunchConfiguration("use_amr_sweeper_ros2_control")
     use_amr_sweeper_battery = LaunchConfiguration("use_amr_sweeper_battery")
     use_amr_sweeper_system_info = LaunchConfiguration("use_amr_sweeper_system_info")
     use_amr_sweeper_usb_cameras = LaunchConfiguration("use_amr_sweeper_usb_cameras")
@@ -66,7 +63,6 @@ def generate_launch_description():
     imu_params_file = LaunchConfiguration("imu_params_file")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
-    ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
     robot_xacro_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_description"),
         "urdf",
@@ -77,7 +73,7 @@ def generate_launch_description():
         "xacro ",
         robot_xacro_file,
         " robot_namespace:=", namespace,
-        " use_ros2_control:=", use_ros2_control,
+        " use_ros2_control:=", use_amr_sweeper_ros2_control,
         " enable_usb_cameras:=", use_amr_sweeper_usb_cameras,
         " enable_gnss:=", use_amr_sweeper_gnss,
         " enable_imu:=", use_amr_sweeper_imu,
@@ -90,7 +86,7 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
 
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_ros2_control", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_ros2_control", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"))
@@ -145,12 +141,6 @@ def generate_launch_description():
         "config",
         "amr_sweeper_gnss_ntrip_client.yaml",
     ])))
-    ld.add_action(DeclareLaunchArgument("ros2_control_config_file", default_value=PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_description"),
-        "urdf",
-        "control",
-        "ros2_control.yaml",
-    ])))
     robot_state_publisher_node = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
@@ -163,6 +153,23 @@ def generate_launch_description():
         condition=IfCondition(use_amr_sweeper_description),
     )
     ld.add_action(robot_state_publisher_node)
+
+    ld.add_action(GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    _launch_file("amr_sweeper_ros2_control", "amr_sweeper_ros2_control.launch.py")),
+                launch_arguments={
+                    "namespace": namespace,
+                    "use_sim_time": use_sim_time,
+                    "use_ros2_control": use_amr_sweeper_ros2_control,
+                    "use_joint_broadcaster": "true",
+                }.items(),
+                condition=IfCondition(use_amr_sweeper_ros2_control),
+            ),
+        ],
+    ))
 
     ld.add_action(Node(
         package="amr_sweeper_battery",
@@ -252,119 +259,6 @@ def generate_launch_description():
             ),
         ],
     ))
-
-    controller_manager = Node(
-        package="controller_manager",
-        executable="ros2_control_node",
-        namespace=namespace,
-        output="screen",
-        parameters=[
-            {"use_sim_time": use_sim_time},
-            ros2_control_config_file,
-        ],
-        remappings=[
-            ("/robot_description", ["/", namespace, "/robot_description"]),
-        ],
-        condition=IfCondition(use_ros2_control),
-    )
-
-    joint_broad_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "joint_broad",
-            "--controller-manager",
-            ["/", namespace, "/controller_manager"],
-            "--controller-manager-timeout",
-            "60",
-        ],
-        namespace=namespace,
-        condition=UnlessCondition(use_sim_time),
-        output="screen",
-        additional_env={"RCUTILS_COLORIZED_OUTPUT": "0"},
-    )
-
-    diff_drive_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "diff_cont",
-            "--controller-manager",
-            ["/", namespace, "/controller_manager"],
-            "--controller-manager-timeout",
-            "60",
-            "--param-file",
-            ros2_control_config_file,
-            "--controller-ros-args",
-            "--remap /tf:=diff_cont_disabled_tf",
-        ],
-        namespace=namespace,
-        condition=UnlessCondition(use_sim_time),
-        output="screen",
-        additional_env={"RCUTILS_COLORIZED_OUTPUT": "0"},
-    )
-
-    steadydrive_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "controller_steadydrive",
-            "--controller-manager",
-            ["/", namespace, "/controller_manager"],
-            "--controller-manager-timeout",
-            "60",
-            "--param-file",
-            ros2_control_config_file,
-        ],
-        namespace=namespace,
-        condition=UnlessCondition(use_sim_time),
-        output="screen",
-        additional_env={"RCUTILS_COLORIZED_OUTPUT": "0"},
-    )
-
-    delayed_joint_broad_spawner = RegisterEventHandler(
-        OnProcessStart(
-            target_action=controller_manager,
-            on_start=[
-                TimerAction(
-                    period=2.0,
-                    actions=[joint_broad_spawner],
-                ),
-            ],
-        ),
-        condition=IfCondition(use_ros2_control),
-    )
-
-    delayed_diff_drive_spawner = RegisterEventHandler(
-        OnProcessStart(
-            target_action=controller_manager,
-            on_start=[
-                TimerAction(
-                    period=4.0,
-                    actions=[diff_drive_spawner],
-                ),
-            ],
-        ),
-        condition=IfCondition(use_ros2_control),
-    )
-
-    delayed_steadydrive_spawner = RegisterEventHandler(
-        OnProcessStart(
-            target_action=controller_manager,
-            on_start=[
-                TimerAction(
-                    period=6.0,
-                    actions=[steadydrive_spawner],
-                ),
-            ],
-        ),
-        condition=IfCondition(use_ros2_control),
-    )
-
-    ld.add_action(controller_manager)
-    ld.add_action(delayed_joint_broad_spawner)
-    ld.add_action(delayed_diff_drive_spawner)
-    ld.add_action(delayed_steadydrive_spawner)
 
     ld.add_action(GroupAction(
         scoped=True,

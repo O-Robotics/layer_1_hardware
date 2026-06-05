@@ -11,22 +11,23 @@ Dependencies to other AMR Sweeper packages:
 - `amr_sweeper_description`
 - `amr_sweeper_gnss`
 - `amr_sweeper_imu`
-- `amr_sweeper_msgs/amr_sweeper_safety_msgs`
-- `amr_sweeper_msgs/amr_sweeper_system_info_msgs`
+- `../layer_0_supervisors/amr_sweeper_msgs/amr_sweeper_safety_msgs`
+- `../layer_0_supervisors/amr_sweeper_msgs/amr_sweeper_system_info_msgs`
 - `amr_sweeper_odrive`
+- `amr_sweeper_ros2_control`
 - `amr_sweeper_steadydrive`
 - `amr_sweeper_system_info`
 - `amr_sweeper_usb_cameras`
 
 ## Purpose
-This repository is the real-robot hardware layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, battery monitoring, GNSS, IMU, USB cameras, depth-camera laser-scan conversion, and system-health publishing.
+This repository is the real-robot hardware layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, the shared `ros2_control` runtime that activates them, battery monitoring, GNSS, IMU, USB cameras, depth-camera laser-scan conversion, and system-health publishing.
 
 ## Launch Arguments
 - `namespace`: default `amr_sweeper`
 - `log_level`: default `info`
 - `use_sim_time`: default `false`
 - `use_amr_sweeper_description`: default `true`
-- `use_ros2_control`: default `true`
+- `use_amr_sweeper_ros2_control`: default `true`
 - `use_amr_sweeper_battery`: default `true`
 - `use_amr_sweeper_system_info`: default `true`
 - `use_amr_sweeper_usb_cameras`: default `true`

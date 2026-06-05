@@ -15,4 +15,4 @@ This package provides the SteadyDrive motor interface used for the tool-side dri
 - Hardware-specific runtime configuration is loaded from `config/amr_sweeper_steadydrive.yaml`.
 - The config file owns the SocketCAN interface, left/right motor IDs, positive motor directions, and the shared gear ratio used by the SteadyDrive hardware interface.
 - The hardware interface now exports `effort` plus additional protection/telemetry state interfaces for torque/current proxy, current, temperature, voltage, and latched-fault reporting.
-- SteadyDrive protection uses the `0x9C` status frame for temperature, speed, encoder position, and current-based torque proxy telemetry; voltage protection remains unsupported until the protocol exposes a voltage signal.
+- SteadyDrive protection uses the `0x9C` status frame for temperature, speed, encoder position, and current-based torque proxy telemetry, plus the `0x9A` state frame for bus voltage and motor error-state readiness checks.

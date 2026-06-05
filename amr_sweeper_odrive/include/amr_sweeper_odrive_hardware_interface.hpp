@@ -53,6 +53,8 @@ struct JointTelemetry
   bool has_torque_estimate{false};
   double speed_rad_s{0.0};
   bool has_speed{false};
+  double position_rad{0.0};
+  bool has_position{false};
   double current_a{0.0};
   bool has_current{false};
   double motor_temperature_c{0.0};
@@ -164,6 +166,9 @@ protected:
   bool protection_enabled_ {false};
   bool clear_faults_on_activate_ {true};
   bool latch_faults_ {true};
+  std::vector<uint32_t> axis_error_states_;
+  std::vector<uint8_t> axis_lifecycle_states_;
+  std::vector<bool> axis_heartbeat_received_;
   double command_deadband_for_checks_ {0.0};
   std::chrono::milliseconds startup_ignore_duration_{500};
   std::string safety_stop_topic_name_{"safety_msgs/stop"};
@@ -177,6 +182,10 @@ protected:
 
   struct Impl;
   std::unique_ptr<Impl> impl_;
+
+  bool confirmMotorTelemetryReady(std::chrono::milliseconds timeout, std::string & failure_reason);
+  bool confirmMotorsActive(std::chrono::milliseconds timeout, std::string & failure_reason);
+  void resetReadinessTracking();
 };
 
 }  // namespace amr_sweeper_odrive

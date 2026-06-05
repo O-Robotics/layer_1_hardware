@@ -54,6 +54,8 @@ struct JointTelemetry
   bool has_torque_proxy{false};
   double speed_rad_s{0.0};
   bool has_speed{false};
+  uint8_t error_state{0};
+  bool has_error_state{false};
   double current_a{0.0};
   bool has_current{false};
   double temperature_c{0.0};
@@ -146,6 +148,8 @@ protected:
   std::vector<double> accumulated_motor_position_rad_;
   std::vector<JointTelemetry> joint_telemetry_;
   std::vector<MotorProtectionState> protection_states_;
+  std::vector<bool> motor_state_1_received_;
+  std::vector<bool> motor_state_2_received_;
 
   // Config parameters 
   std::string hw_name_;
@@ -172,6 +176,10 @@ protected:
   rclcpp::Time activation_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Publisher<amr_sweeper_safety_msgs::msg::SafetyStop>::SharedPtr safety_stop_publisher_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr clear_safety_stop_service_;
+
+  bool confirmMotorTelemetryReady(std::chrono::milliseconds timeout, std::string & failure_reason);
+  bool confirmMotorsActive(std::chrono::milliseconds timeout, std::string & failure_reason);
+  void resetReadinessTracking();
 };
 
 

@@ -30,7 +30,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `ublox_log_level`: default `WARN`
 - `use_sim_time`: default `false`
 - `use_amr_sweeper_description`: default `true`
-- `use_ros2_control`: default `true`
+- `use_amr_sweeper_ros2_control`: default `true`
 - `use_amr_sweeper_battery`: default `true`
 - `use_amr_sweeper_system_info`: default `true`
 - `use_amr_sweeper_usb_cameras`: default `true`
@@ -47,17 +47,15 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It gathe
 - `imu_params_file`: default `amr_sweeper_imu/config/amr_sweeper_imu.yaml`
 - `gnss_frame_id`: default `gnss_link`
 - `ntrip_params_file`: default `amr_sweeper_gnss/config/amr_sweeper_gnss_ntrip_client.yaml`
-- `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Overview
-The main bringup launch starts the core hardware stack under the default robot root `/amr_sweeper`. Depending on launch arguments, the bringup can then enable the robot description, ros2_control, battery monitor, system information publisher, USB cameras, the depth camera domain bridge and laser-scan conversion, IMU, GNSS rover, and optional NTRIP client. Package-owned sensor namespaces follow the package role below that root, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras/<camera_name>`, and the flattened depth-camera path `/amr_sweeper/depth_camera`.
+The main bringup launch starts the core hardware stack under the default robot root `/amr_sweeper`. Depending on launch arguments, the bringup can then enable the robot description, battery monitor, system information publisher, USB cameras, the depth camera domain bridge and laser-scan conversion, IMU, GNSS rover, and optional NTRIP client. Package-owned sensor namespaces follow the package role below that root, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras/<camera_name>`, and the flattened depth-camera path `/amr_sweeper/depth_camera`.
 
 ## Notes
 - Use this package when you want to start the whole layer 1 stack from a single command.
 - `amr_sweeper_description.launch.py` is the robot description entrypoint used by the main bringup.
-- The main bringup directly launches `ros2_control_node` plus the `joint_broad`, `diff_cont`, and `controller_steadydrive` spawners when `use_ros2_control:=true`.
-- The inlined ros2_control sequence expects `robot_state_publisher` to publish the robot description and keeps the controller manager subscribed through topic remapping that remains compatible with both ROS 2 Humble and Jazzy.
-- The ros2_control controller spawners load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml` with `--param-file`.
+- `use_amr_sweeper_ros2_control` enables the layer 1 `ros2_control` runtime bringup alongside the robot description and hardware-related nodes.
+- When `use_amr_sweeper_ros2_control:=true`, this bringup owns `ros2_control_node` plus the `joint_broad` spawner that activates the ODrive and SteadyDrive hardware interfaces.
 - The `namespace` argument becomes the robot root, while package-owned sensor namespaces are nested below it, such as `imu`, `gnss`, `usb_cameras`, and `depth_camera`.
 - The depth camera bringup passes `namespace:=/amr_sweeper/depth_camera` into the package launch, and that launch bridges the camera's native ROS topics from domain `5` into the flattened `/amr_sweeper/depth_camera/...` topic layout.
 - The battery and system-info nodes load defaults from `config/amr_sweeper_battery.yaml` and `config/amr_sweeper_system_info.yaml` before any bringup-level overrides are applied.

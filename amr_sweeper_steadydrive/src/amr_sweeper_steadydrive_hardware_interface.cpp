@@ -12,6 +12,7 @@
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 
 #include <linux/can/raw.h>
 #include <net/if.h>
@@ -31,6 +32,8 @@ constexpr double RAD_PER_COUNT = TWO_PI / ENCODER_COUNTS_PER_REV;
 constexpr int32_t MAX_SPEED_COMMAND = 7200000;
 constexpr int32_t MIN_SPEED_COMMAND = -7200000;
 constexpr double CURRENT_RAW_TO_AMPERE = 0.01;
+constexpr auto kReadinessPollPeriod = std::chrono::milliseconds(20);
+constexpr auto kMotorReadyTimeout = std::chrono::milliseconds(1500);
 
 uint32_t parse_can_id(const std::string & value, const std::string & parameter_name)
 {
@@ -323,6 +326,8 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
   accumulated_motor_position_rad_.resize(num_joints_, 0.0);
   joint_telemetry_.resize(num_joints_);
   protection_states_.resize(num_joints_);
+  motor_state_1_received_.assign(num_joints_, false);
+  motor_state_2_received_.assign(num_joints_, false);
 
   if (num_joints_ != 2)
   {
@@ -429,6 +434,15 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_configure(
       last_connection_error_message_.empty() ?
       "Failed to initialize SocketCAN on " + can_interface_ :
       last_connection_error_message_);
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
+  std::string failure_reason;
+  if (!confirmMotorTelemetryReady(kMotorReadyTimeout, failure_reason)) {
+    RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
+    closeCanSockets();
+    last_connection_error_message_ = failure_reason;
+    return hardware_interface::CallbackReturn::ERROR;
   }
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -570,6 +584,13 @@ bool SteadydriveHardwareInterface::ensureCanSockets()
   if (lifecycle_active_) {
     for (size_t i = 0; i < num_joints_; ++i) {
       (void)sendMotorCommand(i, 0x88);
+    }
+    std::string failure_reason;
+    if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+      last_connection_error_message_ = failure_reason;
+      reportConnectionIssue(last_connection_error_message_);
+      closeCanSockets();
+      return false;
     }
   }
   return true;
@@ -723,6 +744,140 @@ void SteadydriveHardwareInterface::clearSafetyStopService(
   response->message = "Steadydrive safety stop cleared and motors re-enabled";
 }
 
+void SteadydriveHardwareInterface::resetReadinessTracking()
+{
+  std::fill(motor_state_1_received_.begin(), motor_state_1_received_.end(), false);
+  std::fill(motor_state_2_received_.begin(), motor_state_2_received_.end(), false);
+  for (auto & telemetry : joint_telemetry_) {
+    telemetry.has_error_state = false;
+    telemetry.has_voltage = false;
+    telemetry.has_temperature = false;
+    telemetry.has_current = false;
+    telemetry.has_torque_proxy = false;
+    telemetry.has_speed = false;
+  }
+}
+
+bool SteadydriveHardwareInterface::confirmMotorTelemetryReady(
+  std::chrono::milliseconds timeout,
+  std::string & failure_reason)
+{
+  resetReadinessTracking();
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+
+  while (std::chrono::steady_clock::now() < deadline) {
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      if (!motor_state_1_received_[i]) {
+        (void)sendMotorCommand(i, 0x9A);
+      }
+      if (!motor_state_2_received_[i]) {
+        (void)sendMotorCommand(i, 0x9C);
+      }
+    }
+
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      readAvailableMotorFrames(i);
+    }
+
+    const bool all_ready = std::all_of(
+      motor_state_1_received_.begin(), motor_state_1_received_.end(),
+      [](bool received) { return received; }) &&
+      std::all_of(
+      motor_state_2_received_.begin(), motor_state_2_received_.end(),
+      [](bool received) { return received; });
+    if (all_ready) {
+      failure_reason.clear();
+      return true;
+    }
+
+    std::this_thread::sleep_for(kReadinessPollPeriod);
+  }
+
+  for (std::size_t i = 0; i < num_joints_; ++i) {
+    if (!motor_state_1_received_[i]) {
+      failure_reason =
+        "Steadydrive joint '" + info_.joints[i].name + "' did not return state-1 telemetry during configure";
+      return false;
+    }
+    if (!motor_state_2_received_[i]) {
+      failure_reason =
+        "Steadydrive joint '" + info_.joints[i].name + "' did not return state-2 telemetry during configure";
+      return false;
+    }
+  }
+
+  failure_reason = "Timed out while confirming Steadydrive telemetry readiness";
+  return false;
+}
+
+bool SteadydriveHardwareInterface::confirmMotorsActive(
+  std::chrono::milliseconds timeout,
+  std::string & failure_reason)
+{
+  resetReadinessTracking();
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+
+  while (std::chrono::steady_clock::now() < deadline) {
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      if (!motor_state_1_received_[i]) {
+        (void)sendMotorCommand(i, 0x9A);
+      }
+      if (!motor_state_2_received_[i]) {
+        (void)sendMotorCommand(i, 0x9C);
+      }
+    }
+
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      readAvailableMotorFrames(i);
+    }
+
+    bool all_ready = true;
+    for (std::size_t i = 0; i < num_joints_; ++i) {
+      if (!motor_state_1_received_[i] || !motor_state_2_received_[i]) {
+        all_ready = false;
+        continue;
+      }
+      if (!joint_telemetry_[i].has_error_state) {
+        all_ready = false;
+        continue;
+      }
+      if (joint_telemetry_[i].error_state != 0) {
+        failure_reason =
+          "Steadydrive joint '" + info_.joints[i].name + "' reported error_state=0x" +
+          [&]() {
+            std::ostringstream stream;
+            stream << std::hex << std::uppercase << static_cast<int>(joint_telemetry_[i].error_state);
+            return stream.str();
+          }();
+        return false;
+      }
+    }
+
+    if (all_ready) {
+      failure_reason.clear();
+      return true;
+    }
+
+    std::this_thread::sleep_for(kReadinessPollPeriod);
+  }
+
+  for (std::size_t i = 0; i < num_joints_; ++i) {
+    if (!motor_state_1_received_[i]) {
+      failure_reason =
+        "Steadydrive joint '" + info_.joints[i].name + "' did not return state-1 telemetry during activation";
+      return false;
+    }
+    if (!motor_state_2_received_[i]) {
+      failure_reason =
+        "Steadydrive joint '" + info_.joints[i].name + "' did not return state-2 telemetry during activation";
+      return false;
+    }
+  }
+
+  failure_reason = "Timed out while confirming Steadydrive activation readiness";
+  return false;
+}
+
 bool SteadydriveHardwareInterface::sendMotorCommand(
   size_t motor_index, uint8_t command_byte,
   uint8_t byte1, uint8_t byte2, uint8_t byte3,
@@ -832,7 +987,24 @@ void SteadydriveHardwareInterface::readAvailableMotorFrames(size_t motor_index)
 
 void SteadydriveHardwareInterface::processMotorFrame(size_t motor_index, const struct can_frame & frame)
 {
-  if (frame.can_id != motor_can_ids_[motor_index] || frame.can_dlc < 8 || frame.data[0] != 0x9C) {
+  if (frame.can_id != motor_can_ids_[motor_index] || frame.can_dlc < 8) {
+    return;
+  }
+
+  if (frame.data[0] == 0x9A) {
+    const uint16_t voltage_raw =
+      static_cast<uint16_t>(frame.data[3]) | (static_cast<uint16_t>(frame.data[4]) << 8);
+    joint_telemetry_[motor_index].temperature_c = static_cast<double>(frame.data[1]);
+    joint_telemetry_[motor_index].has_temperature = true;
+    joint_telemetry_[motor_index].voltage_v = static_cast<double>(voltage_raw) * 0.1;
+    joint_telemetry_[motor_index].has_voltage = true;
+    joint_telemetry_[motor_index].error_state = frame.data[7];
+    joint_telemetry_[motor_index].has_error_state = true;
+    motor_state_1_received_[motor_index] = true;
+    return;
+  }
+
+  if (frame.data[0] != 0x9C) {
     return;
   }
 
@@ -857,6 +1029,7 @@ void SteadydriveHardwareInterface::processMotorFrame(size_t motor_index, const s
   position_states_[motor_index] =
     unwrapEncoderPositionRad(motor_index, encoder_position_raw) *
     positive_motor_direction_signs_[motor_index] / gear_ratios_[motor_index];
+  motor_state_2_received_[motor_index] = true;
 }
 
 double SteadydriveHardwareInterface::unwrapEncoderPositionRad(
@@ -893,7 +1066,7 @@ void SteadydriveHardwareInterface::updateJointsFromHardware()
 {
   for (size_t motor_index = 0; motor_index < can_sockets_.size(); ++motor_index) {
     readAvailableMotorFrames(motor_index);
-    if (!sendMotorCommand(motor_index, 0x9C)) {
+    if (!sendMotorCommand(motor_index, 0x9A) || !sendMotorCommand(motor_index, 0x9C)) {
       reportConnectionIssue(
         last_connection_error_message_.empty() ?
         "Failed to query Steadydrive state on " + can_interface_ :
@@ -1017,19 +1190,6 @@ void SteadydriveHardwareInterface::evaluateProtections(const rclcpp::Duration & 
       const auto index = protectionIndex(type);
       const auto & limit = state.limits[index];
       if (!limit.enabled) {
-        state.over_threshold_seconds[index] = 0.0;
-        continue;
-      }
-
-      if (type == ProtectionType::OverVoltage) {
-        if (!state.unsupported_warning_logged) {
-          RCLCPP_WARN(
-            rclcpp::get_logger(hw_name_),
-            "Steadydrive protection '%s' is enabled for joint '%s', but this interface does not expose voltage telemetry yet. Keeping the check inactive.",
-            protectionKey(type),
-            state.joint_name.c_str());
-          state.unsupported_warning_logged = true;
-        }
         state.over_threshold_seconds[index] = 0.0;
         continue;
       }
@@ -1197,9 +1357,17 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
     velocity_states_[i] = 0.0;
     last_encoder_position_raw_[i].reset();
     accumulated_motor_position_rad_[i] = 0.0;
-    if (ensureCanSockets()) {
-      (void)sendMotorCommand(i, 0x88);
+    if (!ensureCanSockets()) {
+      return hardware_interface::CallbackReturn::ERROR;
     }
+    (void)sendMotorCommand(i, 0x88);
+  }
+
+  std::string failure_reason;
+  if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+    RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
+    last_connection_error_message_ = failure_reason;
+    return hardware_interface::CallbackReturn::ERROR;
   }
 
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "System Successfully started!");

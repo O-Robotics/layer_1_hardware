@@ -45,7 +45,7 @@
           units:                      "A"      # Current units for Steadydrive protection thresholds.
           trip_duration_ms:           100      # Time above threshold required before latching.
         over_voltage:
-          enabled:                    false    # Enable only if the CAN protocol exposes shared bus voltage telemetry.
+          enabled:                    false    # Uses the 0x9A state frame voltage telemetry when protection is enabled.
           threshold:                  50.0     # Default shared bus voltage threshold.
           units:                      "V"      # Voltage units for Steadydrive protection thresholds.
           trip_duration_ms:           100      # Time above threshold required before latching.
