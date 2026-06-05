@@ -27,13 +27,13 @@ namespace
 
 const std::vector<std::string> kStageOrder = {
   "robot_description",
+  "ros2_control",
   "system_info",
   "battery",
   "gnss",
   "imu",
   "usb_cameras",
   "depth_camera",
-  "ros2_control",
 };
 
 std::string trim(const std::string & value)
@@ -266,6 +266,7 @@ void Layer1HardwareBringupNode::declare_parameters()
   declare_if_missing("ublox_log_level", std::string("WARN"));
   declare_if_missing("use_sim_time", false);
   declare_if_missing("readiness_config_file", std::string(""));
+  declare_if_missing("controller_manager_query_timeout_ms", 3000);
 
   declare_if_missing("use_amr_sweeper_description", true);
   declare_if_missing("use_amr_sweeper_ros2_control", true);
@@ -525,7 +526,9 @@ bool Layer1HardwareBringupNode::controller_is_active(const std::string & control
     std::make_shared<controller_manager_msgs::srv::ListControllers::Request>());
   rclcpp::executors::SingleThreadedExecutor exec;
   exec.add_node(probe);
-  const auto rc = exec.spin_until_future_complete(future, std::chrono::seconds(1));
+  const auto rc = exec.spin_until_future_complete(
+    future,
+    std::chrono::milliseconds(param_as_int("controller_manager_query_timeout_ms")));
   exec.remove_node(probe);
   if (rc != rclcpp::FutureReturnCode::SUCCESS) {
     return false;
@@ -562,7 +565,9 @@ bool Layer1HardwareBringupNode::hardware_component_active(
     std::make_shared<controller_manager_msgs::srv::ListHardwareComponents::Request>());
   rclcpp::executors::SingleThreadedExecutor exec;
   exec.add_node(probe);
-  const auto rc = exec.spin_until_future_complete(future, std::chrono::seconds(1));
+  const auto rc = exec.spin_until_future_complete(
+    future,
+    std::chrono::milliseconds(param_as_int("controller_manager_query_timeout_ms")));
   exec.remove_node(probe);
   if (rc != rclcpp::FutureReturnCode::SUCCESS) {
     return false;
@@ -828,7 +833,7 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
         "realsense2_camera",
         "realsense2_camera_node",
         realsense_tokens,
-        {{"LRS_LOG_LEVEL", "ERROR"}}));
+        {{"LRS_LOG_LEVEL", "FATAL"}}));
 
     if (param_as_bool("depth_camera_use_laserscan")) {
       auto laserscan_tokens = base_ros_args(ns + "/depth_camera", "laserscan", log_level);
@@ -1048,6 +1053,11 @@ uint8_t Layer1HardwareBringupNode::parse_lifecycle_level(const std::string & raw
 bool Layer1HardwareBringupNode::param_as_bool(const std::string & name) const
 {
   return get_parameter(name).as_bool();
+}
+
+int Layer1HardwareBringupNode::param_as_int(const std::string & name) const
+{
+  return get_parameter(name).as_int();
 }
 
 std::string Layer1HardwareBringupNode::param_as_string(const std::string & name) const

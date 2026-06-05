@@ -116,7 +116,7 @@ def _launch_setup(context, *args, **kwargs):
         namespace=camera_parent_namespace_value,
         name=camera_name_value,
         output='log',
-        additional_env={'LRS_LOG_LEVEL': 'ERROR'},
+        additional_env={'LRS_LOG_LEVEL': 'FATAL'},
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         parameters=[
             depth_camera_params,

@@ -10,13 +10,13 @@
     enable_color:                     true
     rgb_camera.color_profile:         448x252x5     # Lower RGB resolution to keep USB and CPU load down during navigation.
     rgb_camera.color_format:          RGB8
-    rgb_camera.global_time_enabled:   true
+    rgb_camera.global_time_enabled:   false          # Disable D555 DDS global-time polling; it has been a repeated source of low-level timeout errors during startup.
 
     # -- Stereo depth + IR streams --------------------------------------------
     enable_depth:                     true
     depth_module.depth_profile:       448x252x15    # Reduce depth resolution and frame rate to avoid stream-profile conflicts and lower device load.
     depth_module.depth_format:        Z16
-    depth_module.global_time_enabled: true
+    depth_module.global_time_enabled: false
 
     enable_infra1:                    true
     enable_infra2:                    true
@@ -29,7 +29,7 @@
     enable_accel:                     false
     enable_gyro:                      false
     motion_fps:                       100
-    motion_module.global_time_enabled: true
+    motion_module.global_time_enabled: false
 
     # -- Derived outputs -------------------------------------------------------
     enable_sync:                      false

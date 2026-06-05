@@ -108,6 +108,7 @@ private:
   static std::string blue(const std::string & text);
   static uint8_t parse_lifecycle_level(const std::string & raw);
   bool param_as_bool(const std::string & name) const;
+  int param_as_int(const std::string & name) const;
   std::string param_as_string(const std::string & name) const;
   std::map<std::string, std::vector<std::string>> topic_types() const;
   std::map<std::string, std::vector<std::string>> service_types() const;

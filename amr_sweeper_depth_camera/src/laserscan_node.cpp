@@ -152,7 +152,7 @@ void LaserScanNode::depthCb(sensor_msgs::msg::Image::SharedPtr image)
   if (cam_info_ == nullptr) {
     if (!waiting_for_camera_info_logged_) {
       waiting_for_camera_info_logged_ = true;
-      RCLCPP_WARN(
+      RCLCPP_INFO(
         get_logger(),
         "Waiting for depth camera info before converting depth images to laserscan.");
     }
