@@ -840,7 +840,12 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
         "-r", "__ns:=" + normalize_fqn(ns + "/depth_camera"),
         "-r", "__node:=laserscan_tf",
       };
-      commands.push_back(build_ros2_run("tf2_ros", "static_transform_publisher", tf_tokens));
+      const std::string tf_command =
+        build_ros2_run("tf2_ros", "static_transform_publisher", tf_tokens);
+      commands.push_back(
+        wrap_plain_stdout_lines_as_info_logs(
+          tf_command,
+          logger_name_for_namespace_and_node(normalize_fqn(ns + "/depth_camera"), "laserscan_tf")));
     }
     return commands;
   }
