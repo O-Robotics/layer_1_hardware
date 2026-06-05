@@ -410,15 +410,16 @@ bool Layer1HardwareBringupNode::stage_ready(
   std::vector<std::string> & missing)
 {
   missing.clear();
+  bool all_ready = true;
   for (const auto & rule : stage.readiness_rules) {
     if (!rule.required || !rule_is_enabled(rule)) {
       continue;
     }
     if (!rule_is_satisfied(rule, missing)) {
-      return false;
+      all_ready = false;
     }
   }
-  return true;
+  return all_ready;
 }
 
 bool Layer1HardwareBringupNode::rule_is_enabled(const ReadinessRule & rule) const
@@ -463,7 +464,7 @@ bool Layer1HardwareBringupNode::rule_is_satisfied(
 
   if (rule.type == "controller") {
     if (!controller_is_active(rule.target)) {
-      missing.push_back("controller " + rule.target);
+      missing.push_back("controller active " + rule.target);
       return false;
     }
     return true;
@@ -471,7 +472,7 @@ bool Layer1HardwareBringupNode::rule_is_satisfied(
 
   if (rule.type == "hardware") {
     if (!hardware_component_active(rule.target, parse_lifecycle_level(rule.state))) {
-      missing.push_back("hardware " + rule.target);
+      missing.push_back("hardware " + rule.target + " state " + rule.state);
       return false;
     }
     return true;
@@ -496,13 +497,14 @@ bool Layer1HardwareBringupNode::stage_process_running(
   const StageSpec & stage,
   std::vector<std::string> & missing)
 {
+  bool all_running = true;
   for (const auto & command : stage.commands) {
     if (!procman_.is_running(command)) {
       missing.push_back("process exited: " + command);
-      return false;
+      all_running = false;
     }
   }
-  return true;
+  return all_running;
 }
 
 bool Layer1HardwareBringupNode::controller_is_active(const std::string & controller_name)
