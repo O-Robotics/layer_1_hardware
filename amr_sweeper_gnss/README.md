@@ -34,7 +34,7 @@ This package contains the AMR Sweeper GNSS stack: a local C++ u-blox receiver no
 - `ublox_log_level`: default `WARN`
 
 ## Overview
-`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the local `amr_sweeper_gnss_ublox_node` receiver node and the optional local `ntrip_client` node for RTCM correction streaming. The local u-blox node configures the receiver on connect, subscribes to `rtcm`, and publishes `navsat` directly.
+`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the local `gnss_node` receiver node and the optional local `ntrip_client` node for RTCM correction streaming. The local u-blox node configures the receiver on connect, subscribes to `rtcm`, and publishes `navsat` directly.
 
 ## External Dependencies
 - `rtcm_msgs`: installed from the ROS Jazzy packages and used by both the
@@ -60,7 +60,7 @@ sudo apt install ros-jazzy-rtcm-msgs
   GGA messages to the caster. The default `fix_topic` is `navsat`, and the
   default `use_nmea_to_caster` value is `true`.
 - `ntrip_client.launch.py` starts only the NTRIP client node for RTCM correction streaming.
-- `ublox_dgnss.launch.py` now launches the local `amr_sweeper_gnss_ublox_node` for compatibility with existing bringup wiring.
+- `ublox_dgnss.launch.py` now launches the local `gnss_node` for compatibility with existing bringup wiring.
 
 ## Configuration Files
 The GNSS stack uses one YAML file for the local u-blox node and one YAML file for the local NTRIP client.

@@ -1,5 +1,5 @@
-#ifndef AMR_SWEEPER_IMU__AMR_SWEEPER_IMU_NODE_HPP_
-#define AMR_SWEEPER_IMU__AMR_SWEEPER_IMU_NODE_HPP_
+#ifndef AMR_SWEEPER_IMU__IMU_NODE_HPP_
+#define AMR_SWEEPER_IMU__IMU_NODE_HPP_
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -157,4 +157,4 @@ private:
 
 }  // namespace amr_sweeper_imu
 
-#endif  // AMR_SWEEPER_IMU__AMR_SWEEPER_IMU_NODE_HPP_
+#endif  // AMR_SWEEPER_IMU__IMU_NODE_HPP_

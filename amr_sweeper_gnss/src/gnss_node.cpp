@@ -1,4 +1,4 @@
-#include "amr_sweeper_gnss_node.hpp"
+#include "gnss_node.hpp"
 
 #include <fcntl.h>
 #include <termios.h>
@@ -63,7 +63,7 @@ double clampPositive(double value, double fallback)
 }  // namespace
 
 UbloxNode::UbloxNode(const rclcpp::NodeOptions & options)
-: Node("amr_sweeper_gnss_ublox_node", options)
+: Node("gnss_node", options)
 {
   loadParameters();
 

@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "amr_sweeper_system_info_node.hpp"
+#include "system_info_node.hpp"
 
 namespace
 {
@@ -22,7 +22,7 @@ bool string_to_bool(const std::string & value)
 }  // namespace
 
 SystemInfoPublisher::SystemInfoPublisher()
-: Node("amr_sweeper_system_info_node"),
+: Node("system_info_node"),
   monitored_files_(declare_parameter<std::vector<std::string>>(
       "monitored_files",
       std::vector<std::string>{
@@ -36,6 +36,7 @@ SystemInfoPublisher::SystemInfoPublisher()
 {
   const auto publish_period_sec = declare_parameter<double>("publish_period_sec", 15.0);
   publisher_ = create_publisher<amr_sweeper_system_info_msgs::msg::SystemState>("system_info", 10);
+  publish_data();
   timer_ = create_wall_timer(
     std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::duration<double>(publish_period_sec)),
@@ -50,9 +51,12 @@ void SystemInfoPublisher::publish_data()
     std::ifstream file(filename);
 
     if (!file.is_open()) {
-      RCLCPP_ERROR(get_logger(), "Could not open file '%s'", filename.c_str());
-      return;
+      if (unreadable_files_.insert(filename).second) {
+        RCLCPP_ERROR(get_logger(), "Could not open file '%s'", filename.c_str());
+      }
+      continue;
     }
+    unreadable_files_.erase(filename);
 
     std::string line;
     while (std::getline(file, line)) {
@@ -134,12 +138,12 @@ int main(int argc, char * argv[])
   } catch (const std::exception & exception) {
     if (rclcpp::ok()) {
       RCLCPP_FATAL(
-        rclcpp::get_logger("amr_sweeper_system_info_node"),
+        rclcpp::get_logger("system_info_node"),
         "Unhandled exception: %s", exception.what());
       rclcpp::shutdown();
     } else {
       RCUTILS_LOG_FATAL_NAMED(
-        "amr_sweeper_system_info_node", "Unhandled exception before ROS startup: %s",
+        "system_info_node", "Unhandled exception before ROS startup: %s",
         exception.what());
     }
     return 1;

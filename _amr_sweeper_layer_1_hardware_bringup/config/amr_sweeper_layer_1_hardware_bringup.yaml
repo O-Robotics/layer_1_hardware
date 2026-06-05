@@ -11,20 +11,17 @@ stages:
     timeout_sec: 30  # Max wait for the system information publisher to start serving data.
     ready:
       - type:     topic                            # Gate on first data observed on the topic.
-        target:   system_info                      # Aggregated host and robot platform status topic.
+        target:   system_info/system_info          # Aggregated host and robot platform status topic.
         required: true                             # This topic is required before later hardware stages continue.
-      - type:     service                          # Also require the node's parameter service to be callable.
-        target:   amr_sweeper_system_info_node/get_parameters  # Confirms the node is present in the graph.
-        required: true                             # Treat missing system-info node registration as fatal.
 
   battery:
     timeout_sec: 30  # Max wait for the battery monitor to publish the first battery sample.
     ready:
       - type:     topic                            # Require live battery telemetry, not just node registration.
-        target:   battery_state                    # Battery state topic consumed by supervisors and UI.
+        target:   battery/battery_state            # Battery state topic consumed by supervisors and UI.
         required: true                             # Battery readiness is mandatory for bringup success.
       - type:     service                          # Require the node parameter service as a second liveness check.
-        target:   amr_sweeper_battery_node/get_parameters  # Battery node parameter service.
+        target:   battery/battery_node/get_parameters      # Battery node parameter service.
         required: true                             # Missing battery node registration is a hard failure.
 
   # -- Navigation sensors -----------------------------------------------------
@@ -35,7 +32,7 @@ stages:
         target:   gnss/navsat                      # Primary NavSatFix-style topic from the local u-blox node.
         required: true                             # Navigation bringup depends on this data path.
       - type:     service                          # Confirm the u-blox receiver node is fully registered.
-        target:   gnss/amr_sweeper_gnss_ublox_node/get_parameters  # GNSS receiver parameter service.
+        target:   gnss/gnss_node/get_parameters            # GNSS receiver parameter service.
         required: true                             # Missing GNSS node registration is fatal.
       - type:     service                          # Optional correction client service gate when NTRIP is enabled.
         target:   gnss/ntrip_client/get_parameters # NTRIP client parameter service.

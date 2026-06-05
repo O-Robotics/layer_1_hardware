@@ -1,6 +1,7 @@
-#ifndef AMR_SWEEPER_SYSTEM_INFO__AMR_SWEEPER_SYSTEM_INFO_NODE_HPP_
-#define AMR_SWEEPER_SYSTEM_INFO__AMR_SWEEPER_SYSTEM_INFO_NODE_HPP_
+#ifndef AMR_SWEEPER_SYSTEM_INFO__SYSTEM_INFO_NODE_HPP_
+#define AMR_SWEEPER_SYSTEM_INFO__SYSTEM_INFO_NODE_HPP_
 
+#include <unordered_set>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,7 @@ private:
   rclcpp::Publisher<amr_sweeper_system_info_msgs::msg::SystemState>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
   std::vector<std::string> monitored_files_;
+  std::unordered_set<std::string> unreadable_files_;
 };
 
-#endif  // AMR_SWEEPER_SYSTEM_INFO__AMR_SWEEPER_SYSTEM_INFO_NODE_HPP_
+#endif  // AMR_SWEEPER_SYSTEM_INFO__SYSTEM_INFO_NODE_HPP_

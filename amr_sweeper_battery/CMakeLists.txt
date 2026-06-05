@@ -16,21 +16,20 @@ find_package(sensor_msgs REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(amr_sweeper_battery_node src/battery_node.cpp)
+add_executable(battery_node src/battery_node.cpp)
 ament_target_dependencies(
-  amr_sweeper_battery_node
+  battery_node
   amr_sweeper_safety_msgs
   rclcpp
   std_msgs
   diagnostic_msgs
   sensor_msgs)
-target_include_directories(amr_sweeper_battery_node PUBLIC
+target_include_directories(battery_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(amr_sweeper_battery_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-set_target_properties(amr_sweeper_battery_node PROPERTIES OUTPUT_NAME battery_node)
+target_compile_features(battery_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS amr_sweeper_battery_node
+install(TARGETS battery_node
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/

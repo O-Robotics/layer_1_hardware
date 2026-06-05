@@ -12,17 +12,16 @@ find_package(rtcm_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
-add_executable(amr_sweeper_gnss_ublox_node
-  src/amr_sweeper_gnss_node.cpp
+add_executable(gnss_node
+  src/gnss_node.cpp
 )
-set_target_properties(amr_sweeper_gnss_ublox_node PROPERTIES OUTPUT_NAME gnss_ublox_node)
 
-target_compile_features(amr_sweeper_gnss_ublox_node PUBLIC cxx_std_17)
-target_include_directories(amr_sweeper_gnss_ublox_node PUBLIC
+target_compile_features(gnss_node PUBLIC cxx_std_17)
+target_include_directories(gnss_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-ament_target_dependencies(amr_sweeper_gnss_ublox_node
+ament_target_dependencies(gnss_node
   rclcpp
   rtcm_msgs
   sensor_msgs
@@ -52,7 +51,7 @@ install(TARGETS ntrip_client
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS amr_sweeper_gnss_ublox_node
+install(TARGETS gnss_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

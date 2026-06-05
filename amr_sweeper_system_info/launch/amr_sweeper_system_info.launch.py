@@ -10,7 +10,7 @@ def generate_launch_description():
     params_file = LaunchConfiguration("params_file")
 
     return LaunchDescription([
-        DeclareLaunchArgument("namespace", default_value="amr_sweeper"),
+        DeclareLaunchArgument("namespace", default_value="amr_sweeper/system_info"),
         DeclareLaunchArgument(
             "params_file",
             default_value=PathJoinSubstitution([
@@ -23,7 +23,7 @@ def generate_launch_description():
             package="amr_sweeper_system_info",
             executable="system_info_node",
             namespace=namespace,
-            name="amr_sweeper_system_info_node",
+            name="system_info_node",
             output="screen",
             parameters=[params_file],
         ),

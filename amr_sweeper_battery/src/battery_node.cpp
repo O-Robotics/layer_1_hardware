@@ -84,7 +84,7 @@ BatteryNode::ProtectionLimit load_protection_limit(
 }  // namespace
 
 BatteryNode::BatteryNode()
-: Node("amr_sweeper_battery_node")
+: Node("battery_node")
 {
   declare_parameter<std::string>("can_interface", "can0");
   declare_parameter<double>("timer_period", 15.0);
@@ -182,7 +182,7 @@ BatteryNode::BatteryNode()
     std::chrono::duration<double>(timer_period));
   timer_ = create_wall_timer(period, std::bind(&BatteryNode::on_timer, this));
 
-  RCLCPP_INFO(get_logger(), "amr_sweeper_battery_node started.");
+  RCLCPP_INFO(get_logger(), "battery_node started.");
 }
 
 BatteryNode::~BatteryNode()

@@ -1,4 +1,4 @@
-#include "amr_sweeper_imu_node.hpp"
+#include "imu_node.hpp"
 
 #include <algorithm>
 #include <cerrno>

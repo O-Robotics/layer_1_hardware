@@ -48,9 +48,9 @@ def generate_launch_description():
         ),
         Node(
             package="amr_sweeper_gnss",
-            executable="gnss_ublox_node",
+            executable="gnss_node",
             namespace=gnss_namespace,
-            name="amr_sweeper_gnss_ublox_node",
+            name="gnss_node",
             output="screen",
             arguments=["--ros-args", "--log-level", log_level],
             parameters=[

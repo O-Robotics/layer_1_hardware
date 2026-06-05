@@ -14,15 +14,14 @@ find_package(amr_sweeper_system_info_msgs REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(amr_sweeper_system_info_node src/amr_sweeper_system_info_node.cpp)
-ament_target_dependencies(amr_sweeper_system_info_node rclcpp std_msgs amr_sweeper_system_info_msgs)
-target_include_directories(amr_sweeper_system_info_node PUBLIC
+add_executable(system_info_node src/system_info_node.cpp)
+ament_target_dependencies(system_info_node rclcpp std_msgs amr_sweeper_system_info_msgs)
+target_include_directories(system_info_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(amr_sweeper_system_info_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-set_target_properties(amr_sweeper_system_info_node PROPERTIES OUTPUT_NAME system_info_node)
+target_compile_features(system_info_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS amr_sweeper_system_info_node
+install(TARGETS system_info_node
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/

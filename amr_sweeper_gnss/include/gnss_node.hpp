@@ -1,5 +1,5 @@
-#ifndef AMR_SWEEPER_GNSS__AMR_SWEEPER_GNSS_NODE_HPP_
-#define AMR_SWEEPER_GNSS__AMR_SWEEPER_GNSS_NODE_HPP_
+#ifndef AMR_SWEEPER_GNSS__GNSS_NODE_HPP_
+#define AMR_SWEEPER_GNSS__GNSS_NODE_HPP_
 
 #include <atomic>
 #include <cstdint>
@@ -162,4 +162,4 @@ private:
 
 }  // namespace amr_sweeper_gnss
 
-#endif  // AMR_SWEEPER_GNSS__AMR_SWEEPER_GNSS_NODE_HPP_
+#endif  // AMR_SWEEPER_GNSS__GNSS_NODE_HPP_

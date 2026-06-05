@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-#include "amr_sweeper_usb_cameras_node.hpp"
+#include "usb_cameras_node.hpp"
 
 namespace
 {
@@ -33,7 +33,7 @@ namespace amr_sweeper_usb_cameras
 {
 
 UsbCameraNode::UsbCameraNode(const rclcpp::NodeOptions & options)
-: Node("amr_sweeper_usb_cameras_node", options),
+: Node("usb_cameras_node", options),
   m_camera(std::make_unique<UsbCamera>()),
   m_compressed_image_msg(new sensor_msgs::msg::CompressedImage()),
   m_image_msg(new sensor_msgs::msg::Image()),

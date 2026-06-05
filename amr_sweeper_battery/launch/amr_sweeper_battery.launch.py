@@ -11,7 +11,7 @@ def generate_launch_description():
     params_file = LaunchConfiguration("params_file")
 
     return LaunchDescription([
-        DeclareLaunchArgument("namespace", default_value="amr_sweeper"),
+        DeclareLaunchArgument("namespace", default_value="amr_sweeper/battery"),
         DeclareLaunchArgument("can_interface", default_value="can0"),
         DeclareLaunchArgument(
             "params_file",
@@ -25,7 +25,7 @@ def generate_launch_description():
             package="amr_sweeper_battery",
             executable="battery_node",
             namespace=namespace,
-            name="amr_sweeper_battery_node",
+            name="battery_node",
             output="screen",
             parameters=[
                 params_file,

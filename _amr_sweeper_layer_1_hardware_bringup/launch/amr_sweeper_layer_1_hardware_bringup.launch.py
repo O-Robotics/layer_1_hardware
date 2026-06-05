@@ -284,6 +284,8 @@ def _build_stages(context):
     namespace = LaunchConfiguration("namespace")
     namespace_value = LaunchConfiguration("namespace").perform(context)
     gnss_namespace = PathJoinSubstitution(["/", namespace, "gnss"])
+    battery_namespace = PathJoinSubstitution(["/", namespace, "battery"])
+    system_info_namespace = PathJoinSubstitution(["/", namespace, "system_info"])
     usb_cameras_namespace = PathJoinSubstitution(["/", namespace, "usb_cameras"])
     depth_camera_namespace = PathJoinSubstitution(["/", namespace, "depth_camera"])
     imu_namespace = PathJoinSubstitution(["/", namespace, "imu"])
@@ -375,8 +377,8 @@ def _build_stages(context):
                 Node(
                     package="amr_sweeper_system_info",
                     executable="system_info_node",
-                    namespace=namespace,
-                    name="amr_sweeper_system_info_node",
+                    namespace=system_info_namespace,
+                    name="system_info_node",
                     output="screen",
                     arguments=["--ros-args", "--log-level", log_level],
                     parameters=[system_info_params_file],
@@ -395,8 +397,8 @@ def _build_stages(context):
                 Node(
                     package="amr_sweeper_battery",
                     executable="battery_node",
-                    namespace=namespace,
-                    name="amr_sweeper_battery_node",
+                    namespace=battery_namespace,
+                    name="battery_node",
                     output="screen",
                     arguments=["--ros-args", "--log-level", log_level],
                     parameters=[
