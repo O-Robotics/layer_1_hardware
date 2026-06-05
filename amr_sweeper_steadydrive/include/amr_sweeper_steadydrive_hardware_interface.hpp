@@ -159,6 +159,7 @@ protected:
   int retry_attempts_before_error_ {3};
   int fatal_after_consecutive_errors_ {10};
   int max_reconnect_attempts_ {10};
+  std::chrono::milliseconds motor_ready_timeout_{1500};
   int reconnect_attempt_count_ {0};
   int connection_issue_count_ {0};
   bool fatal_error_ {false};

@@ -37,7 +37,6 @@ constexpr size_t LEFT_MOTOR_INDEX = 0;
 constexpr size_t RIGHT_MOTOR_INDEX = 1;
 constexpr double TWO_PI = 2.0 * M_PI;
 constexpr auto kReadinessPollPeriod = std::chrono::milliseconds(20);
-constexpr auto kMotorReadyTimeout = std::chrono::milliseconds(1500);
 
 enum ODriveAxisState
 {
@@ -901,6 +900,10 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
       hardware_config, "fatal_after_consecutive_errors", fatal_after_consecutive_errors_);
     max_reconnect_attempts_ =
       load_optional_int(hardware_config, "max_reconnect_attempts", max_reconnect_attempts_);
+    motor_ready_timeout_ = std::chrono::milliseconds(
+      load_optional_int(
+        hardware_config, "motor_ready_timeout_ms",
+        static_cast<int>(motor_ready_timeout_.count())));
     loadProtectionParameters();
   } catch (const std::exception & error) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "Error parsing parameter: %s", error.what());
@@ -918,6 +921,9 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
   }
   if (max_reconnect_attempts_ < 0) {
     max_reconnect_attempts_ = 0;
+  }
+  if (motor_ready_timeout_ < std::chrono::milliseconds(1)) {
+    motor_ready_timeout_ = std::chrono::milliseconds(1);
   }
 
   return CallbackReturn::SUCCESS;
@@ -951,7 +957,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_configure(
   }
 
   std::string failure_reason;
-  if (!confirmMotorTelemetryReady(kMotorReadyTimeout, failure_reason)) {
+  if (!confirmMotorTelemetryReady(motor_ready_timeout_, failure_reason)) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
     closeCanInterface();
     last_connection_error_message_ = failure_reason;
@@ -1034,7 +1040,7 @@ bool ODriveHardwareInterface::ensureCanInterface()
       (void)sendVelocityCommand(i, 0.0);
     }
     std::string failure_reason;
-    if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+    if (!confirmMotorsActive(motor_ready_timeout_, failure_reason)) {
       last_connection_error_message_ = failure_reason;
       reportConnectionIssue(last_connection_error_message_);
       closeCanInterface();
@@ -1337,7 +1343,7 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
   }
 
   std::string failure_reason;
-  if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+  if (!confirmMotorsActive(motor_ready_timeout_, failure_reason)) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
     last_connection_error_message_ = failure_reason;
     return CallbackReturn::ERROR;

@@ -11,6 +11,7 @@
     retry_attempts_before_error:     3       # Consecutive CAN failures before warnings escalate to errors.
     fatal_after_consecutive_errors:  10      # Consecutive CAN failures before the hardware interface goes fatal.
     max_reconnect_attempts:          10      # Hard cap on reconnect attempts. Set to 0 for unlimited retries.
+    motor_ready_timeout_ms:          1500    # Max wait for encoder telemetry during configure/activation readiness checks.
 
     # -- Protection configuration ----------------------------------------------
     protection:

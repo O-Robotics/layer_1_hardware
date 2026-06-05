@@ -33,7 +33,6 @@ constexpr int32_t MAX_SPEED_COMMAND = 7200000;
 constexpr int32_t MIN_SPEED_COMMAND = -7200000;
 constexpr double CURRENT_RAW_TO_AMPERE = 0.01;
 constexpr auto kReadinessPollPeriod = std::chrono::milliseconds(20);
-constexpr auto kMotorReadyTimeout = std::chrono::milliseconds(1500);
 
 uint32_t parse_can_id(const std::string & value, const std::string & parameter_name)
 {
@@ -378,6 +377,10 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
       hardware_config, "fatal_after_consecutive_errors", fatal_after_consecutive_errors_);
     max_reconnect_attempts_ =
       load_optional_int(hardware_config, "max_reconnect_attempts", max_reconnect_attempts_);
+    motor_ready_timeout_ = std::chrono::milliseconds(
+      load_optional_int(
+        hardware_config, "motor_ready_timeout_ms",
+        static_cast<int>(motor_ready_timeout_.count())));
     loadProtectionParameters();
 
     RCLCPP_INFO(
@@ -405,6 +408,9 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_init(
   }
   if (max_reconnect_attempts_ < 0) {
     max_reconnect_attempts_ = 0;
+  }
+  if (motor_ready_timeout_ < std::chrono::milliseconds(1)) {
+    motor_ready_timeout_ = std::chrono::milliseconds(1);
   }
 
   return hardware_interface::CallbackReturn::SUCCESS;
@@ -438,7 +444,7 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_configure(
   }
 
   std::string failure_reason;
-  if (!confirmMotorTelemetryReady(kMotorReadyTimeout, failure_reason)) {
+  if (!confirmMotorTelemetryReady(motor_ready_timeout_, failure_reason)) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
     closeCanSockets();
     last_connection_error_message_ = failure_reason;
@@ -586,7 +592,7 @@ bool SteadydriveHardwareInterface::ensureCanSockets()
       (void)sendMotorCommand(i, 0x88);
     }
     std::string failure_reason;
-    if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+    if (!confirmMotorsActive(motor_ready_timeout_, failure_reason)) {
       last_connection_error_message_ = failure_reason;
       reportConnectionIssue(last_connection_error_message_);
       closeCanSockets();
@@ -1364,7 +1370,7 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
   }
 
   std::string failure_reason;
-  if (!confirmMotorsActive(kMotorReadyTimeout, failure_reason)) {
+  if (!confirmMotorsActive(motor_ready_timeout_, failure_reason)) {
     RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
     last_connection_error_message_ = failure_reason;
     return hardware_interface::CallbackReturn::ERROR;

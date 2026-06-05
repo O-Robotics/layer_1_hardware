@@ -6,7 +6,7 @@ from pathlib import Path
 from ament_index_python.packages import PackageNotFoundError, get_package_prefix
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -110,16 +110,6 @@ def _launch_setup(context, *args, **kwargs):
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
 
-    launch_summary = LogInfo(
-        msg=(
-            'amr_sweeper_depth_camera: launching realsense2_camera directly under '
-            f'{namespace_value}. The bundled realsense-ros subtree under '
-            'amr_sweeper_depth_camera/src/realsense-ros must be present in the workspace. '
-            'ROS_DOMAIN_ID 5 is expected for the camera process. '
-            'TODO: keep custom wrapper development deferred until we actually need it again.'
-        )
-    )
-
     realsense_node = Node(
         package='realsense2_camera',
         executable='realsense2_camera_node',
@@ -183,7 +173,6 @@ def _launch_setup(context, *args, **kwargs):
     )
 
     return [
-        launch_summary,
         realsense_node,
         laserscan_tf_node,
         laserscan_node,
