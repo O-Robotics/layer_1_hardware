@@ -109,6 +109,7 @@ private:
 
   image_geometry::PinholeCameraModel cam_model_;
   sensor_msgs::msg::CameraInfo::SharedPtr cam_info_;
+  bool waiting_for_camera_info_logged_{false};
 
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_image_sub_;

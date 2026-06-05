@@ -1,6 +1,10 @@
 /**:
   ros__parameters:
     serial_no:                        ""             # Leave empty to auto-select the detected D555.
+    wait_for_device_timeout:          15.0           # Fail fast enough for bringup diagnostics, but still allow normal USB enumeration time.
+    reconnect_timeout:                2.0            # Retry dropped-camera reconnects quickly to shorten stream outages.
+    diagnostics_period:               1.0            # Publish RealSense diagnostics so stream-rate issues are visible on /diagnostics.
+    initial_reset:                    false          # Keep default startup fast; enable only if this specific camera needs a hardware reset to come up cleanly.
 
     # -- Color stream ----------------------------------------------------------
     enable_color:                     true
@@ -14,8 +18,8 @@
     depth_module.depth_format:        Z16
     depth_module.global_time_enabled: true
 
-    enable_infra1:                    true
-    enable_infra2:                    true
+    enable_infra1:                    false          # Disable IR streams in the default navigation profile to reduce USB/device load.
+    enable_infra2:                    false
     depth_module.infra_profile:       448x252x15    # Must match the active depth_module profile when infrared streams are enabled.
     depth_module.infra1_format:       Y8
     depth_module.infra2_format:       Y8

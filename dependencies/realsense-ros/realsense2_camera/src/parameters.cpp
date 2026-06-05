@@ -20,7 +20,7 @@ using namespace realsense2_camera;
 
 void BaseRealSenseNode::getParameters()
 {
-    ROS_INFO("getParameters...");
+    ROS_DEBUG("getParameters...");
 
     std::string param_name;
 
@@ -169,4 +169,3 @@ void BaseRealSenseNode::clearParameters()
         _parameters_names.pop_back();        
     }
 }
-

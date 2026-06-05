@@ -116,7 +116,7 @@ void BaseRealSenseNode::setAvailableSensors()
             ROS_WARN("Device does not support advanced settings!");
     }
     else
-        ROS_INFO("JSON file is not provided");
+        ROS_DEBUG("JSON file is not provided");
 
     auto device_name = _dev.get_info(RS2_CAMERA_INFO_NAME);
     ROS_INFO_STREAM("Device Name: " << device_name);
@@ -469,7 +469,7 @@ void BaseRealSenseNode::stopRequiredSensors()
                 {
                     // Start/stop sensors only if profile or gpu acceleration status was changed
                     // No need to start/stop sensors if align_depth was changed
-                    ROS_INFO_STREAM("Stopping Sensor: " << module_name);
+                    ROS_DEBUG_STREAM("Stopping Sensor: " << module_name);
                     sensor->stop();
                 }
                 stopPublishers(active_profiles);
@@ -527,7 +527,7 @@ void BaseRealSenseNode::startUpdatedSensors()
                     {
                         // Start/stop sensors only if profile or gpu acceleration was changed
                         // No need to start/stop sensors if align_depth was changed
-                        ROS_INFO_STREAM("Starting Sensor: " << module_name);
+                        ROS_DEBUG_STREAM("Starting Sensor: " << module_name);
                         sensor->start(wanted_profiles);
                     }
 

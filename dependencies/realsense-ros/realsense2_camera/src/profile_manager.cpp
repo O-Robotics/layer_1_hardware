@@ -64,7 +64,7 @@ void ProfilesManager::registerSensorQOSParam(std::string template_name,
                     {
                         qos_string_to_qos(parameter.get_value<std::string>());
                         *param = parameter.get_value<std::string>();
-                        ROS_INFO_STREAM("Re-enable the stream for this change to take effect.");
+                        ROS_DEBUG_STREAM("Re-enable the stream for this change to take effect.");
                     }
                     catch(const std::exception& e)
                     {
@@ -133,7 +133,7 @@ std::map<stream_index_pair, rs2::stream_profile> ProfilesManager::getDefaultProf
 
     if (sip_default_profiles.empty())
     {
-        ROS_INFO_STREAM("No default profile found. Setting the first available profile as the default one.");
+        ROS_DEBUG_STREAM("No default profile found. Setting the first available profile as the default one.");
         rs2::stream_profile first_profile = _all_profiles.front();
         sip_default_profiles[{first_profile.stream_type(), first_profile.stream_index()}] = first_profile;
     }
@@ -474,7 +474,7 @@ void VideoProfilesManager::registerVideoSensorParams(std::set<stream_index_pair>
                                     _height[stream_type] = temp_height;
                                     _fps[stream_type] = temp_fps;
                                     found = true;
-                                    ROS_INFO_STREAM("Re-enable the stream for this change to take effect.");
+                                    ROS_DEBUG_STREAM("Re-enable the stream for this change to take effect.");
                                     break;
                                 }
                             }
@@ -521,7 +521,7 @@ void VideoProfilesManager::registerVideoSensorParams(std::set<stream_index_pair>
 
                             if (sip == profile_sip && temp_format == profile.format())
                             {
-                                ROS_WARN_STREAM("re-enable the " << STREAM_NAME(sip) << " stream for the change to take effect.");
+                            ROS_DEBUG_STREAM("re-enable the " << STREAM_NAME(sip) << " stream for the change to take effect.");
                                 found = true;
                                 _formats[sip] = temp_format;
                                 break;
@@ -638,7 +638,7 @@ void MotionProfilesManager::registerFPSParams()
                         {
                             *(_fps[sip]) = next_fps;
                             found = true;
-                            ROS_INFO_STREAM("Re-enable the stream for this change to take effect.");
+                            ROS_DEBUG_STREAM("Re-enable the stream for this change to take effect.");
                             break;
                         }
                     }

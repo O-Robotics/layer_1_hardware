@@ -152,12 +152,12 @@ void RealSenseNodeFactory::getDevice(rs2::device_list list)
                     continue;
                 }
                 auto sn = dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER);
-                ROS_INFO_STREAM("Device with serial number " << sn << " was found."<<std::endl);
+                ROS_DEBUG_STREAM("Device with serial number " << sn << " was found.");
                 std::string pn = dev.get_info(RS2_CAMERA_INFO_PHYSICAL_PORT);
                 std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
                 ROS_INFO_STREAM("Device with physical ID " << pn << " was found.");
                 std::vector<std::string> results;
-                ROS_INFO_STREAM("Device with name " << name << " was found.");
+                ROS_DEBUG_STREAM("Device with name " << name << " was found.");
                 std::string port_id = parseUsbPort(pn);
 
                 std::string pid_str(dev.get_info(RS2_CAMERA_INFO_PRODUCT_ID));
@@ -304,7 +304,7 @@ void RealSenseNodeFactory::init()
         rs2_error* e = nullptr;
         std::string running_librealsense_version(api_version_to_string(rs2_get_api_version(&e)));
         ROS_INFO("RealSense ROS v%s", REALSENSE_ROS_VERSION_STR);
-        ROS_INFO("Built with LibRealSense v%s", RS2_API_VERSION_STR);
+        ROS_DEBUG("Built with LibRealSense v%s", RS2_API_VERSION_STR);
         ROS_INFO_STREAM("Running with LibRealSense v" << running_librealsense_version);
         if (RS2_API_VERSION_STR != running_librealsense_version)
         {

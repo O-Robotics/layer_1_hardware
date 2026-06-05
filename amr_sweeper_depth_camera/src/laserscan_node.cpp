@@ -139,13 +139,23 @@ sensor_msgs::msg::LaserScan::UniquePtr LaserScanNode::convertMsg(
 
 void LaserScanNode::infoCb(sensor_msgs::msg::CameraInfo::SharedPtr info)
 {
+  const bool first_camera_info = (cam_info_ == nullptr);
   cam_info_ = std::move(info);
+  if (first_camera_info) {
+    waiting_for_camera_info_logged_ = false;
+    RCLCPP_INFO(get_logger(), "Received first depth camera info message; laserscan conversion is active.");
+  }
 }
 
 void LaserScanNode::depthCb(sensor_msgs::msg::Image::SharedPtr image)
 {
   if (cam_info_ == nullptr) {
-    RCLCPP_INFO(get_logger(), "No camera info yet, skipping laserscan conversion.");
+    if (!waiting_for_camera_info_logged_) {
+      waiting_for_camera_info_logged_ = true;
+      RCLCPP_WARN(
+        get_logger(),
+        "Waiting for depth camera info before converting depth images to laserscan.");
+    }
     return;
   }
 
