@@ -1275,17 +1275,15 @@ bool ODriveHardwareInterface::confirmMotorsActive(
 
     bool all_ready = true;
     for (std::size_t i = 0; i < num_joints_; ++i) {
-      if (!axis_heartbeat_received_[i]) {
-        all_ready = false;
-        continue;
-      }
-      if (axis_error_states_[i] != 0U) {
+      if (axis_heartbeat_received_[i] && axis_error_states_[i] != 0U) {
         failure_reason =
           "ODrive joint '" + info_.joints[i].name + "' reported axis_error=" +
           std::to_string(axis_error_states_[i]) + " during activation";
         return false;
       }
-      if (axis_lifecycle_states_[i] != AXIS_STATE_CLOSED_LOOP_CONTROL) {
+      if (axis_heartbeat_received_[i] &&
+        axis_lifecycle_states_[i] != AXIS_STATE_CLOSED_LOOP_CONTROL)
+      {
         all_ready = false;
       }
       if (!joint_telemetry_[i].has_position || !joint_telemetry_[i].has_speed) {
@@ -1302,12 +1300,12 @@ bool ODriveHardwareInterface::confirmMotorsActive(
   }
 
   for (std::size_t i = 0; i < num_joints_; ++i) {
-    if (!axis_heartbeat_received_[i]) {
+    if (!joint_telemetry_[i].has_position || !joint_telemetry_[i].has_speed) {
       failure_reason =
-        "ODrive joint '" + info_.joints[i].name + "' did not publish a heartbeat during activation";
+        "ODrive joint '" + info_.joints[i].name + "' did not return encoder telemetry during activation";
       return false;
     }
-    if (axis_lifecycle_states_[i] != AXIS_STATE_CLOSED_LOOP_CONTROL) {
+    if (axis_heartbeat_received_[i] && axis_lifecycle_states_[i] != AXIS_STATE_CLOSED_LOOP_CONTROL) {
       failure_reason =
         "ODrive joint '" + info_.joints[i].name +
         "' did not reach CLOSED_LOOP_CONTROL during activation";
