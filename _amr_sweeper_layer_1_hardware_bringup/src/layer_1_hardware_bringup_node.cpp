@@ -756,6 +756,10 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
     const auto depth_camera_parent_namespace =
       namespace_value.substr(0, namespace_value.find_last_of('/'));
     const auto depth_camera_name = namespace_value.substr(namespace_value.find_last_of('/') + 1);
+    const auto laserscan_output_frame = param_as_string("depth_camera_output_frame").empty() ?
+      std::string("laserscan_link") : param_as_string("depth_camera_output_frame");
+    const auto scan_tilt_angle_deg = param_as_string("depth_camera_scan_tilt_angle_deg").empty() ?
+      std::string("4.5") : param_as_string("depth_camera_scan_tilt_angle_deg");
     auto realsense_tokens = base_ros_args(depth_camera_parent_namespace, depth_camera_name, log_level);
     add_params_file(realsense_tokens, param_as_string("depth_camera_params_file"));
     add_param(realsense_tokens, "camera_name", depth_camera_name);
@@ -766,11 +770,11 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
       auto laserscan_tokens = base_ros_args(ns + "/depth_camera", "laserscan", log_level);
       add_params_file(laserscan_tokens, param_as_string("depth_camera_laserscan_params_file"));
       add_param(laserscan_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
-      add_param(laserscan_tokens, "output_frame", param_as_string("depth_camera_output_frame"));
+      add_param(laserscan_tokens, "output_frame", laserscan_output_frame);
       add_param(laserscan_tokens, "range_min", param_as_string("depth_camera_range_min"));
       add_param(laserscan_tokens, "range_max", param_as_string("depth_camera_range_max"));
       add_param(laserscan_tokens, "scan_height", param_as_string("depth_camera_scan_height"));
-      add_param(laserscan_tokens, "scan_tilt_angle_deg", param_as_string("depth_camera_scan_tilt_angle_deg"));
+      add_param(laserscan_tokens, "scan_tilt_angle_deg", scan_tilt_angle_deg);
       add_param(laserscan_tokens, "scan_time", param_as_string("depth_camera_scan_time"));
       add_remap(
         laserscan_tokens,
@@ -788,9 +792,7 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
         param_as_string("depth_camera_scan_topic").empty() ? "scan" : param_as_string("depth_camera_scan_topic"));
       commands.push_back(build_ros2_run("amr_sweeper_depth_camera", "laserscan_node", laserscan_tokens));
 
-      const auto scan_tilt_angle_deg = param_as_string("depth_camera_scan_tilt_angle_deg");
-      const double scan_tilt_angle_rad = scan_tilt_angle_deg.empty() ? 0.0 :
-        std::stod(scan_tilt_angle_deg) * M_PI / 180.0;
+      const double scan_tilt_angle_rad = std::stod(scan_tilt_angle_deg) * M_PI / 180.0;
       std::vector<std::string> tf_tokens = {
         "--x", "0",
         "--y", "0",
@@ -799,19 +801,12 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
         "--pitch", std::to_string(scan_tilt_angle_rad),
         "--yaw", "0",
         "--frame-id", param_as_string("depth_camera_frame"),
-        "--child-frame-id",
-        param_as_string("depth_camera_output_frame").empty() ?
-        param_as_string("depth_camera_frame") : param_as_string("depth_camera_output_frame"),
+        "--child-frame-id", laserscan_output_frame,
         "--ros-args",
         "-r", "__ns:=" + normalize_fqn(ns + "/depth_camera"),
         "-r", "__node:=laserscan_tf",
       };
       commands.push_back(build_ros2_run("tf2_ros", "static_transform_publisher", tf_tokens));
-    }
-    if (!commands.empty()) {
-      commands.front() =
-        "export ROS_DOMAIN_ID=" + shell_quote(param_as_string("depth_camera_camera_domain_id")) +
-        "; " + commands.front();
     }
     return commands;
   }
