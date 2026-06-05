@@ -248,7 +248,7 @@ void Layer1HardwareBringupNode::declare_parameters()
   declare_if_missing("depth_camera_scan_height", std::string(""));
   declare_if_missing("depth_camera_scan_tilt_angle_deg", std::string(""));
   declare_if_missing("depth_camera_scan_time", std::string(""));
-  declare_if_missing("depth_camera_camera_domain_id", std::string("5"));
+  declare_if_missing("depth_camera_camera_domain_id", 5);
   declare_if_missing("imu_device_path", std::string(""));
   declare_if_missing("imu_port", std::string(""));
   declare_if_missing("imu_baud", std::string(""));
@@ -813,7 +813,19 @@ bool Layer1HardwareBringupNode::param_as_bool(const std::string & name) const
 
 std::string Layer1HardwareBringupNode::param_as_string(const std::string & name) const
 {
-  return get_parameter(name).as_string();
+  const auto parameter = get_parameter(name);
+  switch (parameter.get_type()) {
+    case rclcpp::ParameterType::PARAMETER_STRING:
+      return parameter.as_string();
+    case rclcpp::ParameterType::PARAMETER_INTEGER:
+      return std::to_string(parameter.as_int());
+    case rclcpp::ParameterType::PARAMETER_DOUBLE:
+      return std::to_string(parameter.as_double());
+    case rclcpp::ParameterType::PARAMETER_BOOL:
+      return parameter.as_bool() ? "true" : "false";
+    default:
+      return parameter.value_to_string();
+  }
 }
 
 std::map<std::string, std::vector<std::string>> Layer1HardwareBringupNode::topic_types() const
