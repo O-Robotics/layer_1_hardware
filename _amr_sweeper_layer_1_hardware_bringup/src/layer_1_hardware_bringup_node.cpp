@@ -49,6 +49,27 @@ std::string trim(const std::string & value)
   return value.substr(start, end - start);
 }
 
+std::string logger_name_for_namespace_and_node(
+  const std::string & node_namespace,
+  const std::string & node_name)
+{
+  const std::string trimmed_namespace = trim(node_namespace);
+  if (trimmed_namespace.empty() || trimmed_namespace == "/") {
+    return node_name;
+  }
+
+  std::string logger_name = trimmed_namespace;
+  if (!logger_name.empty() && logger_name.front() == '/') {
+    logger_name.erase(logger_name.begin());
+  }
+  std::replace(logger_name.begin(), logger_name.end(), '/', '.');
+  if (!logger_name.empty()) {
+    logger_name += ".";
+  }
+  logger_name += node_name;
+  return logger_name;
+}
+
 constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}]: {message}";
 
 }  // namespace
