@@ -356,6 +356,7 @@ void Layer1HardwareBringupNode::on_timer()
   }
 
   if (current_stage_index_ >= stages_.size()) {
+    publish_bringup_ready();
     bringup_complete_ = true;
     RCLCPP_INFO(get_logger(), "Layer 1 bringup complete");
     return;
@@ -621,6 +622,21 @@ void Layer1HardwareBringupNode::fail_bringup(const std::string & reason)
 void Layer1HardwareBringupNode::stop_all_processes()
 {
   procman_.stop_all();
+}
+
+void Layer1HardwareBringupNode::publish_bringup_ready()
+{
+  if (!bringup_ready_publisher_) {
+    auto qos = rclcpp::QoS(rclcpp::KeepLast(1));
+    qos.reliable();
+    qos.transient_local();
+    bringup_ready_publisher_ =
+      create_publisher<std_msgs::msg::Bool>("layer_1_hardware_bringup/ready", qos);
+  }
+
+  std_msgs::msg::Bool message;
+  message.data = true;
+  bringup_ready_publisher_->publish(message);
 }
 
 void Layer1HardwareBringupNode::ensure_topic_subscription(

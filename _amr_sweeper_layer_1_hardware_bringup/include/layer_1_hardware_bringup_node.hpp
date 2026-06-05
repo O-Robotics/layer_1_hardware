@@ -4,6 +4,7 @@
 #include "controller_manager_msgs/srv/list_hardware_components.hpp"
 #include "rclcpp/generic_subscription.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "yaml-cpp/yaml.h"
 
 #include <chrono>
@@ -97,6 +98,7 @@ private:
   void finish_current_stage();
   void fail_bringup(const std::string & reason);
   void stop_all_processes();
+  void publish_bringup_ready();
   void ensure_topic_subscription(const std::string & topic_name, bool transient_local);
   std::vector<std::string> build_stage_commands(const std::string & stage_name) const;
   std::vector<ReadinessRule> load_stage_rules(const YAML::Node & stage_node) const;
@@ -125,6 +127,7 @@ private:
 
   std::map<std::string, rclcpp::GenericSubscription::SharedPtr> topic_subscriptions_;
   std::set<std::string> ready_topics_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr bringup_ready_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 
