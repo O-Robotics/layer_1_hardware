@@ -114,7 +114,10 @@ def _wait_for_stage(context, label: str, readiness_rules: list[dict], timeout_se
     from rclpy.qos import qos_profile_sensor_data
     from rosidl_runtime_py.utilities import get_message, get_service
 
-    rclpy.init(args=None)
+    # Do not parse the launch process argv here; those tokens include launch
+    # arguments like `namespace:=...`, which rclpy would otherwise treat as
+    # deprecated remap rules and warn about.
+    rclpy.init(args=[])
     node = RclpyNode("layer_1_bringup_waiter")
     deadline = time.monotonic() + max(timeout_sec, 0.0)
 
