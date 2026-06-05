@@ -1,0 +1,118 @@
+stages:
+  # -- Base model and core status publishers ----------------------------------
+  robot_description:
+    timeout_sec: 20  # Max wait for the robot model publisher to expose its parameter service.
+    ready:
+      - type:     service                          # Gate on a ROS service becoming callable.
+        target:   robot_state_publisher/get_parameters  # Confirms robot_state_publisher is fully registered.
+        required: true                             # Startup must stop if this dependency never becomes ready.
+
+  system_info:
+    timeout_sec: 30  # Max wait for the system information publisher to start serving data.
+    ready:
+      - type:     topic                            # Gate on first data observed on the topic.
+        target:   system_info                      # Aggregated host and robot platform status topic.
+        required: true                             # This topic is required before later hardware stages continue.
+      - type:     service                          # Also require the node's parameter service to be callable.
+        target:   amr_sweeper_system_info_node/get_parameters  # Confirms the node is present in the graph.
+        required: true                             # Treat missing system-info node registration as fatal.
+
+  battery:
+    timeout_sec: 30  # Max wait for the battery monitor to publish the first battery sample.
+    ready:
+      - type:     topic                            # Require live battery telemetry, not just node registration.
+        target:   battery_state                    # Battery state topic consumed by supervisors and UI.
+        required: true                             # Battery readiness is mandatory for bringup success.
+      - type:     service                          # Require the node parameter service as a second liveness check.
+        target:   amr_sweeper_battery_node/get_parameters  # Battery node parameter service.
+        required: true                             # Missing battery node registration is a hard failure.
+
+  # -- Navigation sensors -----------------------------------------------------
+  gnss:
+    timeout_sec: 45  # Max wait for the GNSS receiver and optional correction client to become usable.
+    ready:
+      - type:     topic                            # Require a real GNSS message before continuing.
+        target:   gnss/navsat                      # Primary NavSatFix-style topic from the local u-blox node.
+        required: true                             # Navigation bringup depends on this data path.
+      - type:     service                          # Confirm the u-blox receiver node is fully registered.
+        target:   gnss/amr_sweeper_gnss_ublox_node/get_parameters  # GNSS receiver parameter service.
+        required: true                             # Missing GNSS node registration is fatal.
+      - type:     service                          # Optional correction client service gate when NTRIP is enabled.
+        target:   gnss/ntrip_client/get_parameters # NTRIP client parameter service.
+        required: true                             # Once enabled, the correction client must come up cleanly.
+        when_arg_true: use_ntrip_client            # Only apply this gate when the launch arg enables NTRIP.
+
+  imu:
+    timeout_sec: 45  # Max wait for the IMU stack to publish its required sensor streams.
+    ready:
+      - type:     topic                            # Raw IMU stream required by downstream consumers.
+        target:   imu/data_raw                     # Raw IMU data topic from the JY901 node.
+        required: true                             # Must receive at least one message before continuing.
+      - type:     topic                            # Accel/gyro convenience stream used elsewhere in the stack.
+        target:   imu/data_acc_gyro                # Combined acceleration and angular velocity topic.
+        required: true                             # Required whenever the IMU package is enabled.
+      - type:     topic                            # Heading stream required by current readiness expectations.
+        target:   imu/data_heading                 # Heading topic published by the IMU node.
+        required: true                             # Bringup should stop if heading data never appears.
+      - type:     service                          # Confirm the IMU node is fully registered in the graph.
+        target:   imu/imu_node/get_parameters      # IMU node parameter service.
+        required: true                             # Missing IMU node registration is fatal.
+
+  # -- Vision sensors ---------------------------------------------------------
+  usb_cameras:
+    timeout_sec: 45  # Max wait for all enabled USB cameras to publish their first images.
+    ready:
+      - type:     topic                            # Front-left image stream.
+        target:   usb_cameras/front_left_camera/image_raw  # Front-left raw image topic.
+        required: true                             # Required when the front-left camera is enabled.
+        when_arg_true: front_left_camera_enabled   # Skip this gate if the camera is disabled at launch.
+      - type:     topic                            # Front-right image stream.
+        target:   usb_cameras/front_right_camera/image_raw # Front-right raw image topic.
+        required: true                             # Required when the front-right camera is enabled.
+        when_arg_true: front_right_camera_enabled  # Skip this gate if the camera is disabled at launch.
+      - type:     topic                            # Rear-left image stream.
+        target:   usb_cameras/rear_left_camera/image_raw   # Rear-left raw image topic.
+        required: true                             # Required when the rear-left camera is enabled.
+        when_arg_true: rear_left_camera_enabled    # Skip this gate if the camera is disabled at launch.
+      - type:     topic                            # Rear-right image stream.
+        target:   usb_cameras/rear_right_camera/image_raw  # Rear-right raw image topic.
+        required: true                             # Required when the rear-right camera is enabled.
+        when_arg_true: rear_right_camera_enabled   # Skip this gate if the camera is disabled at launch.
+      - type:     topic                            # Tool camera image stream.
+        target:   usb_cameras/tools_camera/image_raw       # Tool-facing raw image topic.
+        required: true                             # Required when the tool camera is enabled.
+        when_arg_true: tools_camera_enabled        # Skip this gate if the camera is disabled at launch.
+
+  depth_camera:
+    timeout_sec: 45  # Max wait for the depth camera pipeline to publish its required outputs.
+    ready:
+      - type:     topic                            # Require camera calibration info from the depth stream.
+        target:   depth_camera/depth/camera_info   # Depth camera_info topic from the RealSense pipeline.
+        required: true                             # Depth camera bringup depends on this stream.
+      - type:     topic                            # Require laserscan output only when that feature is enabled.
+        target:   depth_camera/scan                # 2D scan topic produced by the depth-to-laserscan path.
+        required: true                             # Mandatory once laserscan mode is requested.
+        when_arg_true: depth_camera_use_laserscan  # Skip this gate if laserscan export is disabled.
+      - type:     topic                            # Optional point cloud output for consumers that need it.
+        target:   depth_camera/depth/color/points  # Colored point cloud topic from the depth camera stack.
+        required: false                            # Log readiness if available, but do not block startup on it.
+
+  # -- Motor control and ros2_control -----------------------------------------
+  ros2_control:
+    timeout_sec: 60  # Max wait for hardware interfaces and controllers to become active.
+    ready:
+      - type:     topic                            # Require live joint state publication from controller_manager.
+        target:   joint_states                     # Joint state topic published after ros2_control activates.
+        required: true                             # This is the minimum usable signal for downstream control.
+      - type:     hardware                         # Require the wheel hardware component to report active.
+        target:   odrive_ros2_control              # ODrive ros2_control hardware component name.
+        state:    active                           # Required lifecycle state reported by controller_manager.
+        required: true                             # Wheel drive hardware must be active before bringup succeeds.
+      - type:     hardware                         # Require the tool motor hardware component to report active.
+        target:   steadydrive_ros2_control         # Steadydrive ros2_control hardware component name.
+        state:    active                           # Required lifecycle state reported by controller_manager.
+        required: true                             # Tool motor hardware must be active before bringup succeeds.
+      - type:     controller                       # Require the joint state broadcaster when enabled.
+        target:   joint_broad                      # Controller name expected from the controller manager.
+        required: true                             # Once requested, the broadcaster must activate successfully.
+        when_arg_true: use_joint_broadcaster       # Only enforce this gate when the launch arg enables it.

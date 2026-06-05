@@ -1,34 +1,26 @@
-"""Launch the AMR Sweeper layer-1 hardware stack in readiness-gated stages."""
+"""Launch the AMR Sweeper layer-1 hardware stack in staged, readiness-gated steps."""
 
 from dataclasses import dataclass
-from pathlib import Path
+import time
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import (
-    DeclareLaunchArgument,
-    ExecuteProcess,
-    IncludeLaunchDescription,
-    LogInfo,
-    OpaqueFunction,
-    RegisterEventHandler,
-    Shutdown,
-)
-from launch.event_handlers import OnProcessExit
+from launch import logging as launch_logging
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+import yaml
 
 
 @dataclass
 class StageSpec:
     label: str
     launch_actions: list
-    wait_nodes: list
-    wait_services: list
-    timeout_sec: float = 30.0
+    readiness_rules: list
+    timeout_sec: float
 
 
 def _launch_file(package_name: str, launch_file_name: str):
@@ -44,82 +36,258 @@ def _normalize_namespace(value: str) -> str:
     return f"/{cleaned}" if cleaned else "/"
 
 
-def _node_fqn(namespace: str, name: str) -> str:
-    ns = _normalize_namespace(namespace)
+def _normalize_fqn(name: str) -> str:
+    cleaned = name.strip()
+    if not cleaned:
+        return cleaned
+    if not cleaned.startswith("/"):
+        cleaned = "/" + cleaned
+    return cleaned.rstrip("/") or "/"
+
+
+def _qualify_to_ns(namespace_value: str, target: str) -> str:
+    if target.startswith("/"):
+        return _normalize_fqn(target)
+    ns = _normalize_namespace(namespace_value)
     if ns == "/":
-        return f"/{name}"
-    return f"{ns}/{name}"
+        return _normalize_fqn(target)
+    return _normalize_fqn(f"{ns}/{target}")
 
 
 def _as_bool(context, name: str) -> bool:
     return LaunchConfiguration(name).perform(context).strip().lower() in ("1", "true", "yes", "on")
 
 
-def _wait_action(label: str, wait_nodes: list[str], wait_services: list[str], timeout_sec: float):
-    helper = (
-        Path(get_package_share_directory("amr_sweeper_layer_1_hardware_bringup")) /
-        "scripts" /
-        "wait_for_graph_entities.py"
-    )
-    cmd = [
-        "python3",
-        str(helper),
-        "--label",
-        label,
-        "--timeout-sec",
-        str(timeout_sec),
-    ]
-    for node in wait_nodes:
-        cmd.extend(["--node", node])
-    for service in wait_services:
-        cmd.extend(["--service", service])
-    return ExecuteProcess(cmd=cmd, output="screen")
+def _blue(text: str) -> str:
+    return f"\033[94m{text}\033[0m"
 
 
-def _gate_then_launch(next_stage_bundle):
-    def _handler(event, _context):
-        if event.returncode == 0:
-            return next_stage_bundle
-        return [
-            LogInfo(
-                msg=(
-                    "Layer 1 bringup: stopping staged startup because the previous readiness gate "
-                    f"failed with exit code {event.returncode}"
+def _parse_lifecycle_level(raw: str) -> int:
+    normalized = raw.strip().upper()
+    mapping = {
+        "UNCONFIGURED": 1,
+        "UNCONFIGURE": 1,
+        "UNCONFIG": 1,
+        "INACTIVE": 2,
+        "CONFIGURED": 2,
+        "ACTIVE": 3,
+        "FINALIZED": 4,
+        "FINAL": 4,
+    }
+    return mapping.get(normalized, 3)
+
+
+def _load_readiness_config(path: str) -> dict:
+    with open(path, "r", encoding="utf-8") as stream:
+        data = yaml.safe_load(stream) or {}
+    stages = data.get("stages", {})
+    return stages if isinstance(stages, dict) else {}
+
+
+def _filter_rules(context, rules: list[dict]) -> list[dict]:
+    filtered = []
+    for rule in rules:
+        if not rule or not isinstance(rule, dict):
+            continue
+        if not rule.get("required", True):
+            continue
+        when_true = rule.get("when_arg_true")
+        if when_true and not _as_bool(context, when_true):
+            continue
+        when_false = rule.get("when_arg_false")
+        if when_false and _as_bool(context, when_false):
+            continue
+        filtered.append(rule)
+    return filtered
+
+
+def _wait_for_stage(context, label: str, readiness_rules: list[dict], timeout_sec: float):
+    logger = launch_logging.get_logger("launch.user")
+    namespace_value = LaunchConfiguration("namespace").perform(context)
+    if not readiness_rules:
+        logger.info(f"{_blue('Layer 1 ready:')} {label} (no blocking readiness rules)")
+        return
+
+    import rclpy
+    from controller_manager_msgs.srv import ListControllers, ListHardwareComponents
+    from rclpy.node import Node as RclpyNode
+    from rclpy.qos import qos_profile_sensor_data
+    from rosidl_runtime_py.utilities import get_message, get_service
+
+    rclpy.init(args=None)
+    node = RclpyNode("layer_1_bringup_waiter")
+    deadline = time.monotonic() + max(timeout_sec, 0.0)
+
+    topic_watchers = {}
+    service_clients = {}
+    list_controllers_client = None
+    list_hardware_client = None
+
+    def node_fqns() -> set[str]:
+        results = set()
+        for name, namespace in node.get_node_names_and_namespaces():
+            ns = namespace.rstrip("/")
+            if not ns:
+                ns = "/"
+            if ns == "/":
+                results.add(_normalize_fqn(name))
+            else:
+                results.add(_normalize_fqn(f"{ns}/{name}"))
+        return results
+
+    def topic_types() -> dict[str, list[str]]:
+        return {
+            _normalize_fqn(name): types
+            for name, types in node.get_topic_names_and_types()
+        }
+
+    def service_types() -> dict[str, list[str]]:
+        return {
+            _normalize_fqn(name): types
+            for name, types in node.get_service_names_and_types()
+        }
+
+    def ensure_topic_watcher(topic_name: str, types: list[str]):
+        if topic_name in topic_watchers or not types:
+            return
+        msg_type = get_message(types[0])
+        state = {"received": False}
+
+        def _callback(_msg):
+            state["received"] = True
+
+        subscription = node.create_subscription(
+            msg_type, topic_name, _callback, qos_profile_sensor_data)
+        topic_watchers[topic_name] = {
+            "subscription": subscription,
+            "state": state,
+        }
+
+    def ensure_service_client(service_name: str, types: list[str]):
+        if service_name in service_clients or not types:
+            return
+        srv_type = get_service(types[0])
+        service_clients[service_name] = node.create_client(srv_type, service_name)
+
+    try:
+        while time.monotonic() <= deadline:
+            rclpy.spin_once(node, timeout_sec=0.1)
+            seen_nodes = node_fqns()
+            seen_topics = topic_types()
+            seen_services = service_types()
+            missing = []
+
+            for rule in readiness_rules:
+                rule_type = rule.get("type", "").strip().lower()
+                target = rule.get("target", "").strip()
+                if not rule_type or not target:
+                    continue
+
+                if rule_type == "node":
+                    fq_target = _qualify_to_ns(namespace_value, target)
+                    if fq_target not in seen_nodes:
+                        missing.append(f"node {fq_target}")
+                    continue
+
+                if rule_type == "topic":
+                    fq_target = _qualify_to_ns(namespace_value, target)
+                    types = seen_topics.get(fq_target, [])
+                    if not types:
+                        missing.append(f"topic {fq_target}")
+                        continue
+                    ensure_topic_watcher(fq_target, types)
+                    if not topic_watchers[fq_target]["state"]["received"]:
+                        missing.append(f"topic data {fq_target}")
+                    continue
+
+                if rule_type == "service":
+                    fq_target = _qualify_to_ns(namespace_value, target)
+                    types = seen_services.get(fq_target, [])
+                    if not types:
+                        missing.append(f"service {fq_target}")
+                        continue
+                    ensure_service_client(fq_target, types)
+                    if not service_clients[fq_target].wait_for_service(timeout_sec=0.0):
+                        missing.append(f"service ready {fq_target}")
+                    continue
+
+                if rule_type == "controller":
+                    if list_controllers_client is None:
+                        srv_name = _qualify_to_ns(namespace_value, "controller_manager/list_controllers")
+                        list_controllers_client = node.create_client(ListControllers, srv_name)
+                    if not list_controllers_client.wait_for_service(timeout_sec=0.0):
+                        missing.append("controller_manager/list_controllers")
+                        continue
+                    future = list_controllers_client.call_async(ListControllers.Request())
+                    rclpy.spin_until_future_complete(node, future, timeout_sec=1.0)
+                    if not future.done() or future.result() is None:
+                        missing.append(f"controller {target}")
+                        continue
+                    controller = next(
+                        (item for item in future.result().controller if item.name == target),
+                        None,
+                    )
+                    if controller is None or controller.state != "active":
+                        missing.append(f"controller {target}")
+                    continue
+
+                if rule_type == "hardware":
+                    if list_hardware_client is None:
+                        srv_name = _qualify_to_ns(
+                            namespace_value, "controller_manager/list_hardware_components")
+                        list_hardware_client = node.create_client(
+                            ListHardwareComponents, srv_name)
+                    if not list_hardware_client.wait_for_service(timeout_sec=0.0):
+                        missing.append("controller_manager/list_hardware_components")
+                        continue
+                    future = list_hardware_client.call_async(ListHardwareComponents.Request())
+                    rclpy.spin_until_future_complete(node, future, timeout_sec=1.0)
+                    if not future.done() or future.result() is None:
+                        missing.append(f"hardware {target}")
+                        continue
+                    component = next(
+                        (item for item in future.result().component if item.name == target),
+                        None,
+                    )
+                    expected_state = _parse_lifecycle_level(rule.get("state", "active"))
+                    if component is None or component.state.id != expected_state:
+                        missing.append(f"hardware {target}")
+                    continue
+
+            if not missing:
+                logger.info(
+                    f"{_blue('Layer 1 ready:')} {label} "
+                    f"(checks={len(readiness_rules)})"
                 )
-            ),
-            Shutdown(reason="Layer 1 readiness gate failed"),
-        ]
-    return _handler
+                return
+
+        raise RuntimeError(
+            f"Layer 1 stage '{label}' timed out after {timeout_sec:.1f}s; "
+            f"missing: {', '.join(missing)}"
+        )
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+def _wait_action(label: str, readiness_rules: list[dict], timeout_sec: float):
+    def _wait_fn(context, *args, **kwargs):
+        _wait_for_stage(context, label, readiness_rules, timeout_sec)
+        return []
+    return OpaqueFunction(function=_wait_fn)
 
 
 def _build_stages(context):
     namespace = LaunchConfiguration("namespace")
     namespace_value = LaunchConfiguration("namespace").perform(context)
-    namespace_fqn = _normalize_namespace(namespace_value)
     gnss_namespace = PathJoinSubstitution(["/", namespace, "gnss"])
-    gnss_namespace_value = f"{namespace_fqn}/gnss"
     usb_cameras_namespace = PathJoinSubstitution(["/", namespace, "usb_cameras"])
-    usb_cameras_namespace_value = f"{namespace_fqn}/usb_cameras"
     depth_camera_namespace = PathJoinSubstitution(["/", namespace, "depth_camera"])
-    depth_camera_namespace_value = f"{namespace_fqn}/depth_camera"
     imu_namespace = PathJoinSubstitution(["/", namespace, "imu"])
-    imu_namespace_value = f"{namespace_fqn}/imu"
 
     log_level = LaunchConfiguration("log_level")
     ublox_log_level = LaunchConfiguration("ublox_log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
-
-    use_amr_sweeper_description = _as_bool(context, "use_amr_sweeper_description")
-    use_amr_sweeper_ros2_control = _as_bool(context, "use_amr_sweeper_ros2_control")
-    use_joint_broadcaster = LaunchConfiguration("use_joint_broadcaster")
-    use_amr_sweeper_battery = _as_bool(context, "use_amr_sweeper_battery")
-    use_amr_sweeper_system_info = _as_bool(context, "use_amr_sweeper_system_info")
-    use_amr_sweeper_usb_cameras = _as_bool(context, "use_amr_sweeper_usb_cameras")
-    use_amr_sweeper_depth_camera = _as_bool(context, "use_amr_sweeper_depth_camera")
-    use_amr_sweeper_imu = _as_bool(context, "use_amr_sweeper_imu")
-    use_amr_sweeper_gnss = _as_bool(context, "use_amr_sweeper_gnss")
-    use_ntrip_client = _as_bool(context, "use_ntrip_client")
-    depth_camera_use_laserscan = _as_bool(context, "depth_camera_use_laserscan")
 
     battery_can_interface = LaunchConfiguration("battery_can_interface")
     battery_params_file = LaunchConfiguration("battery_params_file")
@@ -144,6 +312,10 @@ def _build_stages(context):
     imu_params_file = LaunchConfiguration("imu_params_file")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     ntrip_params_file = LaunchConfiguration("ntrip_params_file")
+    use_joint_broadcaster = LaunchConfiguration("use_joint_broadcaster")
+
+    readiness_config = _load_readiness_config(
+        LaunchConfiguration("readiness_config_file").perform(context))
 
     robot_xacro_file = PathJoinSubstitution([
         FindPackageShare("amr_sweeper_description"),
@@ -162,13 +334,20 @@ def _build_stages(context):
         " enable_depth_camera:=", LaunchConfiguration("use_amr_sweeper_depth_camera"),
     ]), value_type=str)
 
+    def stage_rules(stage_name: str):
+        stage_cfg = readiness_config.get(stage_name, {})
+        rules = stage_cfg.get("ready", [])
+        timeout_sec = float(stage_cfg.get("timeout_sec", 30.0))
+        return _filter_rules(context, rules), timeout_sec
+
     stages = []
 
-    if use_amr_sweeper_description:
+    if _as_bool(context, "use_amr_sweeper_description"):
+        rules, timeout_sec = stage_rules("robot_description")
         stages.append(StageSpec(
             label="robot_description",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: robot_description"),
+                LogInfo(msg=_blue("Layer 1 stage: robot_description")),
                 Node(
                     package="robot_state_publisher",
                     executable="robot_state_publisher",
@@ -180,16 +359,16 @@ def _build_stages(context):
                     }],
                 ),
             ],
-            wait_nodes=[_node_fqn(namespace_value, "robot_state_publisher")],
-            wait_services=[],
-            timeout_sec=20.0,
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
-    if use_amr_sweeper_system_info:
+    if _as_bool(context, "use_amr_sweeper_system_info"):
+        rules, timeout_sec = stage_rules("system_info")
         stages.append(StageSpec(
             label="system_info",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: system_info"),
+                LogInfo(msg=_blue("Layer 1 stage: system_info")),
                 Node(
                     package="amr_sweeper_system_info",
                     executable="system_info_node",
@@ -200,15 +379,16 @@ def _build_stages(context):
                     parameters=[system_info_params_file],
                 ),
             ],
-            wait_nodes=[_node_fqn(namespace_value, "amr_sweeper_system_info_node")],
-            wait_services=[],
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
-    if use_amr_sweeper_battery:
+    if _as_bool(context, "use_amr_sweeper_battery"):
+        rules, timeout_sec = stage_rules("battery")
         stages.append(StageSpec(
             label="battery",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: battery"),
+                LogInfo(msg=_blue("Layer 1 stage: battery")),
                 Node(
                     package="amr_sweeper_battery",
                     executable="battery_node",
@@ -222,21 +402,16 @@ def _build_stages(context):
                     ],
                 ),
             ],
-            wait_nodes=[_node_fqn(namespace_value, "amr_sweeper_battery_node")],
-            wait_services=[],
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
-    if use_amr_sweeper_gnss:
-        gnss_wait_nodes = [
-            _node_fqn(gnss_namespace_value, "amr_sweeper_gnss_ublox_node"),
-        ]
-        if use_ntrip_client:
-            gnss_wait_nodes.append(_node_fqn(gnss_namespace_value, "ntrip_client"))
-
+    if _as_bool(context, "use_amr_sweeper_gnss"):
+        rules, timeout_sec = stage_rules("gnss")
         stages.append(StageSpec(
             label="gnss",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: gnss"),
+                LogInfo(msg=_blue("Layer 1 stage: gnss")),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(_launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")),
                     launch_arguments={
@@ -251,16 +426,16 @@ def _build_stages(context):
                     }.items(),
                 ),
             ],
-            wait_nodes=gnss_wait_nodes,
-            wait_services=[],
-            timeout_sec=40.0,
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
-    if use_amr_sweeper_imu:
+    if _as_bool(context, "use_amr_sweeper_imu"):
+        rules, timeout_sec = stage_rules("imu")
         stages.append(StageSpec(
             label="imu",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: imu"),
+                LogInfo(msg=_blue("Layer 1 stage: imu")),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(_launch_file("amr_sweeper_imu", "amr_sweeper_imu.launch.py")),
                     launch_arguments={
@@ -274,27 +449,16 @@ def _build_stages(context):
                     }.items(),
                 ),
             ],
-            wait_nodes=[_node_fqn(imu_namespace_value, "imu_node")],
-            wait_services=[],
-            timeout_sec=40.0,
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
-    if use_amr_sweeper_usb_cameras:
-        usb_wait_nodes = []
-        for camera_key in [
-            "front_left_camera",
-            "front_right_camera",
-            "rear_left_camera",
-            "rear_right_camera",
-            "tools_camera",
-        ]:
-            if _as_bool(context, f"{camera_key}_enabled"):
-                usb_wait_nodes.append(_node_fqn(usb_cameras_namespace_value, f"{camera_key}_node"))
-
+    if _as_bool(context, "use_amr_sweeper_usb_cameras"):
+        rules, timeout_sec = stage_rules("usb_cameras")
         stages.append(StageSpec(
             label="usb_cameras",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: usb_cameras"),
+                LogInfo(msg=_blue("Layer 1 stage: usb_cameras")),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(_launch_file("amr_sweeper_usb_cameras", "amr_sweeper_usb_cameras.launch.py")),
                     launch_arguments={
@@ -308,21 +472,16 @@ def _build_stages(context):
                     }.items(),
                 ),
             ],
-            wait_nodes=usb_wait_nodes,
-            wait_services=[],
-            timeout_sec=40.0,
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
-    if use_amr_sweeper_depth_camera:
-        depth_wait_nodes = [_node_fqn(depth_camera_namespace_value, "depth_camera")]
-        if depth_camera_use_laserscan:
-            depth_wait_nodes.append(_node_fqn(depth_camera_namespace_value, "laserscan"))
-            depth_wait_nodes.append(_node_fqn(depth_camera_namespace_value, "laserscan_tf"))
-
+    if _as_bool(context, "use_amr_sweeper_depth_camera"):
+        rules, timeout_sec = stage_rules("depth_camera")
         stages.append(StageSpec(
             label="depth_camera",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: depth_camera"),
+                LogInfo(msg=_blue("Layer 1 stage: depth_camera")),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(_launch_file("amr_sweeper_depth_camera", "amr_sweeper_depth_camera.launch.py")),
                     launch_arguments={
@@ -346,16 +505,16 @@ def _build_stages(context):
                     }.items(),
                 ),
             ],
-            wait_nodes=depth_wait_nodes,
-            wait_services=[],
-            timeout_sec=45.0,
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
-    if use_amr_sweeper_ros2_control:
+    if _as_bool(context, "use_amr_sweeper_ros2_control"):
+        rules, timeout_sec = stage_rules("ros2_control")
         stages.append(StageSpec(
             label="ros2_control",
             launch_actions=[
-                LogInfo(msg="Layer 1 stage: ros2_control"),
+                LogInfo(msg=_blue("Layer 1 stage: ros2_control")),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(
                         _launch_file("amr_sweeper_ros2_control", "amr_sweeper_ros2_control.launch.py")),
@@ -367,9 +526,8 @@ def _build_stages(context):
                     }.items(),
                 ),
             ],
-            wait_nodes=[_node_fqn(namespace_value, "controller_manager")],
-            wait_services=[f"{namespace_fqn}/controller_manager/list_controllers"],
-            timeout_sec=60.0,
+            readiness_rules=rules,
+            timeout_sec=timeout_sec,
         ))
 
     return stages
@@ -381,22 +539,9 @@ def _launch_setup(context, *args, **kwargs):
         return [LogInfo(msg="Layer 1 bringup: no enabled stages to launch.")]
 
     actions = []
-    previous_gate = None
-
-    for index, stage in enumerate(stages):
-        gate = _wait_action(stage.label, stage.wait_nodes, stage.wait_services, stage.timeout_sec)
-        stage_bundle = [*stage.launch_actions, gate]
-        if index == 0:
-            actions.extend(stage_bundle)
-        else:
-            actions.append(RegisterEventHandler(
-                OnProcessExit(
-                    target_action=previous_gate,
-                    on_exit=_gate_then_launch(stage_bundle),
-                )
-            ))
-        previous_gate = gate
-
+    for stage in stages:
+        actions.extend(stage.launch_actions)
+        actions.append(_wait_action(stage.label, stage.readiness_rules, stage.timeout_sec))
     return actions
 
 
@@ -406,6 +551,14 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
     ld.add_action(DeclareLaunchArgument("ublox_log_level", default_value="WARN"))
     ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
+    ld.add_action(DeclareLaunchArgument(
+        "readiness_config_file",
+        default_value=PathJoinSubstitution([
+            FindPackageShare("amr_sweeper_layer_1_hardware_bringup"),
+            "config",
+            "amr_sweeper_layer_1_hardware_bringup.yaml",
+        ]),
+    ))
 
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_ros2_control", default_value="true"))
