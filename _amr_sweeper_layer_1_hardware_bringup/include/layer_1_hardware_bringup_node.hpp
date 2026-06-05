@@ -77,6 +77,13 @@ struct StageSpec
   double timeout_sec{30.0};
 };
 
+struct StageWave
+{
+  std::string label;
+  std::vector<StageSpec> stages;
+  double timeout_sec{0.0};
+};
+
 class Layer1HardwareBringupNode : public rclcpp::Node
 {
 public:
@@ -86,16 +93,19 @@ public:
 private:
   void declare_parameters();
   void build_stages();
+  void build_waves();
   void on_timer();
   bool stage_ready(const StageSpec & stage, std::vector<std::string> & missing);
   bool rule_is_enabled(const ReadinessRule & rule) const;
   bool rule_is_satisfied(const ReadinessRule & rule, std::vector<std::string> & missing);
   bool stage_process_running(const StageSpec & stage, std::vector<std::string> & missing);
+  bool current_wave_ready(std::vector<std::string> & missing);
+  bool current_wave_processes_running(std::vector<std::string> & missing);
   bool controller_is_active(const std::string & controller_name);
   bool hardware_component_active(const std::string & component_name, uint8_t expected_state);
-  bool stage_has_started() const;
-  void start_current_stage();
-  void finish_current_stage();
+  bool wave_has_started() const;
+  void start_current_wave();
+  void finish_current_wave();
   void fail_bringup(const std::string & reason);
   void stop_all_processes();
   void publish_bringup_ready();
@@ -118,12 +128,13 @@ private:
 
   ProcessManager procman_;
   std::vector<StageSpec> stages_;
-  std::size_t current_stage_index_{0};
+  std::vector<StageWave> waves_;
+  std::size_t current_wave_index_{0};
   bool bringup_complete_{false};
   bool bringup_failed_{false};
-  bool current_stage_started_{false};
-  std::chrono::steady_clock::time_point stage_started_at_;
-  std::chrono::steady_clock::time_point stage_deadline_;
+  bool current_wave_started_{false};
+  std::chrono::steady_clock::time_point wave_started_at_;
+  std::chrono::steady_clock::time_point wave_deadline_;
 
   std::map<std::string, rclcpp::GenericSubscription::SharedPtr> topic_subscriptions_;
   std::set<std::string> ready_topics_;

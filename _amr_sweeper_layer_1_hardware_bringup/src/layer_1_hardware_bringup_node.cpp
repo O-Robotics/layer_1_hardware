@@ -36,6 +36,11 @@ const std::vector<std::string> kStageOrder = {
   "depth_camera",
 };
 
+const std::vector<std::vector<std::string>> kStageWaves = {
+  {"robot_description"},
+  {"ros2_control", "system_info", "battery", "gnss", "imu", "usb_cameras", "depth_camera"},
+};
+
 std::string trim(const std::string & value)
 {
   std::size_t start = 0;
@@ -228,6 +233,7 @@ Layer1HardwareBringupNode::Layer1HardwareBringupNode()
   ::setenv("RCUTILS_CONSOLE_OUTPUT_FORMAT", kConsoleOutputFormat, 1);
   declare_parameters();
   build_stages();
+  build_waves();
   timer_ = create_wall_timer(
     std::chrono::milliseconds(200),
     std::bind(&Layer1HardwareBringupNode::on_timer, this));
@@ -355,33 +361,33 @@ void Layer1HardwareBringupNode::on_timer()
     return;
   }
 
-  if (current_stage_index_ >= stages_.size()) {
+  if (current_wave_index_ >= waves_.size()) {
     publish_bringup_ready();
     bringup_complete_ = true;
     RCLCPP_INFO(get_logger(), "Layer 1 bringup complete");
     return;
   }
 
-  if (!stage_has_started()) {
-    start_current_stage();
+  if (!wave_has_started()) {
+    start_current_wave();
     return;
   }
 
-  const auto & stage = stages_[current_stage_index_];
   std::vector<std::string> missing;
-  if (!stage_process_running(stage, missing)) {
-    fail_bringup("Stage '" + stage.label + "' exited before readiness checks passed");
+  if (!current_wave_processes_running(missing)) {
+    fail_bringup("Layer 1 wave exited before readiness checks passed");
     return;
   }
 
-  if (stage_ready(stage, missing)) {
-    finish_current_stage();
+  if (current_wave_ready(missing)) {
+    finish_current_wave();
     return;
   }
 
-  if (std::chrono::steady_clock::now() > stage_deadline_) {
+  if (std::chrono::steady_clock::now() > wave_deadline_) {
+    const auto & wave = waves_[current_wave_index_];
     std::ostringstream oss;
-    oss << "Layer 1 stage '" << stage.label << "' timed out after " << stage.timeout_sec
+    oss << "Layer 1 wave '" << wave.label << "' timed out after " << wave.timeout_sec
         << "s; missing: ";
     for (std::size_t index = 0; index < missing.size(); ++index) {
       if (index > 0) {
@@ -390,6 +396,38 @@ void Layer1HardwareBringupNode::on_timer()
       oss << missing[index];
     }
     fail_bringup(oss.str());
+  }
+}
+
+void Layer1HardwareBringupNode::build_waves()
+{
+  waves_.clear();
+  for (const auto & wave_stage_names : kStageWaves) {
+    StageWave wave;
+    for (const auto & stage_name : wave_stage_names) {
+      const auto it = std::find_if(
+        stages_.begin(),
+        stages_.end(),
+        [&stage_name](const StageSpec & stage) {
+          return stage.label == stage_name;
+        });
+      if (it == stages_.end()) {
+        continue;
+      }
+      wave.stages.push_back(*it);
+      wave.timeout_sec = std::max(wave.timeout_sec, it->timeout_sec);
+    }
+    if (!wave.stages.empty()) {
+      std::ostringstream label;
+      for (std::size_t index = 0; index < wave.stages.size(); ++index) {
+        if (index > 0) {
+          label << ", ";
+        }
+        label << wave.stages[index].label;
+      }
+      wave.label = label.str();
+      waves_.push_back(std::move(wave));
+    }
   }
 }
 
@@ -571,40 +609,74 @@ bool Layer1HardwareBringupNode::hardware_component_active(
   return false;
 }
 
-bool Layer1HardwareBringupNode::stage_has_started() const
+bool Layer1HardwareBringupNode::current_wave_ready(std::vector<std::string> & missing)
 {
-  return current_stage_started_;
+  missing.clear();
+  bool all_ready = true;
+  const auto & wave = waves_[current_wave_index_];
+  for (const auto & stage : wave.stages) {
+    std::vector<std::string> stage_missing;
+    if (!stage_ready(stage, stage_missing)) {
+      all_ready = false;
+      missing.insert(missing.end(), stage_missing.begin(), stage_missing.end());
+    }
+  }
+  return all_ready;
 }
 
-void Layer1HardwareBringupNode::start_current_stage()
+bool Layer1HardwareBringupNode::current_wave_processes_running(std::vector<std::string> & missing)
 {
-  const auto & stage = stages_[current_stage_index_];
-  RCLCPP_INFO(get_logger(), "%s", blue("Layer 1 stage: " + stage.label).c_str());
+  missing.clear();
+  bool all_running = true;
+  const auto & wave = waves_[current_wave_index_];
+  for (const auto & stage : wave.stages) {
+    std::vector<std::string> stage_missing;
+    if (!stage_process_running(stage, stage_missing)) {
+      all_running = false;
+      missing.insert(missing.end(), stage_missing.begin(), stage_missing.end());
+    }
+  }
+  return all_running;
+}
 
-  for (const auto & command : stage.commands) {
-    std::string err;
-    if (!procman_.start(command, err)) {
-      fail_bringup("Failed to start stage '" + stage.label + "': " + err);
-      return;
+bool Layer1HardwareBringupNode::wave_has_started() const
+{
+  return current_wave_started_;
+}
+
+void Layer1HardwareBringupNode::start_current_wave()
+{
+  const auto & wave = waves_[current_wave_index_];
+  RCLCPP_INFO(get_logger(), "%s", blue("Layer 1 wave: " + wave.label).c_str());
+
+  for (const auto & stage : wave.stages) {
+    for (const auto & command : stage.commands) {
+      std::string err;
+      if (!procman_.start(command, err)) {
+        fail_bringup("Failed to start stage '" + stage.label + "': " + err);
+        return;
+      }
     }
   }
 
-  stage_started_at_ = std::chrono::steady_clock::now();
-  current_stage_started_ = true;
-  stage_deadline_ =
-    stage_started_at_ + std::chrono::milliseconds(static_cast<int64_t>(stage.timeout_sec * 1000.0));
+  wave_started_at_ = std::chrono::steady_clock::now();
+  current_wave_started_ = true;
+  wave_deadline_ =
+    wave_started_at_ + std::chrono::milliseconds(static_cast<int64_t>(wave.timeout_sec * 1000.0));
 }
 
-void Layer1HardwareBringupNode::finish_current_stage()
+void Layer1HardwareBringupNode::finish_current_wave()
 {
-  const auto & stage = stages_[current_stage_index_];
-  RCLCPP_INFO(
-    get_logger(),
-    "Layer 1 ready: %s (checks=%zu)",
-    stage.label.c_str(),
-    stage.readiness_rules.size());
-  current_stage_started_ = false;
-  ++current_stage_index_;
+  const auto & wave = waves_[current_wave_index_];
+  for (const auto & stage : wave.stages) {
+    RCLCPP_INFO(
+      get_logger(),
+      "Layer 1 ready: %s (checks=%zu)",
+      stage.label.c_str(),
+      stage.readiness_rules.size());
+  }
+  current_wave_started_ = false;
+  ++current_wave_index_;
 }
 
 void Layer1HardwareBringupNode::fail_bringup(const std::string & reason)
@@ -613,7 +685,7 @@ void Layer1HardwareBringupNode::fail_bringup(const std::string & reason)
     return;
   }
   bringup_failed_ = true;
-  current_stage_started_ = false;
+  current_wave_started_ = false;
   RCLCPP_ERROR(get_logger(), "%s", reason.c_str());
   stop_all_processes();
   rclcpp::shutdown();
