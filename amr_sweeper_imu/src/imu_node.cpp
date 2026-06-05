@@ -644,15 +644,18 @@ void JY901ImuNode::log_device_configuration(
   const DeviceConfigurationSnapshot & config) const
 {
   RCLCPP_INFO(get_logger(), "%s", label.c_str());
-  std::cout
-    << "return_content_mask=0x" << std::uppercase << std::hex << std::setw(4) << std::setfill('0')
-    << config.return_content_mask << std::dec << " [" << describe_return_content_mask(config.return_content_mask) << "]\n"
-    << "rate=" << describe_rate_code(config.rate_code) << "\n"
-    << "baud=" << describe_baud_code(config.baud_code) << "\n"
-    << "led=" << (config.led_off == 0U ? "enabled" : "disabled") << "\n"
-    << "orientation=" << (config.orient == 0U ? "horizontal" : "vertical") << "\n"
-    << "algorithm=" << (config.axis6 == 0U ? "nine_axis" : "six_axis")
-    << std::endl;
+  std::ostringstream stream;
+  stream << "return_content_mask=0x" << std::uppercase << std::hex << std::setw(4) <<
+    std::setfill('0') << config.return_content_mask << std::dec << " [" <<
+    describe_return_content_mask(config.return_content_mask) << "]";
+  RCLCPP_INFO(get_logger(), "%s", stream.str().c_str());
+  RCLCPP_INFO(get_logger(), "rate=%s", describe_rate_code(config.rate_code).c_str());
+  RCLCPP_INFO(get_logger(), "baud=%s", describe_baud_code(config.baud_code).c_str());
+  RCLCPP_INFO(get_logger(), "led=%s", config.led_off == 0U ? "enabled" : "disabled");
+  RCLCPP_INFO(
+    get_logger(), "orientation=%s", config.orient == 0U ? "horizontal" : "vertical");
+  RCLCPP_INFO(
+    get_logger(), "algorithm=%s", config.axis6 == 0U ? "nine_axis" : "six_axis");
 }
 
 std::vector<std::string> JY901ImuNode::diff_device_configuration(

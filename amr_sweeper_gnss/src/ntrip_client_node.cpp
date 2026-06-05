@@ -1127,17 +1127,23 @@ int main(int argc, char ** argv)
     } catch (const std::exception & exc) {
       ++startup_attempt;
       if (startup_attempt >= startup_fatal_threshold) {
-        std::cerr << "FATAL: Failed to start NTRIP client after " << startup_attempt <<
-          " attempts: " << exc.what() << std::endl;
+        RCLCPP_FATAL(
+          rclcpp::get_logger("ntrip_client"),
+          "Failed to start NTRIP client after %d attempts: %s",
+          startup_attempt,
+          exc.what());
         if (rclcpp::ok()) {
           rclcpp::shutdown();
         }
         return 1;
       }
 
-      std::cerr << "ERROR: Failed to start NTRIP client (attempt " <<
-        startup_attempt << "/" << startup_fatal_threshold << "): " <<
-        exc.what() << ". Retrying..." << std::endl;
+      RCLCPP_ERROR(
+        rclcpp::get_logger("ntrip_client"),
+        "Failed to start NTRIP client (attempt %d/%d): %s. Retrying...",
+        startup_attempt,
+        startup_fatal_threshold,
+        exc.what());
       if (!rclcpp::ok()) {
         break;
       }

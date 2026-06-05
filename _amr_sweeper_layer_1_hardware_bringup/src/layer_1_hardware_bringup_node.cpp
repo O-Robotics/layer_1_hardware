@@ -1,11 +1,14 @@
 #include "layer_1_hardware_bringup_node.hpp"
 
+#include "ament_index_cpp/get_package_share_directory.hpp"
+
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <csignal>
+#include <cmath>
 #include <cstring>
 #include <cstdlib>
 #include <filesystem>
@@ -110,7 +113,7 @@ bool ProcessManager::start(const std::string & command, std::string & err_out)
     ::setenv("RCUTILS_COLORIZED_OUTPUT", "1", 1);
     ::setenv("RCUTILS_CONSOLE_OUTPUT_FORMAT", kConsoleOutputFormat, 1);
     ::setenv("RMW_FASTRTPS_USE_SHM", "0", 1);
-    ::execl("/bin/sh", "sh", "-c", command.c_str(), (char *)nullptr);
+    ::execl("/bin/bash", "bash", "-lc", command.c_str(), (char *)nullptr);
     _exit(127);
   }
 
@@ -312,10 +315,12 @@ void Layer1HardwareBringupNode::build_stages()
 
     StageSpec stage;
     stage.label = stage_name;
-    stage.command = build_stage_command(stage_name);
+    stage.commands = build_stage_commands(stage_name);
     stage.timeout_sec = stage_node["timeout_sec"] ? stage_node["timeout_sec"].as<double>() : 30.0;
     stage.readiness_rules = load_stage_rules(stage_node);
-    stages_.push_back(stage);
+    if (!stage.commands.empty()) {
+      stages_.push_back(stage);
+    }
   }
 }
 
@@ -451,9 +456,15 @@ bool Layer1HardwareBringupNode::rule_is_satisfied(
 
 bool Layer1HardwareBringupNode::stage_process_running(
   const StageSpec & stage,
-  std::vector<std::string> &)
+  std::vector<std::string> & missing)
 {
-  return procman_.is_running(stage.command);
+  for (const auto & command : stage.commands) {
+    if (!procman_.is_running(command)) {
+      missing.push_back("process exited: " + command);
+      return false;
+    }
+  }
+  return true;
 }
 
 bool Layer1HardwareBringupNode::controller_is_active(const std::string & controller_name)
@@ -530,10 +541,7 @@ bool Layer1HardwareBringupNode::hardware_component_active(
 
 bool Layer1HardwareBringupNode::stage_has_started() const
 {
-  if (current_stage_index_ >= stages_.size()) {
-    return false;
-  }
-  return procman_.is_running(stages_[current_stage_index_].command);
+  return current_stage_started_;
 }
 
 void Layer1HardwareBringupNode::start_current_stage()
@@ -541,13 +549,16 @@ void Layer1HardwareBringupNode::start_current_stage()
   const auto & stage = stages_[current_stage_index_];
   RCLCPP_INFO(get_logger(), "%s", blue("Layer 1 stage: " + stage.label).c_str());
 
-  std::string err;
-  if (!procman_.start(stage.command, err)) {
-    fail_bringup("Failed to start stage '" + stage.label + "': " + err);
-    return;
+  for (const auto & command : stage.commands) {
+    std::string err;
+    if (!procman_.start(command, err)) {
+      fail_bringup("Failed to start stage '" + stage.label + "': " + err);
+      return;
+    }
   }
 
   stage_started_at_ = std::chrono::steady_clock::now();
+  current_stage_started_ = true;
   stage_deadline_ =
     stage_started_at_ + std::chrono::milliseconds(static_cast<int64_t>(stage.timeout_sec * 1000.0));
 }
@@ -560,6 +571,7 @@ void Layer1HardwareBringupNode::finish_current_stage()
     "%s",
     blue("Layer 1 ready: " + stage.label + " (checks=" +
       std::to_string(stage.readiness_rules.size()) + ")").c_str());
+  current_stage_started_ = false;
   ++current_stage_index_;
 }
 
@@ -569,6 +581,7 @@ void Layer1HardwareBringupNode::fail_bringup(const std::string & reason)
     return;
   }
   bringup_failed_ = true;
+  current_stage_started_ = false;
   RCLCPP_ERROR(get_logger(), "%s", reason.c_str());
   stop_all_processes();
   rclcpp::shutdown();
@@ -601,106 +614,230 @@ void Layer1HardwareBringupNode::ensure_topic_subscription(const std::string & to
     callback);
 }
 
-std::string Layer1HardwareBringupNode::build_stage_command(const std::string & stage_name) const
+std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
+  const std::string & stage_name) const
 {
   const auto ns = param_as_string("namespace");
   const auto log_level = param_as_string("log_level");
   const auto ublox_log_level = param_as_string("ublox_log_level");
 
-  std::vector<std::string> args;
-  auto add_arg = [&args](const std::string & name, const std::string & value) {
-    if (value.empty()) {
-      return;
-    }
-    args.push_back(name + ":=" + value);
+  auto build_ros2_run =
+    [](const std::string & package_name,
+      const std::string & executable_name,
+      const std::vector<std::string> & tokens) {
+      std::vector<std::string> command_tokens = {
+        "exec", "ros2", "run", package_name, executable_name,
+      };
+      command_tokens.insert(command_tokens.end(), tokens.begin(), tokens.end());
+      return shell_join(command_tokens);
+    };
+  auto add_ros_arg =
+    [](std::vector<std::string> & tokens, const std::string & value) {
+      if (!value.empty()) {
+        tokens.push_back(value);
+      }
+    };
+  auto add_param =
+    [&add_ros_arg](std::vector<std::string> & tokens, const std::string & name, const std::string & value) {
+      if (!value.empty()) {
+        add_ros_arg(tokens, "-p");
+        add_ros_arg(tokens, name + ":=" + value);
+      }
+    };
+  auto add_remap =
+    [&add_ros_arg](std::vector<std::string> & tokens, const std::string & from, const std::string & to) {
+      if (!from.empty() && !to.empty()) {
+        add_ros_arg(tokens, "-r");
+        add_ros_arg(tokens, from + ":=" + to);
+      }
+    };
+  auto add_params_file =
+    [&add_ros_arg](std::vector<std::string> & tokens, const std::string & params_file) {
+      if (!params_file.empty()) {
+        add_ros_arg(tokens, "--params-file");
+        add_ros_arg(tokens, params_file);
+      }
+    };
+  auto bool_string = [](const bool value) {
+      return value ? "true" : "false";
   };
-  auto build_ros2_launch = [&args](const std::string & package_name, const std::string & launch_file) {
-    std::ostringstream oss;
-    oss << "ros2 launch " << package_name << " " << launch_file;
-    for (const auto & arg : args) {
-      oss << " " << shell_quote(arg);
-    }
-    return oss.str();
-  };
+  auto base_ros_args =
+    [&](const std::string & node_namespace, const std::string & node_name, const std::string & level) {
+      std::vector<std::string> tokens = {"--ros-args"};
+      add_remap(tokens, "__ns", normalize_fqn(node_namespace));
+      add_remap(tokens, "__node", node_name);
+      if (!level.empty()) {
+        add_ros_arg(tokens, "--log-level");
+        add_ros_arg(tokens, level);
+      }
+      return tokens;
+    };
 
   if (stage_name == "robot_description") {
-    add_arg("namespace", ns);
-    add_arg("use_sim_time", param_as_bool("use_sim_time") ? "true" : "false");
-    add_arg("use_ros2_control", param_as_bool("use_amr_sweeper_ros2_control") ? "true" : "false");
-    add_arg("enable_usb_cameras", param_as_bool("use_amr_sweeper_usb_cameras") ? "true" : "false");
-    add_arg("enable_gnss", param_as_bool("use_amr_sweeper_gnss") ? "true" : "false");
-    add_arg("enable_imu", param_as_bool("use_amr_sweeper_imu") ? "true" : "false");
-    add_arg("enable_depth_camera", param_as_bool("use_amr_sweeper_depth_camera") ? "true" : "false");
-    return build_ros2_launch("amr_sweeper_description", "amr_sweeper_description.launch.py");
+    const auto description_share = package_share("amr_sweeper_description");
+    const auto xacro_file = description_share / "urdf" / "robot" / "robot.urdf.xacro";
+    std::ostringstream command;
+    command
+      << "exec ros2 run robot_state_publisher robot_state_publisher"
+      << " --ros-args"
+      << " -r " << shell_quote("__ns:=" + normalize_fqn(ns))
+      << " -p " << shell_quote(
+      std::string("use_sim_time:=") + bool_string(param_as_bool("use_sim_time")))
+      << " -p robot_description:=\"$(xacro "
+      << shell_quote(xacro_file.string())
+      << " robot_namespace:=" << shell_quote(ns)
+      << " use_ros2_control:=" << bool_string(param_as_bool("use_amr_sweeper_ros2_control"))
+      << " enable_usb_cameras:=" << bool_string(param_as_bool("use_amr_sweeper_usb_cameras"))
+      << " enable_gnss:=" << bool_string(param_as_bool("use_amr_sweeper_gnss"))
+      << " enable_imu:=" << bool_string(param_as_bool("use_amr_sweeper_imu"))
+      << " enable_depth_camera:=" << bool_string(param_as_bool("use_amr_sweeper_depth_camera"))
+      << ")\"";
+    return {command.str()};
   }
   if (stage_name == "system_info") {
-    add_arg("namespace", ns + "/system_info");
-    add_arg("params_file", param_as_string("system_info_params_file"));
-    return build_ros2_launch("amr_sweeper_system_info", "amr_sweeper_system_info.launch.py");
+    auto tokens = base_ros_args(ns + "/system_info", "system_info_node", "");
+    add_params_file(tokens, param_as_string("system_info_params_file"));
+    return {build_ros2_run("amr_sweeper_system_info", "system_info_node", tokens)};
   }
   if (stage_name == "battery") {
-    add_arg("namespace", ns + "/battery");
-    add_arg("can_interface", param_as_string("battery_can_interface"));
-    add_arg("params_file", param_as_string("battery_params_file"));
-    return build_ros2_launch("amr_sweeper_battery", "amr_sweeper_battery.launch.py");
+    auto tokens = base_ros_args(ns + "/battery", "battery_node", "");
+    add_params_file(tokens, param_as_string("battery_params_file"));
+    add_param(tokens, "can_interface", param_as_string("battery_can_interface"));
+    return {build_ros2_run("amr_sweeper_battery", "battery_node", tokens)};
   }
   if (stage_name == "gnss") {
-    add_arg("use_ublox_dgnss_node", param_as_bool("use_amr_sweeper_gnss") ? "true" : "false");
-    add_arg("use_ublox_nav_sat_fix_hp", param_as_bool("use_amr_sweeper_gnss") ? "true" : "false");
-    add_arg("use_ntrip_client", param_as_bool("use_ntrip_client") ? "true" : "false");
-    add_arg("gnss_namespace", ns + "/gnss");
-    add_arg("gnss_frame_id", param_as_string("gnss_frame_id"));
-    add_arg("ntrip_params_file", param_as_string("ntrip_params_file"));
-    add_arg("log_level", log_level);
-    add_arg("ublox_log_level", ublox_log_level);
-    return build_ros2_launch("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py");
+    std::vector<std::string> commands;
+    auto gnss_tokens = base_ros_args(ns + "/gnss", "gnss_node", ublox_log_level);
+    add_params_file(gnss_tokens, package_share("amr_sweeper_gnss").string() + "/config/amr_sweeper_gnss_ublox.yaml");
+    add_param(gnss_tokens, "frame_id", param_as_string("gnss_frame_id"));
+    commands.push_back(build_ros2_run("amr_sweeper_gnss", "gnss_node", gnss_tokens));
+
+    if (param_as_bool("use_ntrip_client")) {
+      auto ntrip_tokens = base_ros_args(ns + "/gnss", "ntrip_client", log_level);
+      add_params_file(ntrip_tokens, param_as_string("ntrip_params_file"));
+      add_param(ntrip_tokens, "send_nmea", bool_string(true));
+      add_remap(ntrip_tokens, "fix", "navsat");
+      commands.push_back(build_ros2_run("amr_sweeper_gnss", "ntrip_client", ntrip_tokens));
+    }
+    return commands;
   }
   if (stage_name == "imu") {
-    add_arg("namespace", ns + "/imu");
-    add_arg("use_sim_time", param_as_bool("use_sim_time") ? "true" : "false");
-    add_arg("params_file", param_as_string("imu_params_file"));
-    add_arg("device_path", param_as_string("imu_device_path"));
-    add_arg("port", param_as_string("imu_port"));
-    add_arg("baud", param_as_string("imu_baud"));
-    add_arg("use_imu_node", param_as_bool("use_amr_sweeper_imu") ? "true" : "false");
-    return build_ros2_launch("amr_sweeper_imu", "amr_sweeper_imu.launch.py");
+    auto tokens = base_ros_args(ns + "/imu", "imu_node", "");
+    add_params_file(tokens, param_as_string("imu_params_file"));
+    add_param(tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
+    add_param(tokens, "device_path", param_as_string("imu_device_path"));
+    add_param(tokens, "port", param_as_string("imu_port"));
+    add_param(tokens, "baud", param_as_string("imu_baud"));
+    return {build_ros2_run("amr_sweeper_imu", "imu_node", tokens)};
   }
   if (stage_name == "usb_cameras") {
-    add_arg("namespace", ns + "/usb_cameras");
-    add_arg("log_level", log_level);
-    add_arg("front_left_camera_enabled", param_as_bool("front_left_camera_enabled") ? "true" : "false");
-    add_arg("front_right_camera_enabled", param_as_bool("front_right_camera_enabled") ? "true" : "false");
-    add_arg("rear_left_camera_enabled", param_as_bool("rear_left_camera_enabled") ? "true" : "false");
-    add_arg("rear_right_camera_enabled", param_as_bool("rear_right_camera_enabled") ? "true" : "false");
-    add_arg("tools_camera_enabled", param_as_bool("tools_camera_enabled") ? "true" : "false");
-    return build_ros2_launch("amr_sweeper_usb_cameras", "amr_sweeper_usb_cameras.launch.py");
+    std::vector<std::string> commands;
+    const auto usb_cameras_share = package_share("amr_sweeper_usb_cameras");
+    const std::vector<std::pair<std::string, bool>> cameras = {
+      {"front_left_camera", param_as_bool("front_left_camera_enabled")},
+      {"front_right_camera", param_as_bool("front_right_camera_enabled")},
+      {"rear_left_camera", param_as_bool("rear_left_camera_enabled")},
+      {"rear_right_camera", param_as_bool("rear_right_camera_enabled")},
+      {"tools_camera", param_as_bool("tools_camera_enabled")},
+    };
+    for (const auto & camera : cameras) {
+      if (!camera.second) {
+        continue;
+      }
+      auto tokens = base_ros_args(ns + "/usb_cameras", camera.first + "_node", log_level);
+      add_params_file(tokens, (usb_cameras_share / "config" / (camera.first + "_params.yaml")).string());
+      commands.push_back(build_ros2_run("amr_sweeper_usb_cameras", "usb_cameras_node", tokens));
+    }
+    return commands;
   }
   if (stage_name == "depth_camera") {
-    add_arg("namespace", ns + "/depth_camera");
-    add_arg("log_level", log_level);
-    add_arg("use_sim_time", param_as_bool("use_sim_time") ? "true" : "false");
-    add_arg("camera_domain_id", param_as_string("depth_camera_camera_domain_id"));
-    add_arg("params_file", param_as_string("depth_camera_params_file"));
-    add_arg("use_laserscan", param_as_bool("depth_camera_use_laserscan") ? "true" : "false");
-    add_arg("laserscan_params_file", param_as_string("depth_camera_laserscan_params_file"));
-    add_arg("depth_image_topic", param_as_string("depth_camera_image_topic"));
-    add_arg("depth_camera_info_topic", param_as_string("depth_camera_info_topic"));
-    add_arg("depth_camera_frame", param_as_string("depth_camera_frame"));
-    add_arg("scan_topic", param_as_string("depth_camera_scan_topic"));
-    add_arg("output_frame", param_as_string("depth_camera_output_frame"));
-    add_arg("range_min", param_as_string("depth_camera_range_min"));
-    add_arg("range_max", param_as_string("depth_camera_range_max"));
-    add_arg("scan_height", param_as_string("depth_camera_scan_height"));
-    add_arg("scan_tilt_angle_deg", param_as_string("depth_camera_scan_tilt_angle_deg"));
-    add_arg("scan_time", param_as_string("depth_camera_scan_time"));
-    return build_ros2_launch("amr_sweeper_depth_camera", "amr_sweeper_depth_camera.launch.py");
+    std::vector<std::string> commands;
+    const auto namespace_value = normalize_fqn(ns + "/depth_camera");
+    const auto depth_camera_parent_namespace =
+      namespace_value.substr(0, namespace_value.find_last_of('/'));
+    const auto depth_camera_name = namespace_value.substr(namespace_value.find_last_of('/') + 1);
+    auto realsense_tokens = base_ros_args(depth_camera_parent_namespace, depth_camera_name, log_level);
+    add_params_file(realsense_tokens, param_as_string("depth_camera_params_file"));
+    add_param(realsense_tokens, "camera_name", depth_camera_name);
+    add_param(realsense_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
+    commands.push_back(build_ros2_run("realsense2_camera", "realsense2_camera_node", realsense_tokens));
+
+    if (param_as_bool("depth_camera_use_laserscan")) {
+      auto laserscan_tokens = base_ros_args(ns + "/depth_camera", "laserscan", log_level);
+      add_params_file(laserscan_tokens, param_as_string("depth_camera_laserscan_params_file"));
+      add_param(laserscan_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
+      add_param(laserscan_tokens, "output_frame", param_as_string("depth_camera_output_frame"));
+      add_param(laserscan_tokens, "range_min", param_as_string("depth_camera_range_min"));
+      add_param(laserscan_tokens, "range_max", param_as_string("depth_camera_range_max"));
+      add_param(laserscan_tokens, "scan_height", param_as_string("depth_camera_scan_height"));
+      add_param(laserscan_tokens, "scan_tilt_angle_deg", param_as_string("depth_camera_scan_tilt_angle_deg"));
+      add_param(laserscan_tokens, "scan_time", param_as_string("depth_camera_scan_time"));
+      add_remap(
+        laserscan_tokens,
+        "depth",
+        param_as_string("depth_camera_image_topic").empty() ?
+        normalize_fqn(ns + "/depth_camera/depth/image_rect_raw") : param_as_string("depth_camera_image_topic"));
+      add_remap(
+        laserscan_tokens,
+        "depth_camera_info",
+        param_as_string("depth_camera_info_topic").empty() ?
+        normalize_fqn(ns + "/depth_camera/depth/camera_info") : param_as_string("depth_camera_info_topic"));
+      add_remap(
+        laserscan_tokens,
+        "scan",
+        param_as_string("depth_camera_scan_topic").empty() ? "scan" : param_as_string("depth_camera_scan_topic"));
+      commands.push_back(build_ros2_run("amr_sweeper_depth_camera", "laserscan_node", laserscan_tokens));
+
+      const auto scan_tilt_angle_deg = param_as_string("depth_camera_scan_tilt_angle_deg");
+      const double scan_tilt_angle_rad = scan_tilt_angle_deg.empty() ? 0.0 :
+        std::stod(scan_tilt_angle_deg) * M_PI / 180.0;
+      std::vector<std::string> tf_tokens = {
+        "--x", "0",
+        "--y", "0",
+        "--z", "0",
+        "--roll", "0",
+        "--pitch", std::to_string(scan_tilt_angle_rad),
+        "--yaw", "0",
+        "--frame-id", param_as_string("depth_camera_frame"),
+        "--child-frame-id",
+        param_as_string("depth_camera_output_frame").empty() ?
+        param_as_string("depth_camera_frame") : param_as_string("depth_camera_output_frame"),
+        "--ros-args",
+        "-r", "__ns:=" + normalize_fqn(ns + "/depth_camera"),
+        "-r", "__node:=laserscan_tf",
+      };
+      commands.push_back(build_ros2_run("tf2_ros", "static_transform_publisher", tf_tokens));
+    }
+    if (!commands.empty()) {
+      commands.front() =
+        "export ROS_DOMAIN_ID=" + shell_quote(param_as_string("depth_camera_camera_domain_id")) +
+        "; " + commands.front();
+    }
+    return commands;
   }
   if (stage_name == "ros2_control") {
-    add_arg("namespace", ns);
-    add_arg("use_sim_time", param_as_bool("use_sim_time") ? "true" : "false");
-    add_arg("use_ros2_control", param_as_bool("use_amr_sweeper_ros2_control") ? "true" : "false");
-    add_arg("use_joint_broadcaster", param_as_bool("use_joint_broadcaster") ? "true" : "false");
-    return build_ros2_launch("amr_sweeper_ros2_control", "amr_sweeper_ros2_control.launch.py");
+    std::vector<std::string> commands;
+    auto manager_tokens = base_ros_args(ns, "ros2_control_node", "");
+    add_param(manager_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
+    add_params_file(
+      manager_tokens,
+      (package_share("amr_sweeper_description") / "urdf" / "control" / "ros2_control.yaml").string());
+    add_remap(manager_tokens, "/robot_description", normalize_fqn(ns + "/robot_description"));
+    commands.push_back(build_ros2_run("controller_manager", "ros2_control_node", manager_tokens));
+
+    if (param_as_bool("use_joint_broadcaster")) {
+      std::vector<std::string> spawner_tokens = {
+        "joint_broad",
+        "--controller-manager",
+        normalize_fqn(ns + "/controller_manager"),
+        "--controller-manager-timeout",
+        "60",
+        "--ros-args",
+        "-r", "__ns:=" + normalize_fqn(ns),
+      };
+      commands.push_back(build_ros2_run("controller_manager", "spawner", spawner_tokens));
+    }
+    return commands;
   }
 
   throw std::runtime_error("Unsupported stage name: " + stage_name);
@@ -788,6 +925,22 @@ std::string Layer1HardwareBringupNode::shell_quote(const std::string & value)
   return out;
 }
 
+std::string Layer1HardwareBringupNode::shell_join(const std::vector<std::string> & tokens)
+{
+  std::ostringstream oss;
+  for (std::size_t index = 0; index < tokens.size(); ++index) {
+    if (index > 0) {
+      oss << " ";
+    }
+    if (index == 0 && tokens[index] == "exec") {
+      oss << "exec";
+      continue;
+    }
+    oss << shell_quote(tokens[index]);
+  }
+  return oss.str();
+}
+
 std::string Layer1HardwareBringupNode::blue(const std::string & text)
 {
   return "\033[94m" + text + "\033[0m";
@@ -851,6 +1004,11 @@ std::map<std::string, std::vector<std::string>> Layer1HardwareBringupNode::servi
     out.emplace(normalize_fqn(item.first), item.second);
   }
   return out;
+}
+
+std::filesystem::path Layer1HardwareBringupNode::package_share(const std::string & package_name) const
+{
+  return std::filesystem::path(ament_index_cpp::get_package_share_directory(package_name));
 }
 
 }  // namespace amr_sweeper_layer_1_hardware_bringup
