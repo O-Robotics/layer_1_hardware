@@ -35,7 +35,9 @@ SystemInfoPublisher::SystemInfoPublisher()
       }))
 {
   const auto publish_period_sec = declare_parameter<double>("publish_period_sec", 15.0);
-  publisher_ = create_publisher<amr_sweeper_system_info_msgs::msg::SystemState>("system_info", 10);
+  publisher_ = create_publisher<amr_sweeper_system_info_msgs::msg::SystemState>(
+    "system_info",
+    rclcpp::QoS(1).reliable().transient_local());
   publish_data();
   timer_ = create_wall_timer(
     std::chrono::duration_cast<std::chrono::nanoseconds>(

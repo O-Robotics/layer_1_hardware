@@ -12,6 +12,7 @@ stages:
     ready:
       - type:     topic                            # Gate on first data observed on the topic.
         target:   system_info/system_info          # Aggregated host and robot platform status topic.
+        durability: transient_local                # Consume the first latched sample even if it was published before bringup subscribed.
         required: true                             # This topic is required before later hardware stages continue.
 
   battery:
