@@ -18,7 +18,6 @@ def generate_launch_description():
 
     use_amr_sweeper_description = LaunchConfiguration("use_amr_sweeper_description")
     use_amr_sweeper_ros2_control = LaunchConfiguration("use_amr_sweeper_ros2_control")
-    use_joint_broadcaster = LaunchConfiguration("use_joint_broadcaster")
     use_amr_sweeper_battery = LaunchConfiguration("use_amr_sweeper_battery")
     use_amr_sweeper_system_info = LaunchConfiguration("use_amr_sweeper_system_info")
     use_amr_sweeper_usb_cameras = LaunchConfiguration("use_amr_sweeper_usb_cameras")
@@ -75,7 +74,6 @@ def generate_launch_description():
     ))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_ros2_control", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_joint_broadcaster", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"))
@@ -150,7 +148,6 @@ def generate_launch_description():
             "readiness_config_file": readiness_config_file,
             "use_amr_sweeper_description": ParameterValue(use_amr_sweeper_description, value_type=bool),
             "use_amr_sweeper_ros2_control": ParameterValue(use_amr_sweeper_ros2_control, value_type=bool),
-            "use_joint_broadcaster": ParameterValue(use_joint_broadcaster, value_type=bool),
             "use_amr_sweeper_battery": ParameterValue(use_amr_sweeper_battery, value_type=bool),
             "use_amr_sweeper_system_info": ParameterValue(use_amr_sweeper_system_info, value_type=bool),
             "use_amr_sweeper_usb_cameras": ParameterValue(use_amr_sweeper_usb_cameras, value_type=bool),

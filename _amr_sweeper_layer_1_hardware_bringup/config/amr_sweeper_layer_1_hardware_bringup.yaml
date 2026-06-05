@@ -61,24 +61,24 @@ stages:
   usb_cameras:
     timeout_sec: 45  # Max wait for all enabled USB cameras to publish their first images.
     ready:
-      - type:     topic                            # Front-left image stream.
-        target:   usb_cameras/front_left_camera/image_raw  # Front-left raw image topic.
+      - type:     topic                            # Front-left compressed image stream.
+        target:   usb_cameras/front_left_camera/image_raw/compressed  # Front-left compressed image topic.
         required: true                             # Required when the front-left camera is enabled.
         when_arg_true: front_left_camera_enabled   # Skip this gate if the camera is disabled at launch.
-      - type:     topic                            # Front-right image stream.
-        target:   usb_cameras/front_right_camera/image_raw # Front-right raw image topic.
+      - type:     topic                            # Front-right compressed image stream.
+        target:   usb_cameras/front_right_camera/image_raw/compressed # Front-right compressed image topic.
         required: true                             # Required when the front-right camera is enabled.
         when_arg_true: front_right_camera_enabled  # Skip this gate if the camera is disabled at launch.
-      - type:     topic                            # Rear-left image stream.
-        target:   usb_cameras/rear_left_camera/image_raw   # Rear-left raw image topic.
+      - type:     topic                            # Rear-left compressed image stream.
+        target:   usb_cameras/rear_left_camera/image_raw/compressed   # Rear-left compressed image topic.
         required: true                             # Required when the rear-left camera is enabled.
         when_arg_true: rear_left_camera_enabled    # Skip this gate if the camera is disabled at launch.
-      - type:     topic                            # Rear-right image stream.
-        target:   usb_cameras/rear_right_camera/image_raw  # Rear-right raw image topic.
+      - type:     topic                            # Rear-right compressed image stream.
+        target:   usb_cameras/rear_right_camera/image_raw/compressed  # Rear-right compressed image topic.
         required: true                             # Required when the rear-right camera is enabled.
         when_arg_true: rear_right_camera_enabled   # Skip this gate if the camera is disabled at launch.
-      - type:     topic                            # Tool camera image stream.
-        target:   usb_cameras/tools_camera/image_raw       # Tool-facing raw image topic.
+      - type:     topic                            # Tool camera compressed image stream.
+        target:   usb_cameras/tools_camera/image_raw/compressed       # Tool-facing compressed image topic.
         required: true                             # Required when the tool camera is enabled.
         when_arg_true: tools_camera_enabled        # Skip this gate if the camera is disabled at launch.
 
@@ -103,7 +103,6 @@ stages:
       - type:     topic                            # Require live joint state publication from controller_manager.
         target:   joint_states                     # Joint state topic published after ros2_control activates.
         required: true                             # This is the minimum usable signal for downstream control.
-        when_arg_true: use_joint_broadcaster       # Only require joint_states when this bringup owns the broadcaster.
       - type:     hardware                         # Require the wheel hardware component to report active.
         target:   odrive_ros2_control              # ODrive ros2_control hardware component name.
         state:    active                           # Required lifecycle state reported by controller_manager.
@@ -114,5 +113,4 @@ stages:
         required: true                             # Tool motor hardware must be active before bringup succeeds.
       - type:     controller                       # Require the joint state broadcaster when enabled.
         target:   joint_broad                      # Controller name expected from the controller manager.
-        required: true                             # Once requested, the broadcaster must activate successfully.
-        when_arg_true: use_joint_broadcaster       # Only enforce this gate when the launch arg enables it.
+        required: true                             # The broadcaster is part of the fixed ros2_control bringup path.

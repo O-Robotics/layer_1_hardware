@@ -269,7 +269,6 @@ void Layer1HardwareBringupNode::declare_parameters()
 
   declare_if_missing("use_amr_sweeper_description", true);
   declare_if_missing("use_amr_sweeper_ros2_control", true);
-  declare_if_missing("use_joint_broadcaster", true);
   declare_if_missing("use_amr_sweeper_battery", true);
   declare_if_missing("use_amr_sweeper_system_info", true);
   declare_if_missing("use_amr_sweeper_usb_cameras", true);
@@ -877,26 +876,24 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
     add_remap(manager_tokens, "/robot_description", normalize_fqn(ns + "/robot_description"));
     commands.push_back(build_ros2_run("controller_manager", "ros2_control_node", manager_tokens));
 
-    if (param_as_bool("use_joint_broadcaster")) {
-      std::vector<std::string> spawner_tokens = {
-        "joint_broad",
-        "--controller-manager",
-        normalize_fqn(ns + "/controller_manager"),
-        "--controller-manager-timeout",
-        "60",
-        "--ros-args",
-        "-r", "__ns:=" + normalize_fqn(ns),
-      };
-      const std::string controller_manager_service =
-        normalize_fqn(ns + "/controller_manager/list_controllers");
-      std::ostringstream spawner_command;
-      spawner_command
-        << "until ros2 service type "
-        << shell_quote(controller_manager_service)
-        << " >/dev/null 2>&1; do sleep 0.2; done; "
-        << build_ros2_run("controller_manager", "spawner", spawner_tokens);
-      commands.push_back(spawner_command.str());
-    }
+    std::vector<std::string> spawner_tokens = {
+      "joint_broad",
+      "--controller-manager",
+      normalize_fqn(ns + "/controller_manager"),
+      "--controller-manager-timeout",
+      "60",
+      "--ros-args",
+      "-r", "__ns:=" + normalize_fqn(ns),
+    };
+    const std::string controller_manager_service =
+      normalize_fqn(ns + "/controller_manager/list_controllers");
+    std::ostringstream spawner_command;
+    spawner_command
+      << "until ros2 service type "
+      << shell_quote(controller_manager_service)
+      << " >/dev/null 2>&1; do sleep 0.2; done; "
+      << build_ros2_run("controller_manager", "spawner", spawner_tokens);
+    commands.push_back(spawner_command.str());
     return commands;
   }
 

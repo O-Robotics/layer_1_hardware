@@ -4,7 +4,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessStart
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -13,7 +13,6 @@ def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_ros2_control = LaunchConfiguration("use_ros2_control")
-    use_joint_broadcaster = LaunchConfiguration("use_joint_broadcaster")
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
 
     controller_manager = Node(
@@ -42,7 +41,6 @@ def generate_launch_description():
             "60",
         ],
         namespace=namespace,
-        condition=IfCondition(use_joint_broadcaster),
         output="screen",
         additional_env={"RCUTILS_COLORIZED_OUTPUT": "0"},
     )
@@ -54,20 +52,13 @@ def generate_launch_description():
                 joint_broad_spawner,
             ],
         ),
-        condition=IfCondition(PythonExpression([
-            "'",
-            use_ros2_control,
-            "' == 'true' and '",
-            use_joint_broadcaster,
-            "' == 'true'",
-        ])),
+        condition=IfCondition(use_ros2_control),
     )
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
         DeclareLaunchArgument("use_ros2_control", default_value="true"),
-        DeclareLaunchArgument("use_joint_broadcaster", default_value="true"),
         DeclareLaunchArgument(
             "ros2_control_config_file",
             default_value=PathJoinSubstitution([

@@ -55,7 +55,7 @@ The main bringup launch starts the core hardware stack under the default robot r
 - Use this package when you want to start the whole layer 1 stack from a single command.
 - `amr_sweeper_description.launch.py` is the robot description entrypoint used by the main bringup.
 - `use_amr_sweeper_ros2_control` enables the layer 1 `ros2_control` runtime bringup alongside the robot description and hardware-related nodes.
-- When `use_amr_sweeper_ros2_control:=true`, this bringup owns `ros2_control_node` plus the `joint_broad` spawner that activates the ODrive and SteadyDrive hardware interfaces.
+- When `use_amr_sweeper_ros2_control:=true`, this bringup always owns `ros2_control_node` plus the `joint_broad` spawner that activates the ODrive and SteadyDrive hardware interfaces.
 - The `namespace` argument becomes the robot root, while package-owned sensor namespaces are nested below it, such as `imu`, `gnss`, `usb_cameras`, and `depth_camera`.
 - The depth camera bringup passes `namespace:=/amr_sweeper/depth_camera` into the package launch, and that launch bridges the camera's native ROS topics from domain `5` into the flattened `/amr_sweeper/depth_camera/...` topic layout.
 - The battery and system-info nodes load defaults from `config/amr_sweeper_battery.yaml` and `config/amr_sweeper_system_info.yaml` before any bringup-level overrides are applied.

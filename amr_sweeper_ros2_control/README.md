@@ -11,7 +11,6 @@ This package provides the shared layer 1 `ros2_control` runtime for the AMR Swee
 - `namespace`: default `amr_sweeper`
 - `use_sim_time`: default `false`
 - `use_ros2_control`: default `true`
-- `use_joint_broadcaster`: default `true`
 - `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
 
 ## Notes
