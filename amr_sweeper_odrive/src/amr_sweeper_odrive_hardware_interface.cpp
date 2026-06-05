@@ -958,10 +958,10 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_configure(
 
   std::string failure_reason;
   if (!confirmMotorTelemetryReady(motor_ready_timeout_, failure_reason)) {
-    RCLCPP_ERROR(rclcpp::get_logger(hw_name_), "%s", failure_reason.c_str());
-    closeCanInterface();
-    last_connection_error_message_ = failure_reason;
-    return CallbackReturn::ERROR;
+    RCLCPP_WARN(
+      rclcpp::get_logger(hw_name_),
+      "%s. Continuing configure and retrying readiness during activate",
+      failure_reason.c_str());
   }
   return CallbackReturn::SUCCESS;
 }

@@ -755,6 +755,12 @@ bool NtripClientNode::send_latest_gga_to_caster()
   }
 
   const std::string sentence = build_gga_sentence(*latest_fix_copy);
+  std::string sentence_for_log = sentence;
+  while (!sentence_for_log.empty() &&
+    (sentence_for_log.back() == '\r' || sentence_for_log.back() == '\n'))
+  {
+    sentence_for_log.pop_back();
+  }
   std::string send_error;
 
   {
@@ -781,7 +787,7 @@ bool NtripClientNode::send_latest_gga_to_caster()
     *get_clock(),
     10000,
     "Sent GGA uplink to caster: %s",
-    sentence.c_str());
+    sentence_for_log.c_str());
 
   return true;
 }

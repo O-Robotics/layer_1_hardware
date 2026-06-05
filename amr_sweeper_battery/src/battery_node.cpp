@@ -154,7 +154,9 @@ BatteryNode::BatteryNode()
     can_interface_.c_str(), priority_, bms_addr_, pc_addr_);
 
   const auto safety_stop_qos = rclcpp::QoS(10).reliable().transient_local();
-  batt_pub_ = create_publisher<sensor_msgs::msg::BatteryState>("battery_state", 10);
+  batt_pub_ = create_publisher<sensor_msgs::msg::BatteryState>(
+    "battery_state",
+    rclcpp::QoS(10).reliable().transient_local());
   health_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>("battery_health", 10);
   safety_stop_pub_ = create_publisher<amr_sweeper_safety_msgs::msg::SafetyStop>(
     safety_stop_topic_name_, safety_stop_qos);
@@ -532,10 +534,18 @@ void BatteryNode::decode_0x90(const uint8_t * data, size_t len)
   const auto curr_u16 = static_cast<uint16_t>((data[4] << 8) | data[5]);
   const auto soc_u16 = static_cast<uint16_t>((data[6] << 8) | data[7]);
 
-  std::lock_guard<std::mutex> lock(state_mutex_);
-  pack_voltage_ = pack_u16 / 10.0;
-  pack_current_ = (static_cast<int>(curr_u16) - 30000) / 10.0;
-  soc_percent_ = soc_u16 / 10.0;
+  bool publish_first_sample = false;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    pack_voltage_ = pack_u16 / 10.0;
+    pack_current_ = (static_cast<int>(curr_u16) - 30000) / 10.0;
+    soc_percent_ = soc_u16 / 10.0;
+    publish_first_sample = !first_battery_sample_published_.exchange(true);
+  }
+
+  if (publish_first_sample) {
+    publish_battery_state();
+  }
 }
 
 void BatteryNode::decode_0x91(const uint8_t * data, size_t len)

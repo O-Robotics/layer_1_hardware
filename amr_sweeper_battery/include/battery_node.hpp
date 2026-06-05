@@ -150,6 +150,7 @@ private:
   std::vector<int> balance_state_;
   std::optional<std::vector<uint8_t>> failure_bytes_;
   std::array<ProtectionState, static_cast<std::size_t>(ProtectionType::Count)> protection_states_{};
+  std::atomic<bool> first_battery_sample_published_{false};
 
   std::string safety_stop_topic_name_{"safety_msgs/stop"};
   std::string safety_stop_sender_name_{"battery_node"};
