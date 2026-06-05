@@ -132,7 +132,7 @@ int main(int argc, char * argv[])
   try {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<SystemInfoPublisher>();
-    RCLCPP_INFO(node->get_logger(), "Loaded SystemInfoPublisher node. Please wait.");
+    RCLCPP_INFO(node->get_logger(), "Loaded SystemInfoPublisher node.");
     rclcpp::spin(node);
     rclcpp::shutdown();
   } catch (const std::exception & exception) {
