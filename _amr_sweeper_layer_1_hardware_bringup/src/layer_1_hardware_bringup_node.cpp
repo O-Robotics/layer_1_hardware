@@ -46,6 +46,8 @@ std::string trim(const std::string & value)
   return value.substr(start, end - start);
 }
 
+constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}] : {message}";
+
 }  // namespace
 
 ProcessManager::~ProcessManager()
@@ -106,6 +108,7 @@ bool ProcessManager::start(const std::string & command, std::string & err_out)
     std::filesystem::create_directories(ros_log_dir, ec);
     ::setenv("ROS_LOG_DIR", ros_log_dir.c_str(), 1);
     ::setenv("RCUTILS_COLORIZED_OUTPUT", "1", 1);
+    ::setenv("RCUTILS_CONSOLE_OUTPUT_FORMAT", kConsoleOutputFormat, 1);
     ::setenv("RMW_FASTRTPS_USE_SHM", "0", 1);
     ::execl("/bin/sh", "sh", "-c", command.c_str(), (char *)nullptr);
     _exit(127);
@@ -194,6 +197,7 @@ std::vector<ProcessManager::Proc> ProcessManager::list() const
 Layer1HardwareBringupNode::Layer1HardwareBringupNode()
 : Node("layer_1_hardware_bringup_node")
 {
+  ::setenv("RCUTILS_CONSOLE_OUTPUT_FORMAT", kConsoleOutputFormat, 1);
   declare_parameters();
   build_stages();
   timer_ = create_wall_timer(
@@ -605,6 +609,9 @@ std::string Layer1HardwareBringupNode::build_stage_command(const std::string & s
 
   std::vector<std::string> args;
   auto add_arg = [&args](const std::string & name, const std::string & value) {
+    if (value.empty()) {
+      return;
+    }
     args.push_back(name + ":=" + value);
   };
   auto build_ros2_launch = [&args](const std::string & package_name, const std::string & launch_file) {

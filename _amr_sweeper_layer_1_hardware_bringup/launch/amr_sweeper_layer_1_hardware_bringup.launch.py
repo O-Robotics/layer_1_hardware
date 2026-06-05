@@ -1,7 +1,7 @@
 """Launch the layer-1 bringup orchestrator node."""
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -9,6 +9,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    console_output_format = "[{severity}] [{time}] [{name}] : {message}"
     namespace = LaunchConfiguration("namespace")
     log_level = LaunchConfiguration("log_level")
     ublox_log_level = LaunchConfiguration("ublox_log_level")
@@ -56,6 +57,10 @@ def generate_launch_description():
     tools_camera_enabled = LaunchConfiguration("tools_camera_enabled")
 
     ld = LaunchDescription()
+    ld.add_action(SetEnvironmentVariable(
+        "RCUTILS_CONSOLE_OUTPUT_FORMAT",
+        console_output_format,
+    ))
     ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
     ld.add_action(DeclareLaunchArgument("ublox_log_level", default_value="WARN"))

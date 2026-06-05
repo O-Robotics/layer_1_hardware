@@ -181,6 +181,7 @@ BatteryNode::BatteryNode()
   const auto period = std::chrono::duration_cast<std::chrono::nanoseconds>(
     std::chrono::duration<double>(timer_period));
   timer_ = create_wall_timer(period, std::bind(&BatteryNode::on_timer, this));
+  on_timer();
 
   RCLCPP_INFO(get_logger(), "battery_node started.");
 }
