@@ -33,6 +33,7 @@ def generate_launch_description():
 
     use_amr_sweeper_description = LaunchConfiguration("use_amr_sweeper_description")
     use_amr_sweeper_ros2_control = LaunchConfiguration("use_amr_sweeper_ros2_control")
+    use_joint_broadcaster = LaunchConfiguration("use_joint_broadcaster")
     use_amr_sweeper_battery = LaunchConfiguration("use_amr_sweeper_battery")
     use_amr_sweeper_system_info = LaunchConfiguration("use_amr_sweeper_system_info")
     use_amr_sweeper_usb_cameras = LaunchConfiguration("use_amr_sweeper_usb_cameras")
@@ -87,6 +88,7 @@ def generate_launch_description():
 
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_ros2_control", default_value="true"))
+    ld.add_action(DeclareLaunchArgument("use_joint_broadcaster", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"))
     ld.add_action(DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"))
@@ -164,7 +166,7 @@ def generate_launch_description():
                     "namespace": namespace,
                     "use_sim_time": use_sim_time,
                     "use_ros2_control": use_amr_sweeper_ros2_control,
-                    "use_joint_broadcaster": "true",
+                    "use_joint_broadcaster": use_joint_broadcaster,
                 }.items(),
                 condition=IfCondition(use_amr_sweeper_ros2_control),
             ),
