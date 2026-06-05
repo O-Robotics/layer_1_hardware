@@ -870,7 +870,7 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
   }
   if (stage_name == "ros2_control") {
     std::vector<std::string> commands;
-    auto manager_tokens = base_ros_args(ns, "ros2_control_node", "");
+    auto manager_tokens = base_ros_args(ns, "controller_manager", "");
     add_param(manager_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
     add_params_file(
       manager_tokens,

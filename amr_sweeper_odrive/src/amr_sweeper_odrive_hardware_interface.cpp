@@ -1284,6 +1284,7 @@ bool ODriveHardwareInterface::confirmMotorsActive(
 {
   resetReadinessTracking();
   const auto deadline = std::chrono::steady_clock::now() + timeout;
+  auto next_progress_log = std::chrono::steady_clock::now();
 
   while (std::chrono::steady_clock::now() < deadline) {
     for (std::size_t i = 0; i < num_joints_; ++i) {
@@ -1323,6 +1324,32 @@ bool ODriveHardwareInterface::confirmMotorsActive(
       return true;
     }
 
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= next_progress_log) {
+      std::ostringstream status;
+      for (std::size_t i = 0; i < num_joints_; ++i) {
+        if (i > 0) {
+          status << " | ";
+        }
+        status
+          << info_.joints[i].name
+          << "(node_id=" << node_ids_[i]
+          << ", hb=" << (axis_heartbeat_received_[i] ? "yes" : "no")
+          << ", axis_state=" << static_cast<int>(axis_lifecycle_states_[i])
+          << ", axis_error=" << axis_error_states_[i]
+          << ", pos=" << (joint_telemetry_[i].has_position ? "yes" : "no")
+          << ", speed=" << (joint_telemetry_[i].has_speed ? "yes" : "no")
+          << ")";
+      }
+      const auto remaining_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+      RCLCPP_INFO(
+        rclcpp::get_logger(hw_name_),
+        "Waiting for ODrive activation readiness; remaining=%lld ms; %s",
+        static_cast<long long>(remaining_ms), status.str().c_str());
+      next_progress_log = now + std::chrono::seconds(1);
+    }
+
     std::this_thread::sleep_for(kReadinessPollPeriod);
   }
 
@@ -1348,6 +1375,10 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Starting ...please wait...");
+  RCLCPP_INFO(
+    rclcpp::get_logger(hw_name_),
+    "ODrive activation started on %s with timeout=%lld ms",
+    can_interface_.c_str(), static_cast<long long>(motor_ready_timeout_.count()));
   lifecycle_active_ = true;
   activation_time_ = impl_->timestamp.nanoseconds() == 0 ? rclcpp::Clock(RCL_ROS_TIME).now() : impl_->timestamp;
   if (clear_faults_on_activate_) {
@@ -1363,6 +1394,10 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
     if (!ensureCanInterface()) {
       return CallbackReturn::ERROR;
     }
+    RCLCPP_INFO(
+      rclcpp::get_logger(hw_name_),
+      "Preparing ODrive joint '%s' on node_id=%u for activation",
+      info_.joints[i].name.c_str(), node_ids_[i]);
     configureAxisForVelocity(i);
     (void)sendVelocityCommand(i, 0.0);
   }

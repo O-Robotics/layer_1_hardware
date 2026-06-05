@@ -843,6 +843,7 @@ bool SteadydriveHardwareInterface::confirmMotorsActive(
 {
   resetReadinessTracking();
   const auto deadline = std::chrono::steady_clock::now() + timeout;
+  auto next_progress_log = std::chrono::steady_clock::now();
 
   while (std::chrono::steady_clock::now() < deadline) {
     for (std::size_t i = 0; i < num_joints_; ++i) {
@@ -883,6 +884,36 @@ bool SteadydriveHardwareInterface::confirmMotorsActive(
     if (all_ready) {
       failure_reason.clear();
       return true;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= next_progress_log) {
+      std::ostringstream status;
+      for (std::size_t i = 0; i < num_joints_; ++i) {
+        if (i > 0) {
+          status << " | ";
+        }
+        status
+          << info_.joints[i].name
+          << "(can_id=0x" << std::hex << std::uppercase << motor_can_ids_[i] << std::dec
+          << ", state1=" << (motor_state_1_received_[i] ? "yes" : "no")
+          << ", state2=" << (motor_state_2_received_[i] ? "yes" : "no")
+          << ", err=";
+        if (joint_telemetry_[i].has_error_state) {
+          status << "0x" << std::hex << std::uppercase
+                 << static_cast<int>(joint_telemetry_[i].error_state) << std::dec;
+        } else {
+          status << "unknown";
+        }
+        status << ")";
+      }
+      const auto remaining_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+      RCLCPP_INFO(
+        rclcpp::get_logger(hw_name_),
+        "Waiting for Steadydrive activation readiness; remaining=%lld ms; %s",
+        static_cast<long long>(remaining_ms), status.str().c_str());
+      next_progress_log = now + std::chrono::seconds(1);
     }
 
     std::this_thread::sleep_for(kReadinessPollPeriod);
@@ -1382,6 +1413,10 @@ std::vector<hardware_interface::CommandInterface> SteadydriveHardwareInterface::
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Starting ...please wait...");
+  RCLCPP_INFO(
+    rclcpp::get_logger(hw_name_),
+    "Steadydrive activation started on %s with timeout=%lld ms",
+    can_interface_.c_str(), static_cast<long long>(motor_ready_timeout_.count()));
   lifecycle_active_ = true;
   activation_time_ = rclcpp::Clock(RCL_ROS_TIME).now();
   if (clear_faults_on_activate_) {
@@ -1398,6 +1433,10 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_activate(con
     if (!ensureCanSockets()) {
       return hardware_interface::CallbackReturn::ERROR;
     }
+    RCLCPP_INFO(
+      rclcpp::get_logger(hw_name_),
+      "Preparing Steadydrive joint '%s' on CAN ID 0x%03X for activation",
+      info_.joints[i].name.c_str(), motor_can_ids_[i]);
     (void)sendMotorCommand(i, 0x88);
   }
 
