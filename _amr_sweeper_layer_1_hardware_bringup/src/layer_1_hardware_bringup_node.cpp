@@ -25,15 +25,21 @@ namespace amr_sweeper_layer_1_hardware_bringup
 namespace
 {
 
-const std::vector<std::string> kStageOrder = {
-  "robot_description",
-  "system_info",
-  "battery",
-  "gnss",
-  "imu",
-  "usb_cameras",
-  "depth_camera",
-  "ros2_control",
+const std::vector<std::vector<std::string>> kStageGroups = {
+  {
+    "robot_description",
+    "system_info",
+    "battery",
+    "gnss",
+  },
+  {
+    "imu",
+    "usb_cameras",
+    "depth_camera",
+  },
+  {
+    "ros2_control",
+  },
 };
 
 std::string trim(const std::string & value)
@@ -49,7 +55,7 @@ std::string trim(const std::string & value)
   return value.substr(start, end - start);
 }
 
-constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}] : {message}";
+constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}]: {message}";
 
 }  // namespace
 
@@ -282,43 +288,70 @@ void Layer1HardwareBringupNode::build_stages()
     throw std::runtime_error("Missing or invalid 'stages' map in readiness config");
   }
 
-  for (const auto & stage_name : kStageOrder) {
-    if (stage_name == "robot_description" && !param_as_bool("use_amr_sweeper_description")) {
-      continue;
-    }
-    if (stage_name == "system_info" && !param_as_bool("use_amr_sweeper_system_info")) {
-      continue;
-    }
-    if (stage_name == "battery" && !param_as_bool("use_amr_sweeper_battery")) {
-      continue;
-    }
-    if (stage_name == "gnss" && !param_as_bool("use_amr_sweeper_gnss")) {
-      continue;
-    }
-    if (stage_name == "imu" && !param_as_bool("use_amr_sweeper_imu")) {
-      continue;
-    }
-    if (stage_name == "usb_cameras" && !param_as_bool("use_amr_sweeper_usb_cameras")) {
-      continue;
-    }
-    if (stage_name == "depth_camera" && !param_as_bool("use_amr_sweeper_depth_camera")) {
-      continue;
-    }
-    if (stage_name == "ros2_control" && !param_as_bool("use_amr_sweeper_ros2_control")) {
-      continue;
-    }
+  const auto stage_enabled = [this](const std::string & stage_name) {
+      if (stage_name == "robot_description") {
+        return param_as_bool("use_amr_sweeper_description");
+      }
+      if (stage_name == "system_info") {
+        return param_as_bool("use_amr_sweeper_system_info");
+      }
+      if (stage_name == "battery") {
+        return param_as_bool("use_amr_sweeper_battery");
+      }
+      if (stage_name == "gnss") {
+        return param_as_bool("use_amr_sweeper_gnss");
+      }
+      if (stage_name == "imu") {
+        return param_as_bool("use_amr_sweeper_imu");
+      }
+      if (stage_name == "usb_cameras") {
+        return param_as_bool("use_amr_sweeper_usb_cameras");
+      }
+      if (stage_name == "depth_camera") {
+        return param_as_bool("use_amr_sweeper_depth_camera");
+      }
+      if (stage_name == "ros2_control") {
+        return param_as_bool("use_amr_sweeper_ros2_control");
+      }
+      return true;
+    };
 
-    const YAML::Node stage_node = stages_node[stage_name];
-    if (!stage_node) {
-      continue;
-    }
-
+  for (const auto & group : kStageGroups) {
     StageSpec stage;
-    stage.label = stage_name;
-    stage.commands = build_stage_commands(stage_name);
-    stage.timeout_sec = stage_node["timeout_sec"] ? stage_node["timeout_sec"].as<double>() : 30.0;
-    stage.readiness_rules = load_stage_rules(stage_node);
-    if (!stage.commands.empty()) {
+    std::vector<std::string> active_labels;
+
+    for (const auto & stage_name : group) {
+      if (!stage_enabled(stage_name)) {
+        continue;
+      }
+
+      const YAML::Node stage_node = stages_node[stage_name];
+      if (!stage_node) {
+        continue;
+      }
+
+      active_labels.push_back(stage_name);
+      const auto commands = build_stage_commands(stage_name);
+      stage.commands.insert(stage.commands.end(), commands.begin(), commands.end());
+      const auto readiness_rules = load_stage_rules(stage_node);
+      stage.readiness_rules.insert(
+        stage.readiness_rules.end(),
+        readiness_rules.begin(),
+        readiness_rules.end());
+      const double stage_timeout =
+        stage_node["timeout_sec"] ? stage_node["timeout_sec"].as<double>() : 30.0;
+      stage.timeout_sec = std::max(stage.timeout_sec, stage_timeout);
+    }
+
+    if (!active_labels.empty() && !stage.commands.empty()) {
+      std::ostringstream label_stream;
+      for (std::size_t index = 0; index < active_labels.size(); ++index) {
+        if (index > 0) {
+          label_stream << ", ";
+        }
+        label_stream << active_labels[index];
+      }
+      stage.label = label_stream.str();
       stages_.push_back(stage);
     }
   }
@@ -332,7 +365,7 @@ void Layer1HardwareBringupNode::on_timer()
 
   if (current_stage_index_ >= stages_.size()) {
     bringup_complete_ = true;
-    RCLCPP_INFO(get_logger(), "%s", blue("Layer 1 bringup complete").c_str());
+    RCLCPP_INFO(get_logger(), "Layer 1 bringup complete");
     return;
   }
 
@@ -406,7 +439,7 @@ bool Layer1HardwareBringupNode::rule_is_satisfied(
       missing.push_back("topic " + fq_target);
       return false;
     }
-    ensure_topic_subscription(fq_target);
+    ensure_topic_subscription(fq_target, rule.durability == "transient_local");
     if (ready_topics_.count(fq_target) == 0U) {
       missing.push_back("topic data " + fq_target);
       return false;
@@ -547,7 +580,7 @@ bool Layer1HardwareBringupNode::stage_has_started() const
 void Layer1HardwareBringupNode::start_current_stage()
 {
   const auto & stage = stages_[current_stage_index_];
-  RCLCPP_INFO(get_logger(), "%s", blue("Layer 1 stage: " + stage.label).c_str());
+  RCLCPP_INFO(get_logger(), "Layer 1 stage: %s", stage.label.c_str());
 
   for (const auto & command : stage.commands) {
     std::string err;
@@ -568,9 +601,9 @@ void Layer1HardwareBringupNode::finish_current_stage()
   const auto & stage = stages_[current_stage_index_];
   RCLCPP_INFO(
     get_logger(),
-    "%s",
-    blue("Layer 1 ready: " + stage.label + " (checks=" +
-      std::to_string(stage.readiness_rules.size()) + ")").c_str());
+    "Layer 1 ready: %s (checks=%zu)",
+    stage.label.c_str(),
+    stage.readiness_rules.size());
   current_stage_started_ = false;
   ++current_stage_index_;
 }
@@ -592,7 +625,9 @@ void Layer1HardwareBringupNode::stop_all_processes()
   procman_.stop_all();
 }
 
-void Layer1HardwareBringupNode::ensure_topic_subscription(const std::string & topic_name)
+void Layer1HardwareBringupNode::ensure_topic_subscription(
+  const std::string & topic_name,
+  bool transient_local)
 {
   if (topic_subscriptions_.find(topic_name) != topic_subscriptions_.end()) {
     return;
@@ -607,10 +642,14 @@ void Layer1HardwareBringupNode::ensure_topic_subscription(const std::string & to
     [this, topic_name](std::shared_ptr<rclcpp::SerializedMessage>) {
       ready_topics_.insert(topic_name);
     };
+  rclcpp::QoS qos = rclcpp::SensorDataQoS();
+  if (transient_local) {
+    qos = rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local();
+  }
   topic_subscriptions_[topic_name] = create_generic_subscription(
     topic_name,
     it->second.front(),
-    rclcpp::SensorDataQoS(),
+    qos,
     callback);
 }
 
@@ -792,7 +831,14 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
         param_as_string("depth_camera_scan_topic").empty() ? "scan" : param_as_string("depth_camera_scan_topic"));
       commands.push_back(build_ros2_run("amr_sweeper_depth_camera", "laserscan_node", laserscan_tokens));
 
-      const double scan_tilt_angle_rad = std::stod(scan_tilt_angle_deg) * M_PI / 180.0;
+      double scan_tilt_angle_rad = 0.0;
+      try {
+        scan_tilt_angle_rad = std::stod(scan_tilt_angle_deg) * M_PI / 180.0;
+      } catch (const std::exception & exception) {
+        throw std::runtime_error(
+                "Invalid depth_camera_scan_tilt_angle_deg value '" + scan_tilt_angle_deg +
+                "': " + exception.what());
+      }
       std::vector<std::string> tf_tokens = {
         "--x", "0",
         "--y", "0",
@@ -853,6 +899,8 @@ std::vector<ReadinessRule> Layer1HardwareBringupNode::load_stage_rules(const YAM
     rule.type = rule_node["type"] ? trim(rule_node["type"].as<std::string>()) : "";
     rule.target = rule_node["target"] ? trim(rule_node["target"].as<std::string>()) : "";
     rule.state = rule_node["state"] ? trim(rule_node["state"].as<std::string>()) : "active";
+    rule.durability =
+      rule_node["durability"] ? trim(rule_node["durability"].as<std::string>()) : "";
     rule.required = rule_node["required"] ? rule_node["required"].as<bool>() : true;
     rule.when_arg_true =
       rule_node["when_arg_true"] ? trim(rule_node["when_arg_true"].as<std::string>()) : "";
@@ -934,11 +982,6 @@ std::string Layer1HardwareBringupNode::shell_join(const std::vector<std::string>
     oss << shell_quote(tokens[index]);
   }
   return oss.str();
-}
-
-std::string Layer1HardwareBringupNode::blue(const std::string & text)
-{
-  return "\033[94m" + text + "\033[0m";
 }
 
 uint8_t Layer1HardwareBringupNode::parse_lifecycle_level(const std::string & raw)

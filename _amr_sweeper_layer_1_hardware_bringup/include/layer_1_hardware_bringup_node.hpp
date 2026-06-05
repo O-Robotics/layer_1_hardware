@@ -62,6 +62,7 @@ struct ReadinessRule
   std::string type;
   std::string target;
   std::string state;
+  std::string durability;
   bool required{true};
   std::string when_arg_true;
   std::string when_arg_false;
@@ -96,7 +97,7 @@ private:
   void finish_current_stage();
   void fail_bringup(const std::string & reason);
   void stop_all_processes();
-  void ensure_topic_subscription(const std::string & topic_name);
+  void ensure_topic_subscription(const std::string & topic_name, bool transient_local);
   std::vector<std::string> build_stage_commands(const std::string & stage_name) const;
   std::vector<ReadinessRule> load_stage_rules(const YAML::Node & stage_node) const;
   std::string qualify_to_ns(const std::string & target) const;
@@ -104,7 +105,6 @@ private:
   std::string robot_namespace() const;
   static std::string shell_quote(const std::string & value);
   static std::string shell_join(const std::vector<std::string> & tokens);
-  static std::string blue(const std::string & text);
   static uint8_t parse_lifecycle_level(const std::string & raw);
   bool param_as_bool(const std::string & name) const;
   std::string param_as_string(const std::string & name) const;

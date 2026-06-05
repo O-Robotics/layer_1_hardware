@@ -19,6 +19,7 @@ stages:
     ready:
       - type:     topic                            # Require live battery telemetry, not just node registration.
         target:   battery/battery_state            # Battery state topic consumed by supervisors and UI.
+        durability: transient_local                # Consume the first latched sample even if it was published before bringup subscribed.
         required: true                             # Battery readiness is mandatory for bringup success.
       - type:     service                          # Require the node parameter service as a second liveness check.
         target:   battery/battery_node/get_parameters      # Battery node parameter service.
