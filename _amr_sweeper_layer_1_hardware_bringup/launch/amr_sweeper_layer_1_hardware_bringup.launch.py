@@ -9,7 +9,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    console_output_format = "[{severity}] [{time}] [{name}]: {message}"
+    console_output_format = "[{severity}] [{time}] [{name}] : {message}"
     namespace = LaunchConfiguration("namespace")
     log_level = LaunchConfiguration("log_level")
     ublox_log_level = LaunchConfiguration("ublox_log_level")

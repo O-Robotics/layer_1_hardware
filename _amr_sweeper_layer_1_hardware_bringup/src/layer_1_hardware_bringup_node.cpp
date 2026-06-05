@@ -50,24 +50,10 @@ std::string trim(const std::string & value)
 }
 
 std::string logger_name_for_namespace_and_node(
-  const std::string & node_namespace,
+  const std::string &,
   const std::string & node_name)
 {
-  const std::string trimmed_namespace = trim(node_namespace);
-  if (trimmed_namespace.empty() || trimmed_namespace == "/") {
-    return node_name;
-  }
-
-  std::string logger_name = trimmed_namespace;
-  if (!logger_name.empty() && logger_name.front() == '/') {
-    logger_name.erase(logger_name.begin());
-  }
-  std::replace(logger_name.begin(), logger_name.end(), '/', '.');
-  if (!logger_name.empty()) {
-    logger_name += ".";
-  }
-  logger_name += node_name;
-  return logger_name;
+  return node_name;
 }
 
 std::string wrap_plain_stdout_lines_as_info_logs(
@@ -81,14 +67,14 @@ std::string wrap_plain_stdout_lines_as_info_logs(
     << " 2>&1 | while IFS= read -r line; do "
     << "case \"$line\" in "
     << "translation:*|rotation:*|from\\ *) "
-    << "printf '[INFO] [%s] [" << logger_name << "]: %s\\n' \"$(date +%s.%N)\" \"$line\" ;; "
+    << "printf '[INFO] [%s] [" << logger_name << "] : %s\\n' \"$(date +%s.%N)\" \"$line\" ;; "
     << "*) printf '%s\\n' \"$line\" ;; "
     << "esac; "
     << "done";
   return wrapped.str();
 }
 
-constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}]: {message}";
+constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}] : {message}";
 
 }  // namespace
 
