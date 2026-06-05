@@ -677,6 +677,19 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
       command_tokens.insert(command_tokens.end(), tokens.begin(), tokens.end());
       return shell_join(command_tokens);
     };
+  auto build_ros2_run_with_env =
+    [&build_ros2_run](const std::string & package_name,
+      const std::string & executable_name,
+      const std::vector<std::string> & tokens,
+      const std::vector<std::pair<std::string, std::string>> & env_vars) {
+      std::ostringstream command;
+      command << "exec env";
+      for (const auto & env_var : env_vars) {
+        command << " " << shell_quote(env_var.first + "=" + env_var.second);
+      }
+      command << " " << build_ros2_run(package_name, executable_name, tokens).substr(5);
+      return command.str();
+    };
   auto add_ros_arg =
     [](std::vector<std::string> & tokens, const std::string & value) {
       if (!value.empty()) {
@@ -810,7 +823,12 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
     add_params_file(realsense_tokens, param_as_string("depth_camera_params_file"));
     add_param(realsense_tokens, "camera_name", depth_camera_name);
     add_param(realsense_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
-    commands.push_back(build_ros2_run("realsense2_camera", "realsense2_camera_node", realsense_tokens));
+    commands.push_back(
+      build_ros2_run_with_env(
+        "realsense2_camera",
+        "realsense2_camera_node",
+        realsense_tokens,
+        {{"LRS_LOG_LEVEL", "ERROR"}}));
 
     if (param_as_bool("depth_camera_use_laserscan")) {
       auto laserscan_tokens = base_ros_args(ns + "/depth_camera", "laserscan", log_level);
