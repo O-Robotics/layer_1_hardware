@@ -70,6 +70,24 @@ std::string logger_name_for_namespace_and_node(
   return logger_name;
 }
 
+std::string wrap_plain_stdout_lines_as_info_logs(
+  const std::string & command,
+  const std::string & logger_name)
+{
+  std::ostringstream wrapped;
+  wrapped
+    << "set -o pipefail; "
+    << command
+    << " 2>&1 | while IFS= read -r line; do "
+    << "case \"$line\" in "
+    << "translation:*|rotation:*|from\\ *) "
+    << "printf '[INFO] [%s] [" << logger_name << "]: %s\\n' \"$(date +%s.%N)\" \"$line\" ;; "
+    << "*) printf '%s\\n' \"$line\" ;; "
+    << "esac; "
+    << "done";
+  return wrapped.str();
+}
+
 constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}]: {message}";
 
 }  // namespace
@@ -975,24 +993,6 @@ std::string Layer1HardwareBringupNode::shell_join(const std::vector<std::string>
     oss << shell_quote(tokens[index]);
   }
   return oss.str();
-}
-
-static std::string wrap_plain_stdout_lines_as_info_logs(
-  const std::string & command,
-  const std::string & logger_name)
-{
-  std::ostringstream wrapped;
-  wrapped
-    << "set -o pipefail; "
-    << command
-    << " 2>&1 | while IFS= read -r line; do "
-    << "case \"$line\" in "
-    << "translation:*|rotation:*|from\\ *) "
-    << "printf '[INFO] [%s] [" << logger_name << "]: %s\\n' \"$(date +%s.%N)\" \"$line\" ;; "
-    << "*) printf '%s\\n' \"$line\" ;; "
-    << "esac; "
-    << "done";
-  return wrapped.str();
 }
 
 uint8_t Layer1HardwareBringupNode::parse_lifecycle_level(const std::string & raw)
