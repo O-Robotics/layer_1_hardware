@@ -195,51 +195,97 @@ BatteryNode::~BatteryNode()
 
 bool BatteryNode::setup_can_socket(bool log_failure)
 {
-  std::lock_guard<std::mutex> socket_lock(socket_mutex_);
-  if (can_socket_ >= 0) {
-    return true;
-  }
+  {
+    std::lock_guard<std::mutex> socket_lock(socket_mutex_);
+    if (can_socket_ >= 0) {
+      return true;
+    }
 
-  const int fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-  if (fd < 0) {
-    (void)log_failure;
-    last_connection_error_message_ =
-      "Failed to create CAN socket for '" + can_interface_ + "': " + std::strerror(errno);
-    return false;
-  }
+    const int fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+    if (fd < 0) {
+      (void)log_failure;
+      last_connection_error_message_ =
+        "Failed to create CAN socket for '" + can_interface_ + "': " + std::strerror(errno);
+      return false;
+    }
 
-  ifreq ifr {};
-  std::snprintf(ifr.ifr_name, IFNAMSIZ, "%s", can_interface_.c_str());
-  if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
-    last_connection_error_message_ =
-      "Failed to resolve CAN interface '" + can_interface_ + "': " + std::strerror(errno);
-    ::close(fd);
-    return false;
-  }
+    ifreq ifr {};
+    std::snprintf(ifr.ifr_name, IFNAMSIZ, "%s", can_interface_.c_str());
+    if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0) {
+      last_connection_error_message_ =
+        "Failed to resolve CAN interface '" + can_interface_ + "': " + std::strerror(errno);
+      ::close(fd);
+      return false;
+    }
 
-  sockaddr_can addr {};
-  addr.can_family = AF_CAN;
-  addr.can_ifindex = ifr.ifr_ifindex;
+    const int can_loopback = 0;
+    if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &can_loopback, sizeof(can_loopback)) < 0) {
+      last_connection_error_message_ =
+        "Failed to disable SocketCAN loopback on '" + can_interface_ + "': " + std::strerror(errno);
+      ::close(fd);
+      return false;
+    }
 
-  if (bind(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
-    last_connection_error_message_ =
-      "Failed to bind CAN interface '" + can_interface_ + "': " + std::strerror(errno);
-    ::close(fd);
-    return false;
-  }
+    const int recv_own_msgs = 0;
+    if (setsockopt(fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own_msgs, sizeof(recv_own_msgs)) < 0) {
+      last_connection_error_message_ =
+        "Failed to disable SocketCAN own-message delivery on '" + can_interface_ + "': " +
+        std::strerror(errno);
+      ::close(fd);
+      return false;
+    }
 
-  can_socket_ = fd;
-  rx_running_.store(true);
-  if (rx_thread_.joinable()) {
-    rx_thread_.join();
+    sockaddr_can addr {};
+    addr.can_family = AF_CAN;
+    addr.can_ifindex = ifr.ifr_ifindex;
+
+    if (bind(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
+      last_connection_error_message_ =
+        "Failed to bind CAN interface '" + can_interface_ + "': " + std::strerror(errno);
+      ::close(fd);
+      return false;
+    }
+
+    can_socket_ = fd;
+    rx_running_.store(true);
+    if (rx_thread_.joinable()) {
+      rx_thread_.join();
+    }
+    rx_thread_ = std::thread(&BatteryNode::rx_loop, this);
+    missing_can_warned_ = false;
+    last_connection_error_message_.clear();
+    reset_issue_counters();
   }
-  rx_thread_ = std::thread(&BatteryNode::rx_loop, this);
-  missing_can_warned_ = false;
-  last_connection_error_message_.clear();
-  reset_issue_counters();
 
   RCLCPP_INFO(get_logger(), "Connected to CAN interface '%s'.", can_interface_.c_str());
+  if (!confirm_bms_reply(std::chrono::milliseconds(1500))) {
+    last_connection_error_message_ =
+      "Timed out waiting for Daly BMS status reply (0x90) on '" + can_interface_ + "'";
+    close_can_socket();
+    return false;
+  }
   return true;
+}
+
+bool BatteryNode::confirm_bms_reply(std::chrono::milliseconds timeout)
+{
+  bms_status_reply_received_.store(false);
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (!send_request(0x90)) {
+      return false;
+    }
+    const auto sleep_until = std::min(
+      deadline,
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(100));
+    while (std::chrono::steady_clock::now() < sleep_until) {
+      if (bms_status_reply_received_.load()) {
+        return true;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+  return bms_status_reply_received_.load();
 }
 
 void BatteryNode::close_can_socket()
@@ -388,6 +434,11 @@ void BatteryNode::on_timer()
       last_connection_error_message_.empty() ?
       "CAN TX failed on interface '" + can_interface_ + "'" :
       last_connection_error_message_);
+    return;
+  }
+
+  if (!first_battery_sample_published_.load()) {
+    publish_battery_health();
     return;
   }
 
@@ -540,6 +591,7 @@ void BatteryNode::decode_0x90(const uint8_t * data, size_t len)
     pack_voltage_ = pack_u16 / 10.0;
     pack_current_ = (static_cast<int>(curr_u16) - 30000) / 10.0;
     soc_percent_ = soc_u16 / 10.0;
+    bms_status_reply_received_.store(true);
     publish_first_sample = !first_battery_sample_published_.exchange(true);
   }
 
@@ -905,6 +957,9 @@ void BatteryNode::publish_battery_health()
       diagnostic_msgs::msg::DiagnosticStatus::OK :
       diagnostic_msgs::msg::DiagnosticStatus::ERROR;
     status.message = faults.empty() ? "No faults" : "Fault(s) present";
+  } else if (!first_battery_sample_published_.load()) {
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    status.message = "No battery telemetry received yet";
   } else {
     status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
     status.message = "No failure frame (0x98) received yet";

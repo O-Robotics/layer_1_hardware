@@ -504,6 +504,33 @@ public:
       return false;
     }
 
+    const int can_loopback = 0;
+    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &can_loopback, sizeof(can_loopback)) == -1) {
+      last_error_message_ =
+        "Failed to disable SocketCAN loopback on '" + interface_name_ + "': " + std::strerror(errno);
+      RCLCPP_ERROR(
+        rclcpp::get_logger("ODriveHardwareInterface"),
+        "Failed to disable SocketCAN loopback on '%s': %s",
+        interface_name_.c_str(), std::strerror(errno));
+      close(socket_fd_);
+      socket_fd_ = -1;
+      return false;
+    }
+
+    const int recv_own_msgs = 0;
+    if (setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own_msgs, sizeof(recv_own_msgs)) == -1) {
+      last_error_message_ =
+        "Failed to disable SocketCAN own-message delivery on '" + interface_name_ + "': " +
+        std::strerror(errno);
+      RCLCPP_ERROR(
+        rclcpp::get_logger("ODriveHardwareInterface"),
+        "Failed to disable SocketCAN own-message delivery on '%s': %s",
+        interface_name_.c_str(), std::strerror(errno));
+      close(socket_fd_);
+      socket_fd_ = -1;
+      return false;
+    }
+
     struct sockaddr_can addr {};
     addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
@@ -1810,6 +1837,12 @@ void ODriveHardwareInterface::on_can_msg(const can_frame & frame)
 
 void ODriveHardwareInterface::processAxisFrame(size_t joint_index, const can_frame & frame)
 {
+  // The CAN protocol supports host-initiated RTR reads for telemetry such as encoder estimates.
+  // Ignore echoed RTR request frames here and only treat data frames as device replies.
+  if ((frame.can_id & CAN_RTR_FLAG) != 0U) {
+    return;
+  }
+
   const uint8_t cmd = static_cast<uint8_t>(frame.can_id & 0x1f);
 
   switch (cmd) {

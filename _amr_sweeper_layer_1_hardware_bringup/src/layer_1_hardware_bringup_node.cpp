@@ -887,7 +887,15 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
         "--ros-args",
         "-r", "__ns:=" + normalize_fqn(ns),
       };
-      commands.push_back(build_ros2_run("controller_manager", "spawner", spawner_tokens));
+      const std::string controller_manager_service =
+        normalize_fqn(ns + "/controller_manager/list_controllers");
+      std::ostringstream spawner_command;
+      spawner_command
+        << "until ros2 service type "
+        << shell_quote(controller_manager_service)
+        << " >/dev/null 2>&1; do sleep 0.2; done; "
+        << build_ros2_run("controller_manager", "spawner", spawner_tokens);
+      commands.push_back(spawner_command.str());
     }
     return commands;
   }

@@ -103,6 +103,7 @@ stages:
       - type:     topic                            # Require live joint state publication from controller_manager.
         target:   joint_states                     # Joint state topic published after ros2_control activates.
         required: true                             # This is the minimum usable signal for downstream control.
+        when_arg_true: use_joint_broadcaster       # Only require joint_states when this bringup owns the broadcaster.
       - type:     hardware                         # Require the wheel hardware component to report active.
         target:   odrive_ros2_control              # ODrive ros2_control hardware component name.
         state:    active                           # Required lifecycle state reported by controller_manager.

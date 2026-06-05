@@ -66,6 +66,7 @@ public:
 private:
 
   bool setup_can_socket(bool log_failure);
+  bool confirm_bms_reply(std::chrono::milliseconds timeout);
   void close_can_socket();
   int current_socket() const;
   void enter_fatal_state(const std::string & message);
@@ -151,6 +152,7 @@ private:
   std::optional<std::vector<uint8_t>> failure_bytes_;
   std::array<ProtectionState, static_cast<std::size_t>(ProtectionType::Count)> protection_states_{};
   std::atomic<bool> first_battery_sample_published_{false};
+  std::atomic<bool> bms_status_reply_received_{false};
 
   std::string safety_stop_topic_name_{"safety_msgs/stop"};
   std::string safety_stop_sender_name_{"battery_node"};

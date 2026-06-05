@@ -34,6 +34,16 @@ constexpr int32_t MIN_SPEED_COMMAND = -7200000;
 constexpr double CURRENT_RAW_TO_AMPERE = 0.01;
 constexpr auto kReadinessPollPeriod = std::chrono::milliseconds(20);
 
+bool all_zero_payload_except_command(const struct can_frame & frame)
+{
+  for (std::size_t index = 1; index < 8; ++index) {
+    if (frame.data[index] != 0x00) {
+      return false;
+    }
+  }
+  return true;
+}
+
 uint32_t parse_can_id(const std::string & value, const std::string & parameter_name)
 {
   try {
@@ -519,6 +529,17 @@ bool SteadydriveHardwareInterface::initializeMotorSocket(size_t motor_index)
     return false;
   }
 
+  const int can_loopback = 0;
+  if (setsockopt(socket_fd, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &can_loopback, sizeof(can_loopback)) < 0) {
+    last_connection_error_message_ =
+      "SocketCAN loopback disable failed on '" + can_interface_ + "': " + std::strerror(errno);
+    RCLCPP_ERROR(
+      rclcpp::get_logger(hw_name_), "SocketCAN loopback disable failed on '%s': %s",
+      can_interface_.c_str(), std::strerror(errno));
+    ::close(socket_fd);
+    return false;
+  }
+
   const int recv_own_msgs = 0;
   if (setsockopt(socket_fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own_msgs, sizeof(recv_own_msgs)) < 0) {
     last_connection_error_message_ =
@@ -998,8 +1019,13 @@ void SteadydriveHardwareInterface::processMotorFrame(size_t motor_index, const s
   }
 
   if (frame.data[0] == 0x9A) {
+    // The protocol defines 0x9A as a read command whose request payload is all zeros and whose
+    // reply payload carries temperature, voltage, and error-state values. Ignore echoed requests.
     const uint16_t voltage_raw =
       static_cast<uint16_t>(frame.data[3]) | (static_cast<uint16_t>(frame.data[4]) << 8);
+    if (voltage_raw == 0U && all_zero_payload_except_command(frame)) {
+      return;
+    }
     joint_telemetry_[motor_index].temperature_c = static_cast<double>(frame.data[1]);
     joint_telemetry_[motor_index].has_temperature = true;
     joint_telemetry_[motor_index].voltage_v = static_cast<double>(voltage_raw) * 0.1;
@@ -1011,6 +1037,12 @@ void SteadydriveHardwareInterface::processMotorFrame(size_t motor_index, const s
   }
 
   if (frame.data[0] != 0x9C) {
+    return;
+  }
+
+  // The protocol defines 0x9C as a read command whose request payload is all zeros and whose
+  // reply carries temperature, iq current, speed, and encoder position. Ignore echoed requests.
+  if (all_zero_payload_except_command(frame)) {
     return;
   }
 
