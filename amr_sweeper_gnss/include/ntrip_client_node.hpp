@@ -107,6 +107,8 @@ private:
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> fatal_error_{false};
   std::atomic<bool> stream_ready_{false};
+  std::atomic<bool> fix_uplink_logged_for_connection_{false};
+  std::atomic<bool> gga_uplink_logged_for_connection_{false};
   std::thread worker_thread_;
   std::vector<std::uint8_t> parser_buffer_;
   bool use_chunked_transfer_{false};

@@ -257,6 +257,8 @@ void NtripClientNode::connect_and_stream()
   }
 
   stream_ready_.store(false);
+  fix_uplink_logged_for_connection_.store(false);
+  gga_uplink_logged_for_connection_.store(false);
   {
     std::lock_guard<std::mutex> lock(socket_mutex_);
     socket_fd_ = create_connected_socket();
@@ -725,18 +727,18 @@ void NtripClientNode::handle_fix(const sensor_msgs::msg::NavSatFix::SharedPtr ms
     latest_fix_ = *msg;
   }
 
-  RCLCPP_INFO_THROTTLE(
-    get_logger(),
-    *get_clock(),
-    10000,
-    "Received NavSatFix for NMEA uplink: lat=%.7f lon=%.7f alt=%.2f status=%d",
-    msg->latitude,
-    msg->longitude,
-    msg->altitude,
-    msg->status.status);
-
   if (!stream_ready_.load()) {
     return;
+  }
+
+  if (!fix_uplink_logged_for_connection_.exchange(true)) {
+    RCLCPP_INFO(
+      get_logger(),
+      "Received first NavSatFix for NMEA uplink on this caster connection: lat=%.7f lon=%.7f alt=%.2f status=%d",
+      msg->latitude,
+      msg->longitude,
+      msg->altitude,
+      msg->status.status);
   }
 
   send_latest_gga_to_caster();
@@ -782,12 +784,12 @@ bool NtripClientNode::send_latest_gga_to_caster()
     return false;
   }
 
-  RCLCPP_INFO_THROTTLE(
-    get_logger(),
-    *get_clock(),
-    10000,
-    "Sent GGA uplink to caster: %s",
-    sentence_for_log.c_str());
+  if (!gga_uplink_logged_for_connection_.exchange(true)) {
+    RCLCPP_INFO(
+      get_logger(),
+      "Sent first GGA uplink to caster on this connection: %s",
+      sentence_for_log.c_str());
+  }
 
   return true;
 }
@@ -902,6 +904,8 @@ void NtripClientNode::close_socket()
 {
   std::lock_guard<std::mutex> lock(socket_mutex_);
   stream_ready_.store(false);
+  fix_uplink_logged_for_connection_.store(false);
+  gga_uplink_logged_for_connection_.store(false);
 
   if (ssl_handle_ != nullptr) {
     SSL_shutdown(ssl_handle_);
