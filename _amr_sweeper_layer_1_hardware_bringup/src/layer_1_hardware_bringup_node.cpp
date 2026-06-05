@@ -25,21 +25,15 @@ namespace amr_sweeper_layer_1_hardware_bringup
 namespace
 {
 
-const std::vector<std::vector<std::string>> kStageGroups = {
-  {
-    "robot_description",
-    "system_info",
-    "battery",
-    "gnss",
-  },
-  {
-    "imu",
-    "usb_cameras",
-    "depth_camera",
-  },
-  {
-    "ros2_control",
-  },
+const std::vector<std::string> kStageOrder = {
+  "robot_description",
+  "system_info",
+  "battery",
+  "gnss",
+  "imu",
+  "usb_cameras",
+  "depth_camera",
+  "ros2_control",
 };
 
 std::string trim(const std::string & value)
@@ -288,70 +282,43 @@ void Layer1HardwareBringupNode::build_stages()
     throw std::runtime_error("Missing or invalid 'stages' map in readiness config");
   }
 
-  const auto stage_enabled = [this](const std::string & stage_name) {
-      if (stage_name == "robot_description") {
-        return param_as_bool("use_amr_sweeper_description");
-      }
-      if (stage_name == "system_info") {
-        return param_as_bool("use_amr_sweeper_system_info");
-      }
-      if (stage_name == "battery") {
-        return param_as_bool("use_amr_sweeper_battery");
-      }
-      if (stage_name == "gnss") {
-        return param_as_bool("use_amr_sweeper_gnss");
-      }
-      if (stage_name == "imu") {
-        return param_as_bool("use_amr_sweeper_imu");
-      }
-      if (stage_name == "usb_cameras") {
-        return param_as_bool("use_amr_sweeper_usb_cameras");
-      }
-      if (stage_name == "depth_camera") {
-        return param_as_bool("use_amr_sweeper_depth_camera");
-      }
-      if (stage_name == "ros2_control") {
-        return param_as_bool("use_amr_sweeper_ros2_control");
-      }
-      return true;
-    };
-
-  for (const auto & group : kStageGroups) {
-    StageSpec stage;
-    std::vector<std::string> active_labels;
-
-    for (const auto & stage_name : group) {
-      if (!stage_enabled(stage_name)) {
-        continue;
-      }
-
-      const YAML::Node stage_node = stages_node[stage_name];
-      if (!stage_node) {
-        continue;
-      }
-
-      active_labels.push_back(stage_name);
-      const auto commands = build_stage_commands(stage_name);
-      stage.commands.insert(stage.commands.end(), commands.begin(), commands.end());
-      const auto readiness_rules = load_stage_rules(stage_node);
-      stage.readiness_rules.insert(
-        stage.readiness_rules.end(),
-        readiness_rules.begin(),
-        readiness_rules.end());
-      const double stage_timeout =
-        stage_node["timeout_sec"] ? stage_node["timeout_sec"].as<double>() : 30.0;
-      stage.timeout_sec = std::max(stage.timeout_sec, stage_timeout);
+  for (const auto & stage_name : kStageOrder) {
+    if (stage_name == "robot_description" && !param_as_bool("use_amr_sweeper_description")) {
+      continue;
+    }
+    if (stage_name == "system_info" && !param_as_bool("use_amr_sweeper_system_info")) {
+      continue;
+    }
+    if (stage_name == "battery" && !param_as_bool("use_amr_sweeper_battery")) {
+      continue;
+    }
+    if (stage_name == "gnss" && !param_as_bool("use_amr_sweeper_gnss")) {
+      continue;
+    }
+    if (stage_name == "imu" && !param_as_bool("use_amr_sweeper_imu")) {
+      continue;
+    }
+    if (stage_name == "usb_cameras" && !param_as_bool("use_amr_sweeper_usb_cameras")) {
+      continue;
+    }
+    if (stage_name == "depth_camera" && !param_as_bool("use_amr_sweeper_depth_camera")) {
+      continue;
+    }
+    if (stage_name == "ros2_control" && !param_as_bool("use_amr_sweeper_ros2_control")) {
+      continue;
     }
 
-    if (!active_labels.empty() && !stage.commands.empty()) {
-      std::ostringstream label_stream;
-      for (std::size_t index = 0; index < active_labels.size(); ++index) {
-        if (index > 0) {
-          label_stream << ", ";
-        }
-        label_stream << active_labels[index];
-      }
-      stage.label = label_stream.str();
+    const YAML::Node stage_node = stages_node[stage_name];
+    if (!stage_node) {
+      continue;
+    }
+
+    StageSpec stage;
+    stage.label = stage_name;
+    stage.commands = build_stage_commands(stage_name);
+    stage.timeout_sec = stage_node["timeout_sec"] ? stage_node["timeout_sec"].as<double>() : 30.0;
+    stage.readiness_rules = load_stage_rules(stage_node);
+    if (!stage.commands.empty()) {
       stages_.push_back(stage);
     }
   }
