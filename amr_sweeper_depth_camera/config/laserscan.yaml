@@ -1,8 +1,8 @@
 /**:
   ros__parameters:
     scan_time:                       0.050
-    range_min:                       0.20
-    range_max:                       5.0
+    range_min:                       0.0
+    range_max:                       8.0
     scan_height:                     5
     scan_tilt_angle_deg:             4.5
     output_frame:                    laserscan_link
