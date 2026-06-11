@@ -1,7 +1,7 @@
 """Launch the layer-1 hardware stack from package launch files."""
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
@@ -22,6 +22,18 @@ def _as_bool(value: str) -> bool:
 def _child_namespace(root_namespace: str, child_name: str) -> str:
     root = root_namespace.strip().strip("/")
     return f"{root}/{child_name}" if root else child_name
+
+
+def _scoped_include(package_name: str, launch_file_name: str, launch_arguments: dict[str, str]):
+    return GroupAction(
+        scoped=True,
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(_launch_file(package_name, launch_file_name)),
+                launch_arguments=launch_arguments.items(),
+            ),
+        ],
+    )
 
 
 def _launch_setup(context, *args, **kwargs):
@@ -52,11 +64,10 @@ def _launch_setup(context, *args, **kwargs):
     actions = []
 
     if use_amr_sweeper_description:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_description",
+            "amr_sweeper_description.launch.py",
+            {
                 "namespace": namespace,
                 "use_sim_time": use_sim_time,
                 "use_ros2_control": "true" if use_amr_sweeper_ros2_control else "false",
@@ -64,50 +75,46 @@ def _launch_setup(context, *args, **kwargs):
                 "enable_gnss": "true" if use_amr_sweeper_gnss else "false",
                 "enable_imu": "true" if use_amr_sweeper_imu else "false",
                 "enable_depth_camera": "true" if use_amr_sweeper_depth_camera else "false",
-            }.items(),
+            },
         ))
 
     if use_amr_sweeper_ros2_control:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_ros2_control", "amr_sweeper_ros2_control.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_ros2_control",
+            "amr_sweeper_ros2_control.launch.py",
+            {
                 "namespace": namespace,
                 "use_sim_time": use_sim_time,
                 "use_ros2_control": "true",
-            }.items(),
+            },
         ))
 
     if use_amr_sweeper_system_info:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_system_info", "amr_sweeper_system_info.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_system_info",
+            "amr_sweeper_system_info.launch.py",
+            {
                 "namespace": _child_namespace(namespace, "system_info"),
                 "params_file": LaunchConfiguration("system_info_params_file").perform(context),
-            }.items(),
+            },
         ))
 
     if use_amr_sweeper_battery:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_battery", "amr_sweeper_battery.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_battery",
+            "amr_sweeper_battery.launch.py",
+            {
                 "namespace": _child_namespace(namespace, "battery"),
                 "can_interface": LaunchConfiguration("battery_can_interface").perform(context),
                 "params_file": LaunchConfiguration("battery_params_file").perform(context),
-            }.items(),
+            },
         ))
 
     if use_amr_sweeper_gnss:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_gnss",
+            "amr_sweeper_gnss.launch.py",
+            {
                 "gnss_namespace": _child_namespace(namespace, "gnss"),
                 "use_ntrip_client": "true" if use_ntrip_client else "false",
                 "use_nmea_to_caster": "true" if use_ntrip_client else "false",
@@ -115,30 +122,28 @@ def _launch_setup(context, *args, **kwargs):
                 "ntrip_params_file": LaunchConfiguration("ntrip_params_file").perform(context),
                 "log_level": log_level,
                 "ublox_log_level": ublox_log_level,
-            }.items(),
+            },
         ))
 
     if use_amr_sweeper_imu:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_imu", "amr_sweeper_imu.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_imu",
+            "amr_sweeper_imu.launch.py",
+            {
                 "namespace": _child_namespace(namespace, "imu"),
                 "use_sim_time": use_sim_time,
                 "device_path": LaunchConfiguration("imu_device_path").perform(context),
                 "port": LaunchConfiguration("imu_port").perform(context),
                 "baud": LaunchConfiguration("imu_baud").perform(context),
                 "params_file": LaunchConfiguration("imu_params_file").perform(context),
-            }.items(),
+            },
         ))
 
     if use_amr_sweeper_usb_cameras:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_usb_cameras", "amr_sweeper_usb_cameras.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_usb_cameras",
+            "amr_sweeper_usb_cameras.launch.py",
+            {
                 "namespace": _child_namespace(namespace, "usb_cameras"),
                 "log_level": log_level,
                 "front_left_camera_enabled": LaunchConfiguration("front_left_camera_enabled").perform(context),
@@ -146,15 +151,14 @@ def _launch_setup(context, *args, **kwargs):
                 "rear_left_camera_enabled": LaunchConfiguration("rear_left_camera_enabled").perform(context),
                 "rear_right_camera_enabled": LaunchConfiguration("rear_right_camera_enabled").perform(context),
                 "tools_camera_enabled": LaunchConfiguration("tools_camera_enabled").perform(context),
-            }.items(),
+            },
         ))
 
     if use_amr_sweeper_depth_camera:
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                _launch_file("amr_sweeper_depth_camera", "amr_sweeper_depth_camera.launch.py")
-            ),
-            launch_arguments={
+        actions.append(_scoped_include(
+            "amr_sweeper_depth_camera",
+            "amr_sweeper_depth_camera.launch.py",
+            {
                 "namespace": _child_namespace(namespace, "depth_camera"),
                 "log_level": log_level,
                 "realsense_log_level": realsense_log_level,
@@ -173,7 +177,7 @@ def _launch_setup(context, *args, **kwargs):
                 "scan_height": LaunchConfiguration("depth_camera_scan_height").perform(context),
                 "scan_tilt_angle_deg": LaunchConfiguration("depth_camera_scan_tilt_angle_deg").perform(context),
                 "scan_time": LaunchConfiguration("depth_camera_scan_time").perform(context),
-            }.items(),
+            },
         ))
 
     return actions

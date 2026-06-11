@@ -1,18 +1,21 @@
 """Launch the AMR Sweeper ros2_control runtime and the joint-state broadcaster."""
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, RegisterEventHandler
-from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, RegisterEventHandler
 from launch.event_handlers import OnProcessStart
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
-def generate_launch_description():
-    namespace = LaunchConfiguration("namespace")
+def _as_bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _launch_setup(context, *args, **kwargs):
+    namespace = LaunchConfiguration("namespace").perform(context)
     use_sim_time = LaunchConfiguration("use_sim_time")
-    use_ros2_control = LaunchConfiguration("use_ros2_control")
+    use_ros2_control = _as_bool(LaunchConfiguration("use_ros2_control").perform(context))
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
 
     controller_manager = Node(
@@ -28,7 +31,6 @@ def generate_launch_description():
         remappings=[
             ("/robot_description", ["/", namespace, "/robot_description"]),
         ],
-        condition=IfCondition(use_ros2_control),
     )
 
     joint_broad_spawner = Node(
@@ -37,7 +39,7 @@ def generate_launch_description():
         arguments=[
             "joint_broad",
             "--controller-manager",
-            ["/", namespace, "/controller_manager"],
+            f"/{namespace}/controller_manager",
             "--controller-manager-timeout",
             "60",
         ],
@@ -53,9 +55,18 @@ def generate_launch_description():
                 joint_broad_spawner,
             ],
         ),
-        condition=IfCondition(use_ros2_control),
     )
 
+    if not use_ros2_control:
+        return []
+
+    return [
+        controller_manager,
+        gated_joint_broad_spawner,
+    ]
+
+
+def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
@@ -69,6 +80,5 @@ def generate_launch_description():
                 "ros2_control.yaml",
             ]),
         ),
-        controller_manager,
-        gated_joint_broad_spawner,
+        OpaqueFunction(function=_launch_setup),
     ])
