@@ -907,7 +907,7 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
         "realsense2_camera",
         "realsense2_camera_node",
         realsense_tokens,
-        {{"LRS_LOG_LEVEL", "FATAL"}}));
+        {}));
 
     if (param_as_bool("depth_camera_use_laserscan")) {
       auto laserscan_tokens = base_ros_args(ns + "/depth_camera", "laserscan", log_level);
