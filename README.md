@@ -52,14 +52,22 @@ This repository is the real-robot hardware layer for the AMR Sweeper. It contain
 - `depth_camera_camera_domain_id`: default `5`
 - `imu_device_path`: default `/dev/imu_usb`
 - `imu_port`: default `/dev/imu_usb` (deprecated compatibility alias)
-- `imu_baud`: default `9600`
-- `ros2_control_config_file`: default `amr_sweeper_description/urdf/control/ros2_control.yaml`
+- `imu_baud`: default package-defined IMU config
+- `imu_params_file`: default `amr_sweeper_imu/config/amr_sweeper_imu.yaml`
+- `gnss_frame_id`: default `gnss_link`
+- `ntrip_params_file`: default `amr_sweeper_gnss/config/amr_sweeper_gnss_ntrip_client.yaml`
+- `front_left_camera_enabled`: default `false`
+- `front_right_camera_enabled`: default `false`
+- `rear_left_camera_enabled`: default `true`
+- `rear_right_camera_enabled`: default `true`
+- `tools_camera_enabled`: default `true`
 
 ## Overview
 Layer 1 is the base runtime layer for the rest of the stack. It is responsible for making the robot's hardware available as ROS 2 topics, services, and ros2_control interfaces. Layer 2 controllers and layer 3 navigation depend on this layer to provide odometry, transforms, actuator interfaces, and sensor data.
 
 ## Notes
 - The default command launches the full layer 1 hardware bringup package.
+- `amr_sweeper_layer_1_hardware_bringup` is now a launch-only package that includes the package launch files for sensors, `robot_state_publisher`, and `ros2_control`.
 - This layer is intended for the physical AMR Sweeper robot, not simulation.
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
 - The vendored RealSense ROS packages live under `amr_sweeper_depth_camera/src/realsense-ros`, but `colcon` will only discover them when they are also exposed at the workspace root `src/`. Run `src/layer_1_hardware/amr_sweeper_depth_camera/scripts/ensure_workspace_links.sh` before `colcon build`, or use `./update.sh`, which now does this automatically.

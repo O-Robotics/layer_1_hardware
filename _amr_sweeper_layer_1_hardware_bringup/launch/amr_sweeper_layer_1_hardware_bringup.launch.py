@@ -1,191 +1,255 @@
-"""Launch the layer-1 bringup orchestrator node."""
+"""Launch the layer-1 hardware stack from package launch files."""
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+
+
+def _launch_file(package_name: str, launch_file_name: str):
+    return PathJoinSubstitution([
+        FindPackageShare(package_name),
+        "launch",
+        launch_file_name,
+    ])
+
+
+def _as_bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _child_namespace(root_namespace: str, child_name: str) -> str:
+    root = root_namespace.strip().strip("/")
+    return f"{root}/{child_name}" if root else child_name
+
+
+def _launch_setup(context, *args, **kwargs):
+    namespace = LaunchConfiguration("namespace").perform(context)
+    use_sim_time = LaunchConfiguration("use_sim_time").perform(context)
+    log_level = LaunchConfiguration("log_level").perform(context)
+    realsense_log_level = LaunchConfiguration("realsense_log_level").perform(context)
+    ublox_log_level = LaunchConfiguration("ublox_log_level").perform(context)
+
+    use_amr_sweeper_description = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_description").perform(context))
+    use_amr_sweeper_ros2_control = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_ros2_control").perform(context))
+    use_amr_sweeper_battery = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_battery").perform(context))
+    use_amr_sweeper_system_info = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_system_info").perform(context))
+    use_amr_sweeper_usb_cameras = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_usb_cameras").perform(context))
+    use_amr_sweeper_depth_camera = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_depth_camera").perform(context))
+    use_amr_sweeper_imu = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_imu").perform(context))
+    use_amr_sweeper_gnss = _as_bool(
+        LaunchConfiguration("use_amr_sweeper_gnss").perform(context))
+    use_ntrip_client = _as_bool(LaunchConfiguration("use_ntrip_client").perform(context))
+
+    actions = []
+
+    if use_amr_sweeper_description:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_description", "amr_sweeper_description.launch.py")
+            ),
+            launch_arguments={
+                "namespace": namespace,
+                "use_sim_time": use_sim_time,
+                "use_ros2_control": "true" if use_amr_sweeper_ros2_control else "false",
+                "enable_usb_cameras": "true" if use_amr_sweeper_usb_cameras else "false",
+                "enable_gnss": "true" if use_amr_sweeper_gnss else "false",
+                "enable_imu": "true" if use_amr_sweeper_imu else "false",
+                "enable_depth_camera": "true" if use_amr_sweeper_depth_camera else "false",
+            }.items(),
+        ))
+
+    if use_amr_sweeper_ros2_control:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_ros2_control", "amr_sweeper_ros2_control.launch.py")
+            ),
+            launch_arguments={
+                "namespace": namespace,
+                "use_sim_time": use_sim_time,
+                "use_ros2_control": "true",
+            }.items(),
+        ))
+
+    if use_amr_sweeper_system_info:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_system_info", "amr_sweeper_system_info.launch.py")
+            ),
+            launch_arguments={
+                "namespace": _child_namespace(namespace, "system_info"),
+                "params_file": LaunchConfiguration("system_info_params_file").perform(context),
+            }.items(),
+        ))
+
+    if use_amr_sweeper_battery:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_battery", "amr_sweeper_battery.launch.py")
+            ),
+            launch_arguments={
+                "namespace": _child_namespace(namespace, "battery"),
+                "can_interface": LaunchConfiguration("battery_can_interface").perform(context),
+                "params_file": LaunchConfiguration("battery_params_file").perform(context),
+            }.items(),
+        ))
+
+    if use_amr_sweeper_gnss:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_gnss", "amr_sweeper_gnss.launch.py")
+            ),
+            launch_arguments={
+                "gnss_namespace": _child_namespace(namespace, "gnss"),
+                "use_ntrip_client": "true" if use_ntrip_client else "false",
+                "use_nmea_to_caster": "true" if use_ntrip_client else "false",
+                "gnss_frame_id": LaunchConfiguration("gnss_frame_id").perform(context),
+                "ntrip_params_file": LaunchConfiguration("ntrip_params_file").perform(context),
+                "log_level": log_level,
+                "ublox_log_level": ublox_log_level,
+            }.items(),
+        ))
+
+    if use_amr_sweeper_imu:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_imu", "amr_sweeper_imu.launch.py")
+            ),
+            launch_arguments={
+                "namespace": _child_namespace(namespace, "imu"),
+                "use_sim_time": use_sim_time,
+                "device_path": LaunchConfiguration("imu_device_path").perform(context),
+                "port": LaunchConfiguration("imu_port").perform(context),
+                "baud": LaunchConfiguration("imu_baud").perform(context),
+                "params_file": LaunchConfiguration("imu_params_file").perform(context),
+            }.items(),
+        ))
+
+    if use_amr_sweeper_usb_cameras:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_usb_cameras", "amr_sweeper_usb_cameras.launch.py")
+            ),
+            launch_arguments={
+                "namespace": _child_namespace(namespace, "usb_cameras"),
+                "log_level": log_level,
+                "front_left_camera_enabled": LaunchConfiguration("front_left_camera_enabled").perform(context),
+                "front_right_camera_enabled": LaunchConfiguration("front_right_camera_enabled").perform(context),
+                "rear_left_camera_enabled": LaunchConfiguration("rear_left_camera_enabled").perform(context),
+                "rear_right_camera_enabled": LaunchConfiguration("rear_right_camera_enabled").perform(context),
+                "tools_camera_enabled": LaunchConfiguration("tools_camera_enabled").perform(context),
+            }.items(),
+        ))
+
+    if use_amr_sweeper_depth_camera:
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                _launch_file("amr_sweeper_depth_camera", "amr_sweeper_depth_camera.launch.py")
+            ),
+            launch_arguments={
+                "namespace": _child_namespace(namespace, "depth_camera"),
+                "log_level": log_level,
+                "realsense_log_level": realsense_log_level,
+                "use_sim_time": use_sim_time,
+                "camera_domain_id": LaunchConfiguration("depth_camera_camera_domain_id").perform(context),
+                "params_file": LaunchConfiguration("depth_camera_params_file").perform(context),
+                "use_laserscan": LaunchConfiguration("depth_camera_use_laserscan").perform(context),
+                "laserscan_params_file": LaunchConfiguration("depth_camera_laserscan_params_file").perform(context),
+                "depth_image_topic": LaunchConfiguration("depth_camera_image_topic").perform(context),
+                "depth_camera_info_topic": LaunchConfiguration("depth_camera_info_topic").perform(context),
+                "depth_camera_frame": LaunchConfiguration("depth_camera_frame").perform(context),
+                "scan_topic": LaunchConfiguration("depth_camera_scan_topic").perform(context),
+                "output_frame": LaunchConfiguration("depth_camera_output_frame").perform(context),
+                "range_min": LaunchConfiguration("depth_camera_range_min").perform(context),
+                "range_max": LaunchConfiguration("depth_camera_range_max").perform(context),
+                "scan_height": LaunchConfiguration("depth_camera_scan_height").perform(context),
+                "scan_tilt_angle_deg": LaunchConfiguration("depth_camera_scan_tilt_angle_deg").perform(context),
+                "scan_time": LaunchConfiguration("depth_camera_scan_time").perform(context),
+            }.items(),
+        ))
+
+    return actions
 
 
 def generate_launch_description():
     console_output_format = "[{severity}] [{time}] [{name}] : {message}"
-    namespace = LaunchConfiguration("namespace")
-    log_level = LaunchConfiguration("log_level")
-    realsense_log_level = LaunchConfiguration("realsense_log_level")
-    ublox_log_level = LaunchConfiguration("ublox_log_level")
-    use_sim_time = LaunchConfiguration("use_sim_time")
-    readiness_config_file = LaunchConfiguration("readiness_config_file")
 
-    use_amr_sweeper_description = LaunchConfiguration("use_amr_sweeper_description")
-    use_amr_sweeper_ros2_control = LaunchConfiguration("use_amr_sweeper_ros2_control")
-    use_amr_sweeper_battery = LaunchConfiguration("use_amr_sweeper_battery")
-    use_amr_sweeper_system_info = LaunchConfiguration("use_amr_sweeper_system_info")
-    use_amr_sweeper_usb_cameras = LaunchConfiguration("use_amr_sweeper_usb_cameras")
-    use_amr_sweeper_depth_camera = LaunchConfiguration("use_amr_sweeper_depth_camera")
-    use_amr_sweeper_imu = LaunchConfiguration("use_amr_sweeper_imu")
-    use_amr_sweeper_gnss = LaunchConfiguration("use_amr_sweeper_gnss")
-    use_ntrip_client = LaunchConfiguration("use_ntrip_client")
-
-    battery_can_interface = LaunchConfiguration("battery_can_interface")
-    battery_params_file = LaunchConfiguration("battery_params_file")
-    system_info_params_file = LaunchConfiguration("system_info_params_file")
-    depth_camera_params_file = LaunchConfiguration("depth_camera_params_file")
-    depth_camera_use_laserscan = LaunchConfiguration("depth_camera_use_laserscan")
-    depth_camera_laserscan_params_file = LaunchConfiguration("depth_camera_laserscan_params_file")
-    depth_camera_image_topic = LaunchConfiguration("depth_camera_image_topic")
-    depth_camera_info_topic = LaunchConfiguration("depth_camera_info_topic")
-    depth_camera_frame = LaunchConfiguration("depth_camera_frame")
-    depth_camera_scan_topic = LaunchConfiguration("depth_camera_scan_topic")
-    depth_camera_output_frame = LaunchConfiguration("depth_camera_output_frame")
-    depth_camera_range_min = LaunchConfiguration("depth_camera_range_min")
-    depth_camera_range_max = LaunchConfiguration("depth_camera_range_max")
-    depth_camera_scan_height = LaunchConfiguration("depth_camera_scan_height")
-    depth_camera_scan_tilt_angle_deg = LaunchConfiguration("depth_camera_scan_tilt_angle_deg")
-    depth_camera_scan_time = LaunchConfiguration("depth_camera_scan_time")
-    depth_camera_camera_domain_id = LaunchConfiguration("depth_camera_camera_domain_id")
-    imu_device_path = LaunchConfiguration("imu_device_path")
-    imu_port = LaunchConfiguration("imu_port")
-    imu_baud = LaunchConfiguration("imu_baud")
-    imu_params_file = LaunchConfiguration("imu_params_file")
-    gnss_frame_id = LaunchConfiguration("gnss_frame_id")
-    ntrip_params_file = LaunchConfiguration("ntrip_params_file")
-    front_left_camera_enabled = LaunchConfiguration("front_left_camera_enabled")
-    front_right_camera_enabled = LaunchConfiguration("front_right_camera_enabled")
-    rear_left_camera_enabled = LaunchConfiguration("rear_left_camera_enabled")
-    rear_right_camera_enabled = LaunchConfiguration("rear_right_camera_enabled")
-    tools_camera_enabled = LaunchConfiguration("tools_camera_enabled")
-
-    ld = LaunchDescription()
-    ld.add_action(SetEnvironmentVariable(
-        "RCUTILS_CONSOLE_OUTPUT_FORMAT",
-        console_output_format,
-    ))
-    ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper"))
-    ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
-    ld.add_action(DeclareLaunchArgument("realsense_log_level", default_value="error"))
-    ld.add_action(DeclareLaunchArgument("ublox_log_level", default_value="WARN"))
-    ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
-    ld.add_action(DeclareLaunchArgument(
-        "readiness_config_file",
-        default_value=PathJoinSubstitution([
-            FindPackageShare("amr_sweeper_layer_1_hardware_bringup"),
+    return LaunchDescription([
+        SetEnvironmentVariable("RCUTILS_COLORIZED_OUTPUT", "1"),
+        SetEnvironmentVariable("RCUTILS_CONSOLE_OUTPUT_FORMAT", console_output_format),
+        DeclareLaunchArgument("namespace", default_value="amr_sweeper"),
+        DeclareLaunchArgument("log_level", default_value="info"),
+        DeclareLaunchArgument("realsense_log_level", default_value="error"),
+        DeclareLaunchArgument("ublox_log_level", default_value="WARN"),
+        DeclareLaunchArgument("use_sim_time", default_value="false"),
+        DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"),
+        DeclareLaunchArgument("use_amr_sweeper_ros2_control", default_value="true"),
+        DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"),
+        DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"),
+        DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"),
+        DeclareLaunchArgument("use_amr_sweeper_depth_camera", default_value="true"),
+        DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"),
+        DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"),
+        DeclareLaunchArgument("use_ntrip_client", default_value="true"),
+        DeclareLaunchArgument("battery_can_interface", default_value="can0"),
+        DeclareLaunchArgument("battery_params_file", default_value=PathJoinSubstitution([
+            FindPackageShare("amr_sweeper_battery"),
             "config",
-            "amr_sweeper_layer_1_hardware_bringup.yaml",
-        ]),
-    ))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_ros2_control", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_depth_camera", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("use_ntrip_client", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("battery_can_interface", default_value="can0"))
-    ld.add_action(DeclareLaunchArgument("battery_params_file", default_value=PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_battery"),
-        "config",
-        "amr_sweeper_battery.yaml",
-    ])))
-    ld.add_action(DeclareLaunchArgument("system_info_params_file", default_value=PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_system_info"),
-        "config",
-        "amr_sweeper_system_info.yaml",
-    ])))
-    ld.add_action(DeclareLaunchArgument("depth_camera_params_file", default_value=PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_depth_camera"),
-        "config",
-        "amr_sweeper_depth_camera.yaml",
-    ])))
-    ld.add_action(DeclareLaunchArgument("depth_camera_use_laserscan", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("depth_camera_laserscan_params_file", default_value=PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_depth_camera"),
-        "config",
-        "laserscan.yaml",
-    ])))
-    ld.add_action(DeclareLaunchArgument("depth_camera_image_topic", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_info_topic", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_frame", default_value="depth_camera_link"))
-    ld.add_action(DeclareLaunchArgument("depth_camera_scan_topic", default_value="scan"))
-    ld.add_action(DeclareLaunchArgument("depth_camera_output_frame", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_range_min", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_range_max", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_scan_height", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_scan_tilt_angle_deg", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_scan_time", default_value=""))
-    ld.add_action(DeclareLaunchArgument("depth_camera_camera_domain_id", default_value="5"))
-    ld.add_action(DeclareLaunchArgument("imu_device_path", default_value=""))
-    ld.add_action(DeclareLaunchArgument("imu_port", default_value=""))
-    ld.add_action(DeclareLaunchArgument("imu_baud", default_value=""))
-    ld.add_action(DeclareLaunchArgument("imu_params_file", default_value=PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_imu"),
-        "config",
-        "amr_sweeper_imu.yaml",
-    ])))
-    ld.add_action(DeclareLaunchArgument("gnss_frame_id", default_value="gnss_link"))
-    ld.add_action(DeclareLaunchArgument("ntrip_params_file", default_value=PathJoinSubstitution([
-        FindPackageShare("amr_sweeper_gnss"),
-        "config",
-        "amr_sweeper_gnss_ntrip_client.yaml",
-    ])))
-    ld.add_action(DeclareLaunchArgument("front_left_camera_enabled", default_value="false"))
-    ld.add_action(DeclareLaunchArgument("front_right_camera_enabled", default_value="false"))
-    ld.add_action(DeclareLaunchArgument("rear_left_camera_enabled", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("rear_right_camera_enabled", default_value="true"))
-    ld.add_action(DeclareLaunchArgument("tools_camera_enabled", default_value="true"))
-
-    ld.add_action(Node(
-        package="amr_sweeper_layer_1_hardware_bringup",
-        executable="layer_1_hardware_bringup_node",
-        namespace=namespace,
-        name="layer_1_hardware_bringup_node",
-        output="screen",
-        parameters=[{
-            "namespace": namespace,
-            "log_level": log_level,
-            "realsense_log_level": realsense_log_level,
-            "ublox_log_level": ublox_log_level,
-            "use_sim_time": ParameterValue(use_sim_time, value_type=bool),
-            "readiness_config_file": readiness_config_file,
-            "use_amr_sweeper_description": ParameterValue(use_amr_sweeper_description, value_type=bool),
-            "use_amr_sweeper_ros2_control": ParameterValue(use_amr_sweeper_ros2_control, value_type=bool),
-            "use_amr_sweeper_battery": ParameterValue(use_amr_sweeper_battery, value_type=bool),
-            "use_amr_sweeper_system_info": ParameterValue(use_amr_sweeper_system_info, value_type=bool),
-            "use_amr_sweeper_usb_cameras": ParameterValue(use_amr_sweeper_usb_cameras, value_type=bool),
-            "use_amr_sweeper_depth_camera": ParameterValue(use_amr_sweeper_depth_camera, value_type=bool),
-            "use_amr_sweeper_imu": ParameterValue(use_amr_sweeper_imu, value_type=bool),
-            "use_amr_sweeper_gnss": ParameterValue(use_amr_sweeper_gnss, value_type=bool),
-            "use_ntrip_client": ParameterValue(use_ntrip_client, value_type=bool),
-            "battery_can_interface": battery_can_interface,
-            "battery_params_file": battery_params_file,
-            "system_info_params_file": system_info_params_file,
-            "depth_camera_params_file": depth_camera_params_file,
-            "depth_camera_use_laserscan": ParameterValue(depth_camera_use_laserscan, value_type=bool),
-            "depth_camera_laserscan_params_file": depth_camera_laserscan_params_file,
-            "depth_camera_image_topic": depth_camera_image_topic,
-            "depth_camera_info_topic": depth_camera_info_topic,
-            "depth_camera_frame": depth_camera_frame,
-            "depth_camera_scan_topic": depth_camera_scan_topic,
-            "depth_camera_output_frame": depth_camera_output_frame,
-            "depth_camera_range_min": depth_camera_range_min,
-            "depth_camera_range_max": depth_camera_range_max,
-            "depth_camera_scan_height": depth_camera_scan_height,
-            "depth_camera_scan_tilt_angle_deg": depth_camera_scan_tilt_angle_deg,
-            "depth_camera_scan_time": depth_camera_scan_time,
-            "depth_camera_camera_domain_id": depth_camera_camera_domain_id,
-            "imu_device_path": imu_device_path,
-            "imu_port": imu_port,
-            "imu_baud": imu_baud,
-            "imu_params_file": imu_params_file,
-            "gnss_frame_id": gnss_frame_id,
-            "ntrip_params_file": ntrip_params_file,
-            "front_left_camera_enabled": ParameterValue(front_left_camera_enabled, value_type=bool),
-            "front_right_camera_enabled": ParameterValue(front_right_camera_enabled, value_type=bool),
-            "rear_left_camera_enabled": ParameterValue(rear_left_camera_enabled, value_type=bool),
-            "rear_right_camera_enabled": ParameterValue(rear_right_camera_enabled, value_type=bool),
-            "tools_camera_enabled": ParameterValue(tools_camera_enabled, value_type=bool),
-        }],
-    ))
-    return ld
+            "amr_sweeper_battery.yaml",
+        ])),
+        DeclareLaunchArgument("system_info_params_file", default_value=PathJoinSubstitution([
+            FindPackageShare("amr_sweeper_system_info"),
+            "config",
+            "amr_sweeper_system_info.yaml",
+        ])),
+        DeclareLaunchArgument("depth_camera_params_file", default_value=PathJoinSubstitution([
+            FindPackageShare("amr_sweeper_depth_camera"),
+            "config",
+            "amr_sweeper_depth_camera.yaml",
+        ])),
+        DeclareLaunchArgument("depth_camera_use_laserscan", default_value="true"),
+        DeclareLaunchArgument("depth_camera_laserscan_params_file", default_value=PathJoinSubstitution([
+            FindPackageShare("amr_sweeper_depth_camera"),
+            "config",
+            "laserscan.yaml",
+        ])),
+        DeclareLaunchArgument("depth_camera_image_topic", default_value=""),
+        DeclareLaunchArgument("depth_camera_info_topic", default_value=""),
+        DeclareLaunchArgument("depth_camera_frame", default_value="depth_camera_link"),
+        DeclareLaunchArgument("depth_camera_scan_topic", default_value="scan"),
+        DeclareLaunchArgument("depth_camera_output_frame", default_value=""),
+        DeclareLaunchArgument("depth_camera_range_min", default_value=""),
+        DeclareLaunchArgument("depth_camera_range_max", default_value=""),
+        DeclareLaunchArgument("depth_camera_scan_height", default_value=""),
+        DeclareLaunchArgument("depth_camera_scan_tilt_angle_deg", default_value=""),
+        DeclareLaunchArgument("depth_camera_scan_time", default_value=""),
+        DeclareLaunchArgument("depth_camera_camera_domain_id", default_value="5"),
+        DeclareLaunchArgument("imu_device_path", default_value=""),
+        DeclareLaunchArgument("imu_port", default_value=""),
+        DeclareLaunchArgument("imu_baud", default_value=""),
+        DeclareLaunchArgument("imu_params_file", default_value=PathJoinSubstitution([
+            FindPackageShare("amr_sweeper_imu"),
+            "config",
+            "amr_sweeper_imu.yaml",
+        ])),
+        DeclareLaunchArgument("gnss_frame_id", default_value="gnss_link"),
+        DeclareLaunchArgument("ntrip_params_file", default_value=PathJoinSubstitution([
+            FindPackageShare("amr_sweeper_gnss"),
+            "config",
+            "amr_sweeper_gnss_ntrip_client.yaml",
+        ])),
+        DeclareLaunchArgument("front_left_camera_enabled", default_value="false"),
+        DeclareLaunchArgument("front_right_camera_enabled", default_value="false"),
+        DeclareLaunchArgument("rear_left_camera_enabled", default_value="true"),
+        DeclareLaunchArgument("rear_right_camera_enabled", default_value="true"),
+        DeclareLaunchArgument("tools_camera_enabled", default_value="true"),
+        OpaqueFunction(function=_launch_setup),
+    ])
