@@ -79,6 +79,22 @@ std::string wrap_plain_stdout_lines_as_info_logs(
   return wrapped.str();
 }
 
+std::string wrap_realsense_stderr_filter(const std::string & command)
+{
+  std::ostringstream wrapped;
+  wrapped
+    << command
+    << " 2> >(while IFS= read -r line; do "
+    << "case \"$line\" in "
+    << "*\"sample(s) lost\"*|"
+    << "*\"use rs2_get_option_value to get rect values\"*) "
+    << ": ;; "
+    << "*) printf '%s\\n' \"$line\" >&2 ;; "
+    << "esac; "
+    << "done)";
+  return wrapped.str();
+}
+
 constexpr const char * kConsoleOutputFormat = "[{severity}] [{time}] [{name}] : {message}";
 
 }  // namespace
@@ -906,11 +922,12 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
     add_param(realsense_tokens, "camera_name", depth_camera_name);
     add_param(realsense_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
     commands.push_back(
-      build_ros2_run_with_env(
+      wrap_realsense_stderr_filter(
+        build_ros2_run_with_env(
         "realsense2_camera",
         "realsense2_camera_node",
         realsense_tokens,
-        {}));
+        {})));
 
     if (param_as_bool("depth_camera_use_laserscan")) {
       auto laserscan_tokens = base_ros_args(ns + "/depth_camera", "laserscan", log_level);
