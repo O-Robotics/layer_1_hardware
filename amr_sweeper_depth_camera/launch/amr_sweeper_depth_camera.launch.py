@@ -116,7 +116,7 @@ def _launch_setup(context, *args, **kwargs):
         namespace=camera_parent_namespace_value,
         name=camera_name_value,
         output='log',
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+        arguments=['--ros-args', '--log-level', LaunchConfiguration('realsense_log_level')],
         parameters=[
             depth_camera_params,
             {
@@ -194,6 +194,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('namespace', default_value='amr_sweeper/depth_camera'),
         DeclareLaunchArgument('log_level', default_value='info'),
+        DeclareLaunchArgument('realsense_log_level', default_value='error'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('camera_domain_id', default_value='5'),
         DeclareLaunchArgument('params_file', default_value=default_params_file),

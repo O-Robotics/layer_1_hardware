@@ -12,6 +12,7 @@ def generate_launch_description():
     console_output_format = "[{severity}] [{time}] [{name}] : {message}"
     namespace = LaunchConfiguration("namespace")
     log_level = LaunchConfiguration("log_level")
+    realsense_log_level = LaunchConfiguration("realsense_log_level")
     ublox_log_level = LaunchConfiguration("ublox_log_level")
     use_sim_time = LaunchConfiguration("use_sim_time")
     readiness_config_file = LaunchConfiguration("readiness_config_file")
@@ -62,6 +63,7 @@ def generate_launch_description():
     ))
     ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
+    ld.add_action(DeclareLaunchArgument("realsense_log_level", default_value="error"))
     ld.add_action(DeclareLaunchArgument("ublox_log_level", default_value="WARN"))
     ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
     ld.add_action(DeclareLaunchArgument(
@@ -143,6 +145,7 @@ def generate_launch_description():
         parameters=[{
             "namespace": namespace,
             "log_level": log_level,
+            "realsense_log_level": realsense_log_level,
             "ublox_log_level": ublox_log_level,
             "use_sim_time": ParameterValue(use_sim_time, value_type=bool),
             "readiness_config_file": readiness_config_file,

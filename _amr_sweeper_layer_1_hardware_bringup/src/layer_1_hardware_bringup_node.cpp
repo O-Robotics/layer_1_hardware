@@ -255,6 +255,7 @@ void Layer1HardwareBringupNode::declare_parameters()
 
   declare_if_missing("namespace", std::string("amr_sweeper"));
   declare_if_missing("log_level", std::string("info"));
+  declare_if_missing("realsense_log_level", std::string("error"));
   declare_if_missing("ublox_log_level", std::string("WARN"));
   declare_if_missing("use_sim_time", false);
   declare_if_missing("readiness_config_file", std::string(""));
@@ -744,6 +745,7 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
 {
   const auto ns = param_as_string("namespace");
   const auto log_level = param_as_string("log_level");
+  const auto realsense_log_level = param_as_string("realsense_log_level");
   const auto ublox_log_level = param_as_string("ublox_log_level");
 
   auto build_ros2_run =
@@ -898,7 +900,8 @@ std::vector<std::string> Layer1HardwareBringupNode::build_stage_commands(
       std::string("laserscan_link") : param_as_string("depth_camera_output_frame");
     const auto scan_tilt_angle_deg = param_as_string("depth_camera_scan_tilt_angle_deg").empty() ?
       std::string("4.5") : param_as_string("depth_camera_scan_tilt_angle_deg");
-    auto realsense_tokens = base_ros_args(depth_camera_parent_namespace, depth_camera_name, log_level);
+    auto realsense_tokens = base_ros_args(
+      depth_camera_parent_namespace, depth_camera_name, realsense_log_level);
     add_params_file(realsense_tokens, param_as_string("depth_camera_params_file"));
     add_param(realsense_tokens, "camera_name", depth_camera_name);
     add_param(realsense_tokens, "use_sim_time", bool_string(param_as_bool("use_sim_time")));
