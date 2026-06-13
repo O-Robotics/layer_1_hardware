@@ -73,9 +73,9 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - The vendored RealSense ROS packages live under `amr_sweeper_depth_camera/src/realsense-ros`, but `colcon` will only discover them when they are also exposed at the workspace root `src/`. Run `src/layer_1_hardware/amr_sweeper_depth_camera/scripts/ensure_workspace_links.sh` before `colcon build`, or use `./update.sh`, which now does this automatically.
 - Under the default robot root `/amr_sweeper`, package-owned sensor namespaces follow the package role, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras`, and `/amr_sweeper/depth_camera`.
 - The layer 1 bringup now forwards the full standalone `amr_sweeper_depth_camera.launch.py` argument set into the depth-camera include path, so depth-camera behavior stays aligned unless layer-1-specific overrides are passed explicitly.
-- When enabled, the GNSS NTRIP client runs inside `/amr_sweeper/gnss` and
-  publishes RTCM on `/amr_sweeper/gnss/rtcm`.
-- The layer 1 ros2_control bringup publishes `robot_description` via `robot_state_publisher` and lets `ros2_control_node` subscribe to that topic using the ROS 2 Jazzy controller-manager path.
+- When enabled, the GNSS `ntrip_client_node` runs inside `/amr_sweeper/gnss` and
+  publishes RTCM on `/amr_sweeper/gnss/ntrip_client/rtcm`.
+- The layer 1 ros2_control bringup publishes `description/robot_description` via `robot_state_publisher` and lets `ros2_control_node` subscribe to that topic using the ROS 2 Jazzy controller-manager path.
 - Controller spawners in the layer 1 ros2_control launch load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml`, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.
 - The robot description entrypoint is `amr_sweeper_description.launch.py`, which also owns the default controller-config path used by the bringup.
 - Hardware-specific wheel and tool-motor parameters such as CAN interface, motor IDs, positive motor directions, and gear ratios now live in `amr_sweeper_odrive/config/amr_sweeper_odrive.yaml` and `amr_sweeper_steadydrive/config/amr_sweeper_steadydrive.yaml`.

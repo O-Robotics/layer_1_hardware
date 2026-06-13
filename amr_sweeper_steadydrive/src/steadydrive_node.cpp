@@ -1,4 +1,4 @@
-#include "amr_sweeper_steadydrive_hardware_interface.hpp"
+#include "steadydrive_node.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <array>

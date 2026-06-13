@@ -108,7 +108,7 @@ private:
   int baud_rate_{115200};
   std::string frame_id_{"gnss_link"};
   std::string navsat_topic_{"navsat"};
-  std::string rtcm_topic_{"rtcm"};
+  std::string rtcm_topic_{"ntrip_client/rtcm"};
   double reconnect_delay_seconds_{2.0};
   double publish_timeout_seconds_{1.0};
   bool configure_on_connect_{true};

@@ -43,7 +43,7 @@ def generate_launch_description():
     ntrip_node_with_nmea = Node(
         package='amr_sweeper_gnss',
         executable='ntrip_client',
-        name='ntrip_client',
+        name='ntrip_client_node',
         namespace=LaunchConfiguration('gnss_namespace'),
         output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
@@ -60,7 +60,7 @@ def generate_launch_description():
     ntrip_node_without_nmea = Node(
         package='amr_sweeper_gnss',
         executable='ntrip_client',
-        name='ntrip_client',
+        name='ntrip_client_node',
         namespace=LaunchConfiguration('gnss_namespace'),
         output='screen',
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],

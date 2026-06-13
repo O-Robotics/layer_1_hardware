@@ -32,7 +32,7 @@ This package contains the robot description used by the AMR Sweeper runtime stac
 ## Notes
 - The package is commonly started as part of `amr_sweeper_layer_1_hardware_bringup`.
 - It provides the robot model foundation used by ros2_control and localization.
-- In the default hardware bringup, `robot_state_publisher` from this package supplies the `robot_description` topic consumed by ros2_control.
+- In the default hardware bringup, `robot_state_publisher` from this package supplies the `description/robot_description` topic consumed by ros2_control.
 - The default robot root namespace is `/amr_sweeper`.
 - `amr_sweeper_description.launch.py` owns the default controller-config path used by the layer 1 ros2_control bringup.
 - Hardware-specific ODrive and Steadydrive runtime parameters are no longer declared in the description xacros; those values are loaded directly by `amr_sweeper_odrive` and `amr_sweeper_steadydrive` from their package-local config files.

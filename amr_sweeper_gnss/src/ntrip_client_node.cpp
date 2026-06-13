@@ -94,7 +94,7 @@ std::string errno_message(const std::string & prefix)
 }  // namespace
 
 NtripClientNode::NtripClientNode()
-: Node("ntrip_client")
+: Node("ntrip_client_node")
 {
   declare_parameter<std::string>("host", "127.0.0.1");
   declare_parameter<int>("port", 2101);
@@ -181,7 +181,7 @@ NtripClientNode::NtripClientNode()
     mountpoint_failover_threshold_ = 1;
   }
 
-  publisher_ = create_publisher<rtcm_msgs::msg::Message>("rtcm", 10);
+  publisher_ = create_publisher<rtcm_msgs::msg::Message>("ntrip_client/rtcm", 10);
 
   if (send_nmea_) {
     auto qos = rclcpp::SensorDataQoS();

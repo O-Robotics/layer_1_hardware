@@ -79,6 +79,6 @@ The main bringup launch starts the core hardware stack under the default robot r
 - The battery and system-info nodes load defaults from `config/amr_sweeper_battery.yaml` and `config/amr_sweeper_system_info.yaml` before any bringup-level overrides are applied.
 - The IMU bringup loads defaults from `amr_sweeper_imu/config/amr_sweeper_imu.yaml`, and `imu_params_file` can swap that file without changing the package launch file.
 - When `use_amr_sweeper_gnss:=true` and `use_ntrip_client:=true`, the GNSS wrapper launches the package-local
-  NTRIP node under `/amr_sweeper/gnss` and keeps RTCM on
-  `/amr_sweeper/gnss/rtcm`.
+  `ntrip_client_node` under `/amr_sweeper/gnss` and keeps RTCM on
+  `/amr_sweeper/gnss/ntrip_client/rtcm`.
 - Wheel and tool motor hardware parameters are no longer launch arguments on this bringup path; they are loaded by the hardware-interface packages from `amr_sweeper_odrive/config/amr_sweeper_odrive.yaml` and `amr_sweeper_steadydrive/config/amr_sweeper_steadydrive.yaml`.

@@ -34,7 +34,7 @@ This package contains the AMR Sweeper GNSS stack: a local C++ u-blox receiver no
 - `ublox_log_level`: default `WARN`
 
 ## Overview
-`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the local `gnss_node` receiver node and the optional local `ntrip_client` node for RTCM correction streaming. The local u-blox node configures the receiver on connect, subscribes to `rtcm`, and publishes `navsat` directly.
+`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the local `gnss_node` receiver node and the optional local `ntrip_client_node` for RTCM correction streaming. The local u-blox node configures the receiver on connect, subscribes to `ntrip_client/rtcm`, and publishes `navsat` directly.
 
 ## External Dependencies
 - `rtcm_msgs`: installed from the ROS Jazzy packages and used by both the
@@ -51,15 +51,15 @@ sudo apt install ros-jazzy-rtcm-msgs
 - Layer 3 localization depends on the GNSS topics produced by this package.
 - By default the GNSS stack is namespaced under `/amr_sweeper/gnss`, so topics
   such as `navsat` become `/amr_sweeper/gnss/navsat`.
-- The NTRIP client runs in that same GNSS namespace and publishes RTCM on
-  `/amr_sweeper/gnss/rtcm`.
-- The local u-blox node subscribes to the GNSS-local `rtcm` topic so
+- The `ntrip_client_node` runs in that same GNSS namespace and publishes RTCM on
+  `/amr_sweeper/gnss/ntrip_client/rtcm`.
+- The local u-blox node subscribes to the GNSS-local `ntrip_client/rtcm` topic so
   corrections still reach the receiver under the AMR namespace layout.
 - When `use_nmea_to_caster:=true` in `ntrip_client.launch.py`, the local NTRIP
   node subscribes to the configured `fix_topic` with best-effort QoS and sends
   GGA messages to the caster. The default `fix_topic` is `navsat`, and the
   default `use_nmea_to_caster` value is `true`.
-- `ntrip_client.launch.py` starts only the NTRIP client node for RTCM correction streaming.
+- `ntrip_client.launch.py` starts only the `ntrip_client_node` for RTCM correction streaming.
 - `ublox_dgnss.launch.py` now launches the local `gnss_node` for compatibility with existing bringup wiring.
 
 ## Configuration Files

@@ -92,7 +92,7 @@ void UbloxNode::loadParameters()
   baud_rate_ = declare_parameter("baud_rate", 115200);
   frame_id_ = declare_parameter("frame_id", std::string{"gnss_link"});
   navsat_topic_ = declare_parameter("navsat_topic", std::string{"navsat"});
-  rtcm_topic_ = declare_parameter("rtcm_topic", std::string{"rtcm"});
+  rtcm_topic_ = declare_parameter("rtcm_topic", std::string{"ntrip_client/rtcm"});
   reconnect_delay_seconds_ = clampPositive(declare_parameter("reconnect_delay_seconds", 2.0), 2.0);
   publish_timeout_seconds_ = clampPositive(declare_parameter("publish_timeout_seconds", 1.0), 1.0);
   configure_on_connect_ = declare_parameter("configure_on_connect", true);

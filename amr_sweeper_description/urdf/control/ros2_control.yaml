@@ -14,7 +14,7 @@
 
 /**/drive_controller:
   ros__parameters:
-    input_topic: cmd_vel_drive
+    input_topic: sweeping_controller/cmd_vel_drive
     direct_command_topic: drive_controller/cmd_vel
     odom_topic: drive_controller/odom
     publish_rate: 10.0
@@ -40,7 +40,7 @@
   ros__parameters:
     left_joint: LeftBrush_joint
     right_joint: RightBrush_joint
-    input_topic: cmd_vel_tools
+    input_topic: sweeping_controller/cmd_vel_tools
     direct_command_topic: tool_controller/commands
     max_tool_speed_rad_s: 35.0
     command_timeout_sec: 0.5

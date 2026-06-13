@@ -20,7 +20,7 @@ find_package(yaml-cpp REQUIRED)
 add_library(
   steadydrive_hw_interface_lib
   SHARED
-  src/amr_sweeper_steadydrive_hardware_interface.cpp
+  src/steadydrive_node.cpp
 )
 
 target_include_directories(

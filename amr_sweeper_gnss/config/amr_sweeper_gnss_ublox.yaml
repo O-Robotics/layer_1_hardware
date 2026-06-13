@@ -5,7 +5,7 @@
     baud_rate: 115200                # Serial line speed for the USB CDC device.
     frame_id: gnss_link              # Frame stamped on published NavSatFix messages.
     navsat_topic: navsat             # NavSatFix output topic inside the GNSS namespace.
-    rtcm_topic: rtcm                 # RTCM correction input topic inside the GNSS namespace.
+    rtcm_topic: ntrip_client/rtcm    # RTCM correction input topic inside the GNSS namespace.
     reconnect_delay_seconds: 2.0     # Delay before retrying after a disconnect or open failure.
     retry_attempts_before_error: 3   # Match the IMU pattern: warn first, then escalate to error after repeated failures.
     fatal_after_consecutive_errors: 10  # Stop the node after too many consecutive connection or configuration failures.
