@@ -1245,13 +1245,13 @@ void JY901ImuNode::maybe_publish()
 void JY901ImuNode::ensure_publishers_created()
 {
   if (!imu_pub_) {
-    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_raw", 10);
+    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_raw", rclcpp::SensorDataQoS());
   }
   if (!imu_acc_gyro_pub_) {
-    imu_acc_gyro_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_acc_gyro", 10);
+    imu_acc_gyro_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_acc_gyro", rclcpp::SensorDataQoS());
   }
   if (!imu_heading_pub_) {
-    imu_heading_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_heading", 10);
+    imu_heading_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_heading", rclcpp::SensorDataQoS());
   }
 }
 

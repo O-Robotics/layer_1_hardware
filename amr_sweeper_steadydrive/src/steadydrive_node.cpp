@@ -432,7 +432,7 @@ hardware_interface::CallbackReturn SteadydriveHardwareInterface::on_configure(
   if (!safety_stop_publisher_) {
     if (auto node = get_node()) {
       safety_stop_publisher_ = node->create_publisher<amr_sweeper_safety_msgs::msg::SafetyStop>(
-        safety_stop_topic_name_, rclcpp::SystemDefaultsQoS());
+        safety_stop_topic_name_, rclcpp::QoS(10).reliable().transient_local());
     }
   }
   if (!clear_safety_stop_service_) {
