@@ -5,5 +5,5 @@
     range_min:                       0.0                        # Minimum accepted return distance in meters.
     range_max:                       8.0                        # Maximum accepted return distance in meters.
     scan_height:                     5                          # Number of image rows merged into each scan; the closest valid return across this 5-row band wins.
-    scan_tilt_angle_deg:             14.5                        # Vertical image-row offset in degrees used to compensate for the robot chassis leaning nose-down.
+    scan_tilt_angle_deg:             4.5                        # Vertical image-row offset in degrees used to compensate for the robot chassis leaning nose-down.
     output_frame:                    laserscan_link             # Frame ID stamped on the published LaserScan after the matching static TF tilt is applied.
