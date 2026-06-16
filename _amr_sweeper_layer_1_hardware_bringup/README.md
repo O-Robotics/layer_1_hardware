@@ -44,7 +44,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It is a 
 - `depth_camera_laserscan_params_file`: default `amr_sweeper_depth_camera/config/laserscan.yaml`
 - `depth_camera_image_topic`: default `""`
 - `depth_camera_info_topic`: default `""`
-- `depth_camera_frame`: default `depth_camera_link`
+- `depth_camera_frame`: default `depth_camera_depth_frame`
 - `depth_camera_scan_topic`: default `scan`
 - `depth_camera_output_frame`: default `""`
 - `depth_camera_range_min`: default `""`
