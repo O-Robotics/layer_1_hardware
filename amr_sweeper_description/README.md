@@ -32,7 +32,7 @@ This package contains the robot description used by the AMR Sweeper runtime stac
 ## Notes
 - The package is commonly started as part of `amr_sweeper_layer_1_hardware_bringup`.
 - It provides the robot model foundation used by ros2_control and localization.
-- In the default hardware bringup, `robot_state_publisher` from this package supplies the `description/robot_description` topic consumed by ros2_control.
+- In the default hardware bringup, `robot_state_publisher` from this package supplies `/amr_sweeper/description/robot_description` under the default namespace, and ros2_control consumes that same topic.
 - In the default hardware bringup, `robot_state_publisher` also remaps `joint_states` to `attitude_controller/joint_states` so the attitude controller can drive the `base_footprint -> base_link` roll/pitch chain.
 - The default robot root namespace is `/amr_sweeper`.
 - `amr_sweeper_description.launch.py` owns the default controller-config path used by the layer 1 ros2_control bringup.
