@@ -3,7 +3,7 @@
     # -- Laser scan extraction -------------------------------------------------
     scan_time:                       0.050                      # Expected scan period in seconds stamped into the published LaserScan.
     range_min:                       0.0                        # Minimum accepted return distance in meters.
-    range_max:                       8.0                        # Maximum accepted return distance in meters.
+    range_max:                       5.0                        # Maximum accepted return distance in meters.
     scan_height:                     5                          # Number of image rows merged into each scan; the closest valid return across this 5-row band wins.
-    scan_tilt_angle_deg:             -4.5                       # Vertical image-row offset in degrees used to compensate for the robot chassis leaning nose-down. (negative compensates pitch upwards)
-    output_frame:                    laserscan_link             # Frame ID stamped on the published LaserScan after the matching static TF tilt is applied.
+    scan_tilt_angle_deg:             -4.5                       # Scan tilt compensation in degrees. With laserscan_link using standard robot axes, positive pitch points the scan downward and negative pitch points it upward.
+    output_frame:                    laserscan_link             # Frame ID stamped on the published LaserScan after the matching static TF creates a robot-style scan frame.

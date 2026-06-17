@@ -163,7 +163,10 @@ def _launch_setup(context, *args, **kwargs):
             '--x', '0',
             '--y', '0',
             '--z', '0',
-            '--roll', '0',
+            # The depth camera is mounted upside down, so depth_camera_depth_frame has
+            # Y pointing right and Z pointing down. Roll by pi first so the published
+            # laserscan frame follows the normal robot convention: X forward, Y left, Z up.
+            '--roll', str(math.pi),
             '--pitch', str(scan_tilt_angle_rad),
             '--yaw', '0',
             '--frame-id', depth_camera_frame_value,
