@@ -29,6 +29,7 @@ def _launch_setup(context, *args, **kwargs):
             ros2_control_config_file,
         ],
         remappings=[
+            ("robot_description", ["/", namespace, "/description/robot_description"]),
             ("/robot_description", ["/", namespace, "/description/robot_description"]),
         ],
     )

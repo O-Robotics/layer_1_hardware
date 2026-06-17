@@ -48,6 +48,7 @@ def generate_launch_description():
             namespace=namespace,
             output='screen',
             remappings=[
+                ('robot_description', 'description/robot_description'),
                 ('/robot_description', 'description/robot_description'),
                 ('joint_states', 'attitude_controller/joint_states'),
             ],
