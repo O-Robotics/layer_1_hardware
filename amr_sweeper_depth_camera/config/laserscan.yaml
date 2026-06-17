@@ -5,5 +5,5 @@
     range_min:                       0.0                        # Minimum accepted return distance in meters.
     range_max:                       5.0                        # Maximum accepted return distance in meters.
     scan_height:                     5                          # Number of image rows merged into each scan; the closest valid return across this 5-row band wins.
-    scan_tilt_angle_deg:             -4.5                       # Scan tilt compensation in degrees. With laserscan_link using standard robot axes, positive pitch points the scan downward and negative pitch points it upward.
-    output_frame:                    laserscan_link             # Frame ID stamped on the published LaserScan after the matching static TF creates a robot-style scan frame.
+    scan_tilt_angle_deg:             4.5                        # Positive tilt pitches laserscan_link downward in TF and, for the upside-down camera image, moves the sampled depth rows downward.
+    output_frame:                    laserscan_link             # Frame ID stamped on the published LaserScan after the matching static TF tilt is applied.

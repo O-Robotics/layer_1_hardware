@@ -110,7 +110,10 @@ sensor_msgs::msg::LaserScan::UniquePtr LaserScanNode::convertMsg(
   scan_msg->ranges.assign(depth_msg->width, std::numeric_limits<float>::infinity());
 
   const double tilt_angle_rad = scan_tilt_angle_deg_ * M_PI / 180.0;
-  const int row_offset = static_cast<int>(std::lround(-cam_model_.fy() * std::tan(tilt_angle_rad)));
+  // The camera is mounted upside down, so positive scan tilt should still pitch the
+  // published laserscan frame downward in robot coordinates while moving the sampled
+  // image rows downward in the upside-down depth image.
+  const int row_offset = static_cast<int>(std::lround(cam_model_.fy() * std::tan(tilt_angle_rad)));
   const int center_row = static_cast<int>(std::lround(cam_model_.cy())) + row_offset;
   const int row_start = center_row - (scan_height_ / 2);
   const int row_end = row_start + scan_height_;
