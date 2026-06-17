@@ -114,6 +114,26 @@ void rpy_to_quaternion(
   w = cr * cp * cy + sr * sp * sy;
 }
 
+void multiply_quaternions(
+  double left_w,
+  double left_x,
+  double left_y,
+  double left_z,
+  double right_w,
+  double right_x,
+  double right_y,
+  double right_z,
+  double & out_w,
+  double & out_x,
+  double & out_y,
+  double & out_z)
+{
+  out_w = (left_w * right_w) - (left_x * right_x) - (left_y * right_y) - (left_z * right_z);
+  out_x = (left_w * right_x) + (left_x * right_w) + (left_y * right_z) - (left_z * right_y);
+  out_y = (left_w * right_y) - (left_x * right_z) + (left_y * right_w) + (left_z * right_x);
+  out_z = (left_w * right_z) + (left_x * right_y) - (left_y * right_x) + (left_z * right_w);
+}
+
 void rotate_xy(double yaw, double & x, double & y)
 {
   const double cos_yaw = std::cos(yaw);
@@ -1261,9 +1281,10 @@ sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & s
   msg.header.stamp = stamp;
   msg.header.frame_id = frame_id_;
   bool orientation_valid = true;
-  double roll = euler_deg_[0] * kDegToRad;
-  double pitch = euler_deg_[1] * kDegToRad;
-  double yaw = euler_deg_[2] * kDegToRad;
+  double orientation_w = 1.0;
+  double orientation_x = 0.0;
+  double orientation_y = 0.0;
+  double orientation_z = 0.0;
 
   if (output_quaternion_ && has_quaternion_) {
     const double norm = std::sqrt(
@@ -1272,30 +1293,60 @@ sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & s
       (quaternion_[2] * quaternion_[2]) +
       (quaternion_[3] * quaternion_[3]));
     if (norm > 1e-9) {
-      quaternion_to_rpy(
-        quaternion_[0] / norm,
-        quaternion_[1] / norm,
-        quaternion_[2] / norm,
-        quaternion_[3] / norm,
-        roll,
-        pitch,
-        yaw);
+      orientation_w = quaternion_[0] / norm;
+      orientation_x = quaternion_[1] / norm;
+      orientation_y = quaternion_[2] / norm;
+      orientation_z = quaternion_[3] / norm;
     } else {
       orientation_valid = false;
     }
+  } else {
+    rpy_to_quaternion(
+      euler_deg_[0] * kDegToRad,
+      euler_deg_[1] * kDegToRad,
+      euler_deg_[2] * kDegToRad,
+      orientation_w,
+      orientation_x,
+      orientation_y,
+      orientation_z);
   }
 
   if (orientation_valid) {
-    yaw += yaw_offset_rad_;
+    // Apply the configured mounting correction as a frame rotation so the
+    // published imu_link orientation matches the rotated accel/gyro outputs.
+    double mount_w = 1.0;
+    double mount_x = 0.0;
+    double mount_y = 0.0;
+    double mount_z = 0.0;
+    rpy_to_quaternion(0.0, 0.0, yaw_offset_rad_, mount_w, mount_x, mount_y, mount_z);
 
-    rpy_to_quaternion(
-      roll,
-      pitch,
-      yaw,
+    multiply_quaternions(
+      orientation_w,
+      orientation_x,
+      orientation_y,
+      orientation_z,
+      mount_w,
+      mount_x,
+      mount_y,
+      mount_z,
       msg.orientation.w,
       msg.orientation.x,
       msg.orientation.y,
       msg.orientation.z);
+
+    const double corrected_norm = std::sqrt(
+      (msg.orientation.w * msg.orientation.w) +
+      (msg.orientation.x * msg.orientation.x) +
+      (msg.orientation.y * msg.orientation.y) +
+      (msg.orientation.z * msg.orientation.z));
+    if (corrected_norm > 1e-9) {
+      msg.orientation.w /= corrected_norm;
+      msg.orientation.x /= corrected_norm;
+      msg.orientation.y /= corrected_norm;
+      msg.orientation.z /= corrected_norm;
+    } else {
+      orientation_valid = false;
+    }
   }
   std::copy(orientation_covariance_.begin(), orientation_covariance_.end(), msg.orientation_covariance.begin());
   if (!orientation_valid) {

@@ -34,7 +34,7 @@
     output_satellite_accuracy:      false         # Enable 0x5A satellite-position-accuracy packets.
 
     # -- Software mounting correction ------------------------------------------
-    yaw_offset_deg:                 180.0         # Extra yaw rotation applied before publishing orientation, gyro, and accel outputs. Large offsets can mask a startup-zero yaw as a clean cardinal heading.
+    yaw_offset_deg:                 180.0         # Mounting correction applied as a rotation about +Z to orientation, gyro, and accel outputs. Use 180 when the physical IMU is mounted with X backward and Y right relative to imu_link/base_link.
 
     # -- Output covariances ----------------------------------------------------
     orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.01]    # Row-major 3x3 covariance for the driver-provided orientation.
