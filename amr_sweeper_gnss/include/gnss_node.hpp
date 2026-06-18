@@ -3,8 +3,10 @@
 
 #include <atomic>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <termios.h>
 #include <thread>
@@ -65,6 +67,7 @@ private:
 
   struct ConfigItem
   {
+    const char * name;
     std::uint32_t key;
     ConfigValueType type;
     std::uint32_t value;
@@ -94,6 +97,7 @@ private:
   bool configureReceiver();
   void requestEssentialPolls();
   bool sendConfigBatch(const std::vector<ConfigItem> & items);
+  bool sendConfigItem(const ConfigItem & item);
   bool sendFrame(std::uint8_t msg_class, std::uint8_t msg_id, const std::vector<std::uint8_t> & payload);
   bool writeRaw(const std::uint8_t * data, std::size_t size);
 
@@ -158,6 +162,8 @@ private:
   int device_fd_{-1};
   std::mutex device_mutex_;
   std::vector<std::uint8_t> parser_buffer_;
+  std::deque<ConfigItem> pending_config_acks_;
+  std::set<std::uint32_t> rejected_config_keys_;
 
   std::mutex nav_mutex_;
   std::optional<NavHpPosLlh> last_hpposllh_;

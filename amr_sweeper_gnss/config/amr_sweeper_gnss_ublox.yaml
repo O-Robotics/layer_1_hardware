@@ -1,51 +1,51 @@
 /**:
   ros__parameters:
     # -- Device connection ----------------------------------------------------
-    device: /dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00  # Official-style alias for the receiver path; the local node also accepts device_path for backward compatibility.
-    device_path: /dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00  # Legacy alias kept so older bringup files still work unchanged.
-    uart1.baudrate: 115200           # Official-style baudrate alias matching common ublox_ros naming.
-    baud_rate: 115200                # Serial line speed for the USB CDC device.
-    frame_id: gnss_link              # Frame stamped on published NavSatFix messages.
-    navsat_topic: navsat             # NavSatFix output topic inside the GNSS namespace.
-    rtcm_topic: ntrip_client/rtcm    # RTCM correction input topic inside the GNSS namespace.
-    reconnect_delay_seconds: 2.0     # Delay before retrying after a disconnect or open failure.
-    retry_attempts_before_error: 3   # Match the IMU pattern: warn first, then escalate to error after repeated failures.
-    fatal_after_consecutive_errors: 10  # Stop the node after too many consecutive connection or configuration failures.
-    max_reconnect_attempts: 10       # Hard cap on reconnect attempts before declaring startup failure fatal.
-    publish_timeout_seconds: 1.0     # Reserved for future stale-data supervision in the local node.
-    configure_on_connect: true       # Reapply receiver configuration each time the device reconnects.
+    device:                          /dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00  # Official-style alias for the receiver path; the local node also accepts device_path for backward compatibility.
+    device_path:                     /dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00  # Legacy alias kept so older bringup files still work unchanged.
+    uart1.baudrate:                  115200               # Official-style baudrate alias matching common ublox_ros naming.
+    baud_rate:                       115200               # Serial line speed for the USB CDC device.
+    frame_id:                        gnss_link            # Frame stamped on published NavSatFix messages.
+    navsat_topic:                    navsat               # NavSatFix output topic inside the GNSS namespace.
+    rtcm_topic:                      ntrip_client/rtcm    # RTCM correction input topic inside the GNSS namespace.
+    reconnect_delay_seconds:         2.0                  # Delay before retrying after a disconnect or open failure.
+    retry_attempts_before_error:     3                    # Match the IMU pattern: warn first, then escalate to error after repeated failures.
+    fatal_after_consecutive_errors:  10                   # Stop the node after too many consecutive connection or configuration failures.
+    max_reconnect_attempts:          10                   # Hard cap on reconnect attempts before declaring startup failure fatal.
+    publish_timeout_seconds:         1.0                  # Reserved for future stale-data supervision in the local node.
+    configure_on_connect:            true                 # Reapply receiver configuration each time the device reconnects.
 
     # -- Receiver configuration ----------------------------------------------
-    usb_in_rtcm3x: true              # Accept RTCM3 corrections from the local NTRIP client.
-    usb_out_ubx: true                # Keep UBX output enabled so the node can parse receiver messages.
-    usb_out_nmea: false              # Disable NMEA chatter on the GNSS USB link.
-    usb_out_rtcm3x: false            # Do not mirror RTCM back out over USB.
-    rate: 5.0                        # Official-style measurement rate in Hz. The local node converts this to measurement_rate_ms unless the legacy parameter is set explicitly.
-    measurement_rate_ms: 200         # Legacy explicit measurement period in ms; kept for compatibility with older configs and logs.
-    nav_rate: 1                      # Official-style navigation rate in measurement cycles per solution.
-    navigation_rate_cycles: 1        # Legacy alias for nav_rate.
-    fix_mode_name: 3d                # Official-style string alias. Accepted values: auto, 2d, 3d.
-    fix_mode: 2                      # Legacy numeric alias. 2 = 3D-only.
-    require_initial_3d_fix: true     # Require a 3D solution during startup convergence.
-    dynamic_model_name: automotive   # Official-style string alias. Good default for an outdoor ground robot.
-    dynamic_model: 4                 # Legacy numeric alias. 4 = automotive / ground vehicle.
-    dgnss_mode: 3                    # Expose the DGNSS/RTK operating mode so it can be tuned like the official driver examples.
-    nav_hpposllh_rate: 1             # High-precision LLH output every measurement cycle.
-    nav_status_rate: 5               # Lower-rate status output is sufficient for fix quality checks.
-    nav_cov_rate: 1                  # Covariance output every measurement cycle.
+    usb_in_rtcm3x:                   true                 # Accept RTCM3 corrections from the local NTRIP client.
+    usb_out_ubx:                     true                 # Keep UBX output enabled so the node can parse receiver messages.
+    usb_out_nmea:                    false                # Disable NMEA chatter on the GNSS USB link.
+    usb_out_rtcm3x:                  false                # Do not mirror RTCM back out over USB.
+    rate:                            5.0                  # Official-style measurement rate in Hz. The local node converts this to measurement_rate_ms unless the legacy parameter is set explicitly.
+    measurement_rate_ms:             200                  # Legacy explicit measurement period in ms; kept for compatibility with older configs and logs.
+    nav_rate:                        1                    # Official-style navigation rate in measurement cycles per solution.
+    navigation_rate_cycles:          1                    # Legacy alias for nav_rate.
+    fix_mode_name:                   3d                   # Official-style string alias. Accepted values: auto, 2d, 3d.
+    fix_mode:                        2                    # Legacy numeric alias. 2 = 3D-only.
+    require_initial_3d_fix:          true                 # Require a 3D solution during startup convergence.
+    dynamic_model_name:              automotive           # Official-style string alias. Good default for an outdoor ground robot.
+    dynamic_model:                   4                    # Legacy numeric alias. 4 = automotive / ground vehicle.
+    dgnss_mode:                      3                    # Expose the DGNSS/RTK operating mode so it can be tuned like the official driver examples.
+    nav_hpposllh_rate:               1                    # High-precision LLH output every measurement cycle.
+    nav_status_rate:                 5                    # Lower-rate status output is sufficient for fix quality checks.
+    nav_cov_rate:                    1                    # Covariance output every measurement cycle.
 
     # -- Constellations -------------------------------------------------------
-    gnss.gps: true                   # GPS should remain enabled for any practical rover configuration.
-    gnss.sbas: true                  # SBAS corrections can improve integrity, but can be disabled if they add noise in your region.
-    gnss.galileo: true               # Recommended on modern F9P-class receivers for better geometry.
-    gnss.beidou: true                # Exposed so urban multipath testing can compare all-constellation vs trimmed-constellation behavior.
-    gnss.qzss: false                 # Usually irrelevant outside the Asia-Pacific region, so leave disabled by default.
-    gnss.glonass: true               # Keep enabled by default; easy to turn off if reflected signals from a specific constellation look problematic.
+    gnss.gps:                        true                 # GPS should remain enabled for any practical rover configuration.
+    gnss.sbas:                       true                 # SBAS corrections can improve integrity, but can be disabled if they add noise in your region.
+    gnss.galileo:                    true                 # Recommended on modern F9P-class receivers for better geometry.
+    gnss.beidou:                     true                 # Exposed so urban multipath testing can compare all-constellation vs trimmed-constellation behavior.
+    gnss.qzss:                       false                # Usually irrelevant outside the Asia-Pacific region, so leave disabled by default.
+    gnss.glonass:                    true                 # Keep enabled by default; easy to turn off if reflected signals from a specific constellation look problematic.
 
     # -- NavSat filtering -----------------------------------------------------
-    min_fix_type: 1                  # Allow a plain GPS fix so NTRIP can bootstrap before RTK converges.
-    min_horizontal_stddev_m: 25.0    # Keep startup permissive; downstream localization can reject poorer fixes if needed.
-    min_vertical_stddev_m: 50.0      # Avoid blocking navsat publication during early convergence.
-    horizontal_covariance_scale: 4.0 # Inflate horizontal covariance before handing it downstream.
-    vertical_covariance_scale: 4.0   # Inflate vertical covariance before handing it downstream.
-    use_hacc_vacc_covariance_floor: true  # Never report covariance below the receiver accuracy estimate.
+    min_fix_type:                    1                    # Allow a plain GPS fix so NTRIP can bootstrap before RTK converges.
+    min_horizontal_stddev_m:         25.0                 # Keep startup permissive; downstream localization can reject poorer fixes if needed.
+    min_vertical_stddev_m:           50.0                 # Avoid blocking navsat publication during early convergence.
+    horizontal_covariance_scale:     4.0                  # Inflate horizontal covariance before handing it downstream.
+    vertical_covariance_scale:       4.0                  # Inflate vertical covariance before handing it downstream.
+    use_hacc_vacc_covariance_floor:  true                 # Never report covariance below the receiver accuracy estimate.

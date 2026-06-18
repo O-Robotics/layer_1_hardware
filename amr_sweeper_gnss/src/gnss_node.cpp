@@ -336,28 +336,43 @@ void UbloxNode::closeDevice()
 bool UbloxNode::configureReceiver()
 {
   std::vector<ConfigItem> items = {
-    {kCfgUsbInProtRtcm3x, ConfigValueType::Bool, usb_in_rtcm3x_ ? 1U : 0U},
-    {kCfgUsbOutProtUbx, ConfigValueType::Bool, usb_out_ubx_ ? 1U : 0U},
-    {kCfgUsbOutProtNmea, ConfigValueType::Bool, usb_out_nmea_ ? 1U : 0U},
-    {kCfgUsbOutProtRtcm3x, ConfigValueType::Bool, usb_out_rtcm3x_ ? 1U : 0U},
-    {kCfgRateMeas, ConfigValueType::U2, static_cast<std::uint32_t>(measurement_rate_ms_)},
-    {kCfgRateNav, ConfigValueType::U2, static_cast<std::uint32_t>(navigation_rate_cycles_)},
-    {kCfgNavSpgFixMode, ConfigValueType::U1, static_cast<std::uint32_t>(fix_mode_)},
-    {kCfgNavSpgIniFix3d, ConfigValueType::Bool, require_initial_3d_fix_ ? 1U : 0U},
-    {kCfgNavSpgDynModel, ConfigValueType::U1, static_cast<std::uint32_t>(dynamic_model_)},
-    {kCfgNavSpgDgnssMode, ConfigValueType::U1, static_cast<std::uint32_t>(dgnss_mode_)},
-    {kCfgSignalGpsEna, ConfigValueType::Bool, constellations_.gps ? 1U : 0U},
-    {kCfgSignalSbasEna, ConfigValueType::Bool, constellations_.sbas ? 1U : 0U},
-    {kCfgSignalGalEna, ConfigValueType::Bool, constellations_.galileo ? 1U : 0U},
-    {kCfgSignalBdsEna, ConfigValueType::Bool, constellations_.beidou ? 1U : 0U},
-    {kCfgSignalQzssEna, ConfigValueType::Bool, constellations_.qzss ? 1U : 0U},
-    {kCfgSignalGloEna, ConfigValueType::Bool, constellations_.glonass ? 1U : 0U},
-    {kCfgMsgoutNavHpPosLlhUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_hpposllh_rate_)},
-    {kCfgMsgoutNavStatusUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_status_rate_)},
-    {kCfgMsgoutNavCovUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_cov_rate_)},
+    {"CFG_USBINPROT_RTCM3X", kCfgUsbInProtRtcm3x, ConfigValueType::Bool, usb_in_rtcm3x_ ? 1U : 0U},
+    {"CFG_USBOUTPROT_UBX", kCfgUsbOutProtUbx, ConfigValueType::Bool, usb_out_ubx_ ? 1U : 0U},
+    {"CFG_USBOUTPROT_NMEA", kCfgUsbOutProtNmea, ConfigValueType::Bool, usb_out_nmea_ ? 1U : 0U},
+    {"CFG_USBOUTPROT_RTCM3X", kCfgUsbOutProtRtcm3x, ConfigValueType::Bool, usb_out_rtcm3x_ ? 1U : 0U},
+    {"CFG_RATE_MEAS", kCfgRateMeas, ConfigValueType::U2, static_cast<std::uint32_t>(measurement_rate_ms_)},
+    {"CFG_RATE_NAV", kCfgRateNav, ConfigValueType::U2, static_cast<std::uint32_t>(navigation_rate_cycles_)},
+    {"CFG_NAVSPG_FIXMODE", kCfgNavSpgFixMode, ConfigValueType::U1, static_cast<std::uint32_t>(fix_mode_)},
+    {"CFG_NAVSPG_INIFIX3D", kCfgNavSpgIniFix3d, ConfigValueType::Bool, require_initial_3d_fix_ ? 1U : 0U},
+    {"CFG_NAVSPG_DYNMODEL", kCfgNavSpgDynModel, ConfigValueType::U1, static_cast<std::uint32_t>(dynamic_model_)},
+    {"CFG_NAVSPG_DGNSSMODE", kCfgNavSpgDgnssMode, ConfigValueType::U1, static_cast<std::uint32_t>(dgnss_mode_)},
+    {"CFG_SIGNAL_GPS_ENA", kCfgSignalGpsEna, ConfigValueType::Bool, constellations_.gps ? 1U : 0U},
+    {"CFG_SIGNAL_SBAS_ENA", kCfgSignalSbasEna, ConfigValueType::Bool, constellations_.sbas ? 1U : 0U},
+    {"CFG_SIGNAL_GAL_ENA", kCfgSignalGalEna, ConfigValueType::Bool, constellations_.galileo ? 1U : 0U},
+    {"CFG_SIGNAL_BDS_ENA", kCfgSignalBdsEna, ConfigValueType::Bool, constellations_.beidou ? 1U : 0U},
+    {"CFG_SIGNAL_QZSS_ENA", kCfgSignalQzssEna, ConfigValueType::Bool, constellations_.qzss ? 1U : 0U},
+    {"CFG_SIGNAL_GLO_ENA", kCfgSignalGloEna, ConfigValueType::Bool, constellations_.glonass ? 1U : 0U},
+    {"CFG_MSGOUT_NAV_HPPOSLLH_USB", kCfgMsgoutNavHpPosLlhUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_hpposllh_rate_)},
+    {"CFG_MSGOUT_NAV_STATUS_USB", kCfgMsgoutNavStatusUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_status_rate_)},
+    {"CFG_MSGOUT_NAV_COV_USB", kCfgMsgoutNavCovUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_cov_rate_)},
   };
 
-  return sendConfigBatch(items);
+  bool all_sent = true;
+  for (const auto & item : items) {
+    if (rejected_config_keys_.count(item.key) != 0U) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        10000,
+        "Skipping previously rejected receiver config item %s (0x%08x)",
+        item.name,
+        item.key);
+      continue;
+    }
+    all_sent = sendConfigItem(item) && all_sent;
+  }
+
+  return all_sent;
 }
 
 void UbloxNode::requestEssentialPolls()
@@ -391,6 +406,16 @@ bool UbloxNode::sendConfigBatch(const std::vector<ConfigItem> & items)
   }
 
   return sendFrame(kClassCfg, kMsgCfgValset, payload);
+}
+
+bool UbloxNode::sendConfigItem(const ConfigItem & item)
+{
+  pending_config_acks_.push_back(item);
+  const bool sent = sendConfigBatch({item});
+  if (!sent) {
+    pending_config_acks_.pop_back();
+  }
+  return sent;
 }
 
 bool UbloxNode::sendFrame(
@@ -555,6 +580,19 @@ void UbloxNode::handleAckAck(const std::vector<std::uint8_t> & payload)
   if (payload.size() < 2U) {
     return;
   }
+  if (
+    payload[0] == kClassCfg && payload[1] == kMsgCfgValset &&
+    !pending_config_acks_.empty())
+  {
+    const ConfigItem item = pending_config_acks_.front();
+    pending_config_acks_.pop_front();
+    RCLCPP_DEBUG(
+      get_logger(),
+      "Receiver accepted config item %s (0x%08x)",
+      item.name,
+      item.key);
+    return;
+  }
   RCLCPP_DEBUG(
     get_logger(),
     "ubx class: 0x%02x id: 0x%02x ack ack payload - class: 0x%02x id: 0x%02x",
@@ -569,6 +607,21 @@ void UbloxNode::handleAckNak(const std::vector<std::uint8_t> & payload)
   if (payload.size() < 2U) {
     return;
   }
+  if (
+    payload[0] == kClassCfg && payload[1] == kMsgCfgValset &&
+    !pending_config_acks_.empty())
+  {
+    const ConfigItem item = pending_config_acks_.front();
+    pending_config_acks_.pop_front();
+    rejected_config_keys_.insert(item.key);
+    RCLCPP_WARN(
+      get_logger(),
+      "Receiver rejected config item %s (0x%08x); it will be skipped on future reconnects",
+      item.name,
+      item.key);
+    return;
+  }
+
   RCLCPP_WARN(
     get_logger(),
     "ubx class: 0x%02x id: 0x%02x ack nak payload - class: 0x%02x id: 0x%02x",
@@ -647,13 +700,10 @@ void UbloxNode::tryPublishNavSat()
 {
   std::optional<NavHpPosLlh> hpposllh;
   std::optional<NavStatus> status;
-  std::optional<NavCov> cov;
-
   {
     std::lock_guard<std::mutex> lock(nav_mutex_);
     hpposllh = last_hpposllh_;
     status = last_status_;
-    cov = last_cov_;
   }
 
   if (!hpposllh.has_value() || !status.has_value()) {
@@ -671,42 +721,16 @@ void UbloxNode::tryPublishNavSat()
   }
 
   const bool gps_fix_ok = (status->flags & 0x01U) != 0U;
-  const bool diff_solution = (status->flags & 0x02U) != 0U;
   const std::uint8_t carrier_solution = static_cast<std::uint8_t>((status->flags2 >> 6U) & 0x03U);
 
   int fix_quality = 0;
-  if (gps_fix_ok && status->gps_fix >= 3U) {
+  if (gps_fix_ok && status->gps_fix >= 2U) {
     fix_quality = 1;
-    if (diff_solution) {
-      fix_quality = 2;
-    }
     if (carrier_solution == 1U) {
       fix_quality = 3;
     } else if (carrier_solution == 2U) {
       fix_quality = 4;
     }
-  }
-
-  if (fix_quality < min_fix_type_) {
-    RCLCPP_INFO_THROTTLE(
-      get_logger(), *get_clock(), 5000,
-      "Skipping navsat publish because fix quality %d is below the configured minimum %d",
-      fix_quality, min_fix_type_);
-    return;
-  }
-  if (hpposllh->horizontal_accuracy_m > min_horizontal_stddev_m_) {
-    RCLCPP_INFO_THROTTLE(
-      get_logger(), *get_clock(), 5000,
-      "Skipping navsat publish because horizontal accuracy %.3fm exceeds the %.3fm limit",
-      hpposllh->horizontal_accuracy_m, min_horizontal_stddev_m_);
-    return;
-  }
-  if (hpposllh->vertical_accuracy_m > min_vertical_stddev_m_) {
-    RCLCPP_INFO_THROTTLE(
-      get_logger(), *get_clock(), 5000,
-      "Skipping navsat publish because vertical accuracy %.3fm exceeds the %.3fm limit",
-      hpposllh->vertical_accuracy_m, min_vertical_stddev_m_);
-    return;
   }
 
   sensor_msgs::msg::NavSatFix msg;
@@ -716,49 +740,22 @@ void UbloxNode::tryPublishNavSat()
   msg.longitude = hpposllh->longitude_deg;
   msg.altitude = hpposllh->altitude_m;
 
-  if (fix_quality >= 2) {
+  if (!gps_fix_ok || status->gps_fix < 2U) {
+    msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_NO_FIX;
+  } else if (carrier_solution == 2U) {
     msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_GBAS_FIX;
   } else {
     msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_FIX;
   }
   msg.status.service = navSatServiceMask();
 
-  double cov_nn = std::pow(hpposllh->horizontal_accuracy_m, 2.0);
-  double cov_ee = cov_nn;
-  double cov_dd = std::pow(hpposllh->vertical_accuracy_m, 2.0);
-  double cov_ne = 0.0;
-  double cov_nd = 0.0;
-  double cov_ed = 0.0;
-
-  if (
-    cov.has_value() &&
-    cov->position_covariance_valid &&
-    cov->itow == hpposllh->itow)
-  {
-    cov_nn = cov->pos_cov_nn;
-    cov_ne = cov->pos_cov_ne;
-    cov_nd = cov->pos_cov_nd;
-    cov_ee = cov->pos_cov_ee;
-    cov_ed = cov->pos_cov_ed;
-    cov_dd = cov->pos_cov_dd;
-  }
-
-  if (use_hacc_vacc_covariance_floor_) {
-    cov_nn = std::max(cov_nn, std::pow(hpposllh->horizontal_accuracy_m, 2.0));
-    cov_ee = std::max(cov_ee, std::pow(hpposllh->horizontal_accuracy_m, 2.0));
-    cov_dd = std::max(cov_dd, std::pow(hpposllh->vertical_accuracy_m, 2.0));
-  }
-
-  msg.position_covariance[0] = cov_nn * horizontal_covariance_scale_;
-  msg.position_covariance[1] = cov_ne * horizontal_covariance_scale_;
-  msg.position_covariance[2] = cov_nd * vertical_covariance_scale_;
-  msg.position_covariance[3] = cov_ne * horizontal_covariance_scale_;
-  msg.position_covariance[4] = cov_ee * horizontal_covariance_scale_;
-  msg.position_covariance[5] = cov_ed * vertical_covariance_scale_;
-  msg.position_covariance[6] = cov_nd * vertical_covariance_scale_;
-  msg.position_covariance[7] = cov_ed * vertical_covariance_scale_;
-  msg.position_covariance[8] = cov_dd * vertical_covariance_scale_;
-  msg.position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_KNOWN;
+  const double var_h = std::pow(hpposllh->horizontal_accuracy_m, 2.0);
+  const double var_v = std::pow(hpposllh->vertical_accuracy_m, 2.0);
+  msg.position_covariance[0] = var_h;
+  msg.position_covariance[4] = var_h;
+  msg.position_covariance[8] = var_v;
+  msg.position_covariance_type =
+    sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
 
   navsat_publisher_->publish(msg);
   RCLCPP_INFO_THROTTLE(
