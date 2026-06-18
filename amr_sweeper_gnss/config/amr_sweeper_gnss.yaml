@@ -29,7 +29,6 @@
     require_initial_3d_fix:          true                 # Require a 3D solution during startup convergence.
     dynamic_model_name:              automotive           # Official-style string alias. Good default for an outdoor ground robot.
     dynamic_model:                   4                    # Legacy numeric alias. 4 = automotive / ground vehicle.
-    dgnss_mode:                      3                    # Expose the DGNSS/RTK operating mode so it can be tuned like the official driver examples.
     nav_hpposllh_rate:               1                    # High-precision LLH output every measurement cycle.
     nav_status_rate:                 5                    # Lower-rate status output is sufficient for fix quality checks.
     nav_cov_rate:                    1                    # Covariance output every measurement cycle.

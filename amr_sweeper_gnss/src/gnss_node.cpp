@@ -139,7 +139,6 @@ void UbloxNode::loadParameters()
   require_initial_3d_fix_ = declare_parameter("require_initial_3d_fix", true);
   dynamic_model_name_ = declare_parameter("dynamic_model_name", std::string{"automotive"});
   dynamic_model_ = declare_parameter("dynamic_model", 4);
-  dgnss_mode_ = declare_parameter("dgnss_mode", 3);
   nav_hpposllh_rate_ = declare_parameter("nav_hpposllh_rate", 1);
   nav_status_rate_ = declare_parameter("nav_status_rate", 5);
   nav_cov_rate_ = declare_parameter("nav_cov_rate", 1);
@@ -169,7 +168,6 @@ void UbloxNode::loadParameters()
 
   dynamic_model_ = dynamicModelIdFromName(dynamic_model_name_, dynamic_model_);
   fix_mode_ = fixModeIdFromName(fix_mode_name_, fix_mode_);
-  dgnss_mode_ = std::clamp(dgnss_mode_, 0, 3);
   nav_hpposllh_rate_ = clampMinInt(nav_hpposllh_rate_, 1, 0);
   nav_status_rate_ = clampMinInt(nav_status_rate_, 1, 0);
   nav_cov_rate_ = clampMinInt(nav_cov_rate_, 1, 0);
@@ -345,7 +343,6 @@ bool UbloxNode::configureReceiver()
     {"CFG_NAVSPG_FIXMODE", kCfgNavSpgFixMode, ConfigValueType::U1, static_cast<std::uint32_t>(fix_mode_)},
     {"CFG_NAVSPG_INIFIX3D", kCfgNavSpgIniFix3d, ConfigValueType::Bool, require_initial_3d_fix_ ? 1U : 0U},
     {"CFG_NAVSPG_DYNMODEL", kCfgNavSpgDynModel, ConfigValueType::U1, static_cast<std::uint32_t>(dynamic_model_)},
-    {"CFG_NAVSPG_DGNSSMODE", kCfgNavSpgDgnssMode, ConfigValueType::U1, static_cast<std::uint32_t>(dgnss_mode_)},
     {"CFG_SIGNAL_GPS_ENA", kCfgSignalGpsEna, ConfigValueType::Bool, constellations_.gps ? 1U : 0U},
     {"CFG_SIGNAL_SBAS_ENA", kCfgSignalSbasEna, ConfigValueType::Bool, constellations_.sbas ? 1U : 0U},
     {"CFG_SIGNAL_GAL_ENA", kCfgSignalGalEna, ConfigValueType::Bool, constellations_.galileo ? 1U : 0U},
@@ -723,16 +720,6 @@ void UbloxNode::tryPublishNavSat()
   const bool gps_fix_ok = (status->flags & 0x01U) != 0U;
   const std::uint8_t carrier_solution = static_cast<std::uint8_t>((status->flags2 >> 6U) & 0x03U);
 
-  int fix_quality = 0;
-  if (gps_fix_ok && status->gps_fix >= 2U) {
-    fix_quality = 1;
-    if (carrier_solution == 1U) {
-      fix_quality = 3;
-    } else if (carrier_solution == 2U) {
-      fix_quality = 4;
-    }
-  }
-
   sensor_msgs::msg::NavSatFix msg;
   msg.header.stamp = now();
   msg.header.frame_id = frame_id_;
@@ -758,10 +745,6 @@ void UbloxNode::tryPublishNavSat()
     sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
 
   navsat_publisher_->publish(msg);
-  RCLCPP_INFO_THROTTLE(
-    get_logger(), *get_clock(), 5000,
-    "Published navsat fix: lat=%.8f lon=%.8f alt=%.3f quality=%d",
-    msg.latitude, msg.longitude, msg.altitude, fix_quality);
 }
 
 std::uint16_t UbloxNode::computeChecksumA(
@@ -888,7 +871,7 @@ void UbloxNode::logReceiverConfigurationSummary() const
 {
   RCLCPP_INFO(
     get_logger(),
-    "GNSS receiver config: device=%s baud=%d rate=%.2fHz nav_rate=%d dyn_model=%d fix_mode=%d dgnss_mode=%d "
+    "GNSS receiver config: device=%s baud=%d rate=%.2fHz nav_rate=%d dyn_model=%d fix_mode=%d "
     "constellations[gps=%s sbas=%s galileo=%s beidou=%s qzss=%s glonass=%s]",
     device_path_.c_str(),
     baud_rate_,
@@ -896,7 +879,6 @@ void UbloxNode::logReceiverConfigurationSummary() const
     navigation_rate_cycles_,
     dynamic_model_,
     fix_mode_,
-    dgnss_mode_,
     constellations_.gps ? "on" : "off",
     constellations_.sbas ? "on" : "off",
     constellations_.galileo ? "on" : "off",

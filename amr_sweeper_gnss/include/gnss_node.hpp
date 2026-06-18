@@ -146,7 +146,6 @@ private:
   bool require_initial_3d_fix_{true};
   int dynamic_model_{4};
   std::string dynamic_model_name_;
-  int dgnss_mode_{3};
   int nav_hpposllh_rate_{1};
   int nav_status_rate_{5};
   int nav_cov_rate_{1};

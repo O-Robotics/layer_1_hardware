@@ -23,7 +23,7 @@ This package contains the AMR Sweeper GNSS stack: a local C++ u-blox receiver no
 - `use_ublox_nav_sat_fix_hp`: default `true` (deprecated compatibility argument; the local node publishes `navsat` directly)
 - `use_ntrip_client`: default `true`
 - `use_nmea_to_caster`: default `true`
-- `ublox_params_file`: default `config/amr_sweeper_gnss_ublox.yaml`
+- `ublox_params_file`: default `config/amr_sweeper_gnss.yaml`
 - `ntrip_params_file`: default `config/amr_sweeper_gnss_ntrip_client.yaml`
 - `fix_topic`: default `navsat`
 - `gnss_namespace`: default `amr_sweeper/gnss`
@@ -66,11 +66,11 @@ sudo apt install ros-jazzy-rtcm-msgs
 The GNSS stack uses one YAML file for the local u-blox node and one YAML file for the local NTRIP client.
 
 Installed default config:
-- `share/amr_sweeper_gnss/config/amr_sweeper_gnss_ublox.yaml`
+- `share/amr_sweeper_gnss/config/amr_sweeper_gnss.yaml`
 - `share/amr_sweeper_gnss/config/amr_sweeper_gnss_ntrip_client.yaml`
 
 Source config in the repo:
-- `config/amr_sweeper_gnss_ublox.yaml`
+- `config/amr_sweeper_gnss.yaml`
 - `config/amr_sweeper_gnss_ntrip_client.yaml`
 
 Example standalone launch:
@@ -80,11 +80,11 @@ ros2 launch amr_sweeper_gnss amr_sweeper_gnss.launch.py \
   gnss_namespace:=amr_sweeper/gnss \
   use_nmea_to_caster:=true \
   fix_topic:=navsat \
-  ublox_params_file:=$(realpath config/amr_sweeper_gnss_ublox.yaml) \
+  ublox_params_file:=$(realpath config/amr_sweeper_gnss.yaml) \
   ntrip_params_file:=$(realpath config/amr_sweeper_gnss_ntrip_client.yaml)
 ```
 
-Useful u-blox parameters in `config/amr_sweeper_gnss_ublox.yaml`:
+Useful u-blox parameters in `config/amr_sweeper_gnss.yaml`:
 - `device_path` and `baud_rate` for the local receiver connection
 - receiver protocol enablement for UBX and RTCM on the USB CDC link
 - measurement and navigation rates
