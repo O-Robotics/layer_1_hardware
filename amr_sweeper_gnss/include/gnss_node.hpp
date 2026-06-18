@@ -70,6 +70,16 @@ private:
     std::uint32_t value;
   };
 
+  struct ConstellationConfig
+  {
+    bool gps{true};
+    bool sbas{true};
+    bool galileo{true};
+    bool beidou{true};
+    bool qzss{false};
+    bool glonass{true};
+  };
+
   void loadParameters();
   void onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg);
   void enterFatalState(const std::string & message);
@@ -103,6 +113,10 @@ private:
   static std::int32_t readI32(const std::vector<std::uint8_t> & data, std::size_t offset);
   static float readF32(const std::vector<std::uint8_t> & data, std::size_t offset);
   static speed_t toTermiosBaud(int baud_rate);
+  static int dynamicModelIdFromName(const std::string & name, int fallback);
+  static int fixModeIdFromName(const std::string & name, int fallback);
+  std::uint16_t navSatServiceMask() const;
+  void logReceiverConfigurationSummary() const;
 
   std::string device_path_;
   int baud_rate_{115200};
@@ -124,11 +138,15 @@ private:
   int measurement_rate_ms_{200};
   int navigation_rate_cycles_{1};
   int fix_mode_{2};
+  std::string fix_mode_name_;
   bool require_initial_3d_fix_{true};
   int dynamic_model_{4};
+  std::string dynamic_model_name_;
+  int dgnss_mode_{3};
   int nav_hpposllh_rate_{1};
   int nav_status_rate_{5};
   int nav_cov_rate_{1};
+  ConstellationConfig constellations_{};
 
   int min_fix_type_{3};
   double min_horizontal_stddev_m_{1.5};

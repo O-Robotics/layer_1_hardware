@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <cmath>
@@ -41,8 +42,15 @@ constexpr std::uint32_t kCfgUsbOutProtRtcm3x = 0x10780004;
 constexpr std::uint32_t kCfgNavSpgFixMode = 0x20110011;
 constexpr std::uint32_t kCfgNavSpgIniFix3d = 0x10110013;
 constexpr std::uint32_t kCfgNavSpgDynModel = 0x20110021;
+constexpr std::uint32_t kCfgNavSpgDgnssMode = 0x20110061;
 constexpr std::uint32_t kCfgRateMeas = 0x30210001;
 constexpr std::uint32_t kCfgRateNav = 0x30210002;
+constexpr std::uint32_t kCfgSignalGpsEna = 0x1031001FU;
+constexpr std::uint32_t kCfgSignalSbasEna = 0x10310020U;
+constexpr std::uint32_t kCfgSignalGalEna = 0x10310021U;
+constexpr std::uint32_t kCfgSignalBdsEna = 0x10310022U;
+constexpr std::uint32_t kCfgSignalQzssEna = 0x10310024U;
+constexpr std::uint32_t kCfgSignalGloEna = 0x10310025U;
 constexpr std::uint32_t kCfgMsgoutNavHpPosLlhUsb = 0x20910036;
 constexpr std::uint32_t kCfgMsgoutNavStatusUsb = 0x2091001D;
 constexpr std::uint32_t kCfgMsgoutNavCovUsb = 0x20910086;
@@ -58,6 +66,14 @@ void appendLittleEndian(std::vector<std::uint8_t> & buffer, T value)
 double clampPositive(double value, double fallback)
 {
   return value > 0.0 ? value : fallback;
+}
+
+int clampMinInt(int value, int fallback, int minimum)
+{
+  if (value < minimum) {
+    return std::max(fallback, minimum);
+  }
+  return value;
 }
 
 }  // namespace
@@ -88,8 +104,10 @@ UbloxNode::~UbloxNode()
 
 void UbloxNode::loadParameters()
 {
-  device_path_ = declare_parameter("device_path", std::string{"/dev/gnss_usb"});
-  baud_rate_ = declare_parameter("baud_rate", 115200);
+  const std::string device = declare_parameter("device", std::string{"/dev/gnss_usb"});
+  device_path_ = declare_parameter("device_path", device);
+  const int official_uart_baudrate = declare_parameter("uart1.baudrate", 115200);
+  baud_rate_ = declare_parameter("baud_rate", official_uart_baudrate);
   frame_id_ = declare_parameter("frame_id", std::string{"gnss_link"});
   navsat_topic_ = declare_parameter("navsat_topic", std::string{"navsat"});
   rtcm_topic_ = declare_parameter("rtcm_topic", std::string{"ntrip_client/rtcm"});
@@ -105,14 +123,32 @@ void UbloxNode::loadParameters()
   usb_out_ubx_ = declare_parameter("usb_out_ubx", true);
   usb_out_nmea_ = declare_parameter("usb_out_nmea", false);
   usb_out_rtcm3x_ = declare_parameter("usb_out_rtcm3x", false);
-  measurement_rate_ms_ = declare_parameter("measurement_rate_ms", 200);
-  navigation_rate_cycles_ = declare_parameter("navigation_rate_cycles", 1);
+  const double rate_hz = clampPositive(declare_parameter("rate", 5.0), 5.0);
+  const int measurement_rate_ms_from_rate = std::max(50, static_cast<int>(std::lround(1000.0 / rate_hz)));
+  measurement_rate_ms_ = clampMinInt(
+    declare_parameter("measurement_rate_ms", measurement_rate_ms_from_rate),
+    measurement_rate_ms_from_rate,
+    50);
+  const int official_nav_rate = declare_parameter("nav_rate", 1);
+  navigation_rate_cycles_ = clampMinInt(
+    declare_parameter("navigation_rate_cycles", official_nav_rate),
+    official_nav_rate,
+    1);
+  fix_mode_name_ = declare_parameter("fix_mode_name", std::string{""});
   fix_mode_ = declare_parameter("fix_mode", 2);
   require_initial_3d_fix_ = declare_parameter("require_initial_3d_fix", true);
+  dynamic_model_name_ = declare_parameter("dynamic_model_name", std::string{"automotive"});
   dynamic_model_ = declare_parameter("dynamic_model", 4);
+  dgnss_mode_ = declare_parameter("dgnss_mode", 3);
   nav_hpposllh_rate_ = declare_parameter("nav_hpposllh_rate", 1);
   nav_status_rate_ = declare_parameter("nav_status_rate", 5);
   nav_cov_rate_ = declare_parameter("nav_cov_rate", 1);
+  constellations_.gps = declare_parameter("gnss.gps", true);
+  constellations_.sbas = declare_parameter("gnss.sbas", true);
+  constellations_.galileo = declare_parameter("gnss.galileo", true);
+  constellations_.beidou = declare_parameter("gnss.beidou", true);
+  constellations_.qzss = declare_parameter("gnss.qzss", false);
+  constellations_.glonass = declare_parameter("gnss.glonass", true);
 
   min_fix_type_ = declare_parameter("min_fix_type", 3);
   min_horizontal_stddev_m_ = declare_parameter("min_horizontal_stddev_m", 1.5);
@@ -130,6 +166,14 @@ void UbloxNode::loadParameters()
   if (max_reconnect_attempts_ < 0) {
     max_reconnect_attempts_ = 0;
   }
+
+  dynamic_model_ = dynamicModelIdFromName(dynamic_model_name_, dynamic_model_);
+  fix_mode_ = fixModeIdFromName(fix_mode_name_, fix_mode_);
+  dgnss_mode_ = std::clamp(dgnss_mode_, 0, 3);
+  nav_hpposllh_rate_ = clampMinInt(nav_hpposllh_rate_, 1, 0);
+  nav_status_rate_ = clampMinInt(nav_status_rate_, 1, 0);
+  nav_cov_rate_ = clampMinInt(nav_cov_rate_, 1, 0);
+  logReceiverConfigurationSummary();
 }
 
 void UbloxNode::onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg)
@@ -301,6 +345,13 @@ bool UbloxNode::configureReceiver()
     {kCfgNavSpgFixMode, ConfigValueType::U1, static_cast<std::uint32_t>(fix_mode_)},
     {kCfgNavSpgIniFix3d, ConfigValueType::Bool, require_initial_3d_fix_ ? 1U : 0U},
     {kCfgNavSpgDynModel, ConfigValueType::U1, static_cast<std::uint32_t>(dynamic_model_)},
+    {kCfgNavSpgDgnssMode, ConfigValueType::U1, static_cast<std::uint32_t>(dgnss_mode_)},
+    {kCfgSignalGpsEna, ConfigValueType::Bool, constellations_.gps ? 1U : 0U},
+    {kCfgSignalSbasEna, ConfigValueType::Bool, constellations_.sbas ? 1U : 0U},
+    {kCfgSignalGalEna, ConfigValueType::Bool, constellations_.galileo ? 1U : 0U},
+    {kCfgSignalBdsEna, ConfigValueType::Bool, constellations_.beidou ? 1U : 0U},
+    {kCfgSignalQzssEna, ConfigValueType::Bool, constellations_.qzss ? 1U : 0U},
+    {kCfgSignalGloEna, ConfigValueType::Bool, constellations_.glonass ? 1U : 0U},
     {kCfgMsgoutNavHpPosLlhUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_hpposllh_rate_)},
     {kCfgMsgoutNavStatusUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_status_rate_)},
     {kCfgMsgoutNavCovUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_cov_rate_)},
@@ -670,7 +721,7 @@ void UbloxNode::tryPublishNavSat()
   } else {
     msg.status.status = sensor_msgs::msg::NavSatStatus::STATUS_FIX;
   }
-  msg.status.service = sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
+  msg.status.service = navSatServiceMask();
 
   double cov_nn = std::pow(hpposllh->horizontal_accuracy_m, 2.0);
   double cov_ee = cov_nn;
@@ -775,6 +826,86 @@ speed_t UbloxNode::toTermiosBaud(int baud_rate)
     default:
       throw std::runtime_error("Unsupported baud rate");
   }
+}
+
+int UbloxNode::dynamicModelIdFromName(const std::string & name, int fallback)
+{
+  if (name.empty()) {
+    return fallback;
+  }
+
+  std::string lowered = name;
+  std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char value) {
+    return static_cast<char>(std::tolower(value));
+  });
+
+  if (lowered == "portable") return 0;
+  if (lowered == "stationary") return 2;
+  if (lowered == "pedestrian") return 3;
+  if (lowered == "automotive" || lowered == "ground_vehicle") return 4;
+  if (lowered == "sea") return 5;
+  if (lowered == "airborne1" || lowered == "airborne_1g") return 6;
+  if (lowered == "airborne2" || lowered == "airborne_2g") return 7;
+  if (lowered == "airborne4" || lowered == "airborne_4g") return 8;
+  if (lowered == "wristwatch") return 9;
+  if (lowered == "bike" || lowered == "bicycle") return 10;
+  return fallback;
+}
+
+int UbloxNode::fixModeIdFromName(const std::string & name, int fallback)
+{
+  if (name.empty()) {
+    return fallback;
+  }
+
+  std::string lowered = name;
+  std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char value) {
+    return static_cast<char>(std::tolower(value));
+  });
+
+  if (lowered == "2d" || lowered == "2d_only") return 1;
+  if (lowered == "3d" || lowered == "3d_only") return 2;
+  if (lowered == "auto" || lowered == "both") return 3;
+  return fallback;
+}
+
+std::uint16_t UbloxNode::navSatServiceMask() const
+{
+  std::uint16_t mask = 0U;
+  if (constellations_.gps) {
+    mask |= sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
+  }
+  if (constellations_.glonass) {
+    mask |= sensor_msgs::msg::NavSatStatus::SERVICE_GLONASS;
+  }
+  if (constellations_.galileo) {
+    mask |= sensor_msgs::msg::NavSatStatus::SERVICE_GALILEO;
+  }
+  if (constellations_.beidou) {
+    mask |= sensor_msgs::msg::NavSatStatus::SERVICE_COMPASS;
+  }
+  return mask != 0U ? mask : sensor_msgs::msg::NavSatStatus::SERVICE_GPS;
+}
+
+void UbloxNode::logReceiverConfigurationSummary() const
+{
+  RCLCPP_INFO(
+    get_logger(),
+    "GNSS receiver config: device=%s baud=%d rate=%.2fHz nav_rate=%d dyn_model=%d fix_mode=%d dgnss_mode=%d "
+    "constellations[gps=%s sbas=%s galileo=%s beidou=%s qzss=%s glonass=%s]",
+    device_path_.c_str(),
+    baud_rate_,
+    1000.0 / static_cast<double>(measurement_rate_ms_),
+    navigation_rate_cycles_,
+    dynamic_model_,
+    fix_mode_,
+    dgnss_mode_,
+    constellations_.gps ? "on" : "off",
+    constellations_.sbas ? "on" : "off",
+    constellations_.galileo ? "on" : "off",
+    constellations_.beidou ? "on" : "off",
+    constellations_.qzss ? "on" : "off",
+    constellations_.glonass ? "on" : "off");
 }
 
 }  // namespace amr_sweeper_gnss
