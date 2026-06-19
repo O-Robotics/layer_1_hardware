@@ -1,7 +1,7 @@
 """Launch the layer-1 hardware stack from package launch files."""
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
@@ -42,6 +42,9 @@ def _launch_setup(context, *args, **kwargs):
     log_level = LaunchConfiguration("log_level").perform(context)
     realsense_log_level = LaunchConfiguration("realsense_log_level").perform(context)
     ublox_log_level = LaunchConfiguration("ublox_log_level").perform(context)
+    ros2_control_startup_delay_sec = float(
+        LaunchConfiguration("ros2_control_startup_delay_sec").perform(context)
+    )
 
     use_amr_sweeper_description = _as_bool(
         LaunchConfiguration("use_amr_sweeper_description").perform(context))
@@ -79,7 +82,7 @@ def _launch_setup(context, *args, **kwargs):
         ))
 
     if use_amr_sweeper_ros2_control:
-        actions.append(_scoped_include(
+        ros2_control_include = _scoped_include(
             "amr_sweeper_ros2_control",
             "amr_sweeper_ros2_control.launch.py",
             {
@@ -87,7 +90,16 @@ def _launch_setup(context, *args, **kwargs):
                 "use_sim_time": use_sim_time,
                 "use_ros2_control": "true",
             },
-        ))
+        )
+        if ros2_control_startup_delay_sec > 0.0:
+            actions.append(
+                TimerAction(
+                    period=ros2_control_startup_delay_sec,
+                    actions=[ros2_control_include],
+                )
+            )
+        else:
+            actions.append(ros2_control_include)
 
     if use_amr_sweeper_system_info:
         actions.append(_scoped_include(
@@ -203,6 +215,7 @@ def generate_launch_description():
         DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"),
         DeclareLaunchArgument("use_ntrip_client", default_value="true"),
+        DeclareLaunchArgument("ros2_control_startup_delay_sec", default_value="2.0"),
         DeclareLaunchArgument("battery_can_interface", default_value="can0"),
         DeclareLaunchArgument("battery_params_file", default_value=PathJoinSubstitution([
             FindPackageShare("amr_sweeper_battery"),
