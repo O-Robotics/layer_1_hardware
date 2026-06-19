@@ -697,10 +697,12 @@ void UbloxNode::tryPublishNavSat()
 {
   std::optional<NavHpPosLlh> hpposllh;
   std::optional<NavStatus> status;
+  std::optional<NavCov> cov;
   {
     std::lock_guard<std::mutex> lock(nav_mutex_);
     hpposllh = last_hpposllh_;
     status = last_status_;
+    cov = last_cov_;
   }
 
   if (!hpposllh.has_value() || !status.has_value()) {
@@ -736,13 +738,47 @@ void UbloxNode::tryPublishNavSat()
   }
   msg.status.service = navSatServiceMask();
 
-  const double var_h = std::pow(hpposllh->horizontal_accuracy_m, 2.0);
-  const double var_v = std::pow(hpposllh->vertical_accuracy_m, 2.0);
-  msg.position_covariance[0] = var_h;
-  msg.position_covariance[4] = var_h;
-  msg.position_covariance[8] = var_v;
-  msg.position_covariance_type =
-    sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
+  const double min_horizontal_stddev =
+    std::max(0.0, min_horizontal_stddev_m_);
+  const double min_vertical_stddev =
+    std::max(0.0, min_vertical_stddev_m_);
+  const double hacc_floor_stddev =
+    use_hacc_vacc_covariance_floor_ ? std::max(0.0, hpposllh->horizontal_accuracy_m) : 0.0;
+  const double vacc_floor_stddev =
+    use_hacc_vacc_covariance_floor_ ? std::max(0.0, hpposllh->vertical_accuracy_m) : 0.0;
+  const double horizontal_variance_floor =
+    std::pow(std::max(min_horizontal_stddev, hacc_floor_stddev), 2.0);
+  const double vertical_variance_floor =
+    std::pow(std::max(min_vertical_stddev, vacc_floor_stddev), 2.0);
+  const double horizontal_scale = std::max(1.0, horizontal_covariance_scale_);
+  const double vertical_scale = std::max(1.0, vertical_covariance_scale_);
+
+  if (cov.has_value() && cov->position_covariance_valid && cov->itow == hpposllh->itow) {
+    // UBX NAV-COV is reported in NED. NavSatFix expects ENU covariance.
+    const double scaled_cov_ne = cov->pos_cov_ne * horizontal_scale;
+    const double scaled_cov_nd = cov->pos_cov_nd * std::sqrt(horizontal_scale * vertical_scale);
+    const double scaled_cov_ed = cov->pos_cov_ed * std::sqrt(horizontal_scale * vertical_scale);
+
+    msg.position_covariance[0] = std::max(cov->pos_cov_ee * horizontal_scale, horizontal_variance_floor);
+    msg.position_covariance[1] = scaled_cov_ne;
+    msg.position_covariance[2] = -scaled_cov_ed;
+    msg.position_covariance[3] = scaled_cov_ne;
+    msg.position_covariance[4] = std::max(cov->pos_cov_nn * horizontal_scale, horizontal_variance_floor);
+    msg.position_covariance[5] = -scaled_cov_nd;
+    msg.position_covariance[6] = -scaled_cov_ed;
+    msg.position_covariance[7] = -scaled_cov_nd;
+    msg.position_covariance[8] = std::max(cov->pos_cov_dd * vertical_scale, vertical_variance_floor);
+    msg.position_covariance_type =
+      sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_KNOWN;
+  } else {
+    const double base_horizontal_variance = std::pow(std::max(0.0, hpposllh->horizontal_accuracy_m), 2.0);
+    const double base_vertical_variance = std::pow(std::max(0.0, hpposllh->vertical_accuracy_m), 2.0);
+    msg.position_covariance[0] = std::max(base_horizontal_variance * horizontal_scale, horizontal_variance_floor);
+    msg.position_covariance[4] = std::max(base_horizontal_variance * horizontal_scale, horizontal_variance_floor);
+    msg.position_covariance[8] = std::max(base_vertical_variance * vertical_scale, vertical_variance_floor);
+    msg.position_covariance_type =
+      sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
+  }
 
   navsat_publisher_->publish(msg);
 }
