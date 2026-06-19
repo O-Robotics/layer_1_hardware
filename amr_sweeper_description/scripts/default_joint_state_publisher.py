@@ -74,8 +74,8 @@ class DefaultJointStatePublisher(Node):
         if not self._external_override_seen:
             self._external_override_seen = True
             self.get_logger().info(
-                "Received external joint-state update on %s; stopping default joint-state seeding.",
-                self._topic_name,
+                f"Received external joint-state update on {self._topic_name}; "
+                "stopping default joint-state seeding."
             )
             self._timer.cancel()
 
