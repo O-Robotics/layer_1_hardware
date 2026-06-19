@@ -37,9 +37,9 @@
     yaw_offset_deg:                 180.0         # Mounting correction applied as a rotation about +Z to orientation, gyro, and accel outputs. Use 180 when the physical IMU is mounted with X backward and Y right relative to imu_link/base_link.
 
     # -- Output covariances ----------------------------------------------------
-    orientation_covariance:         [0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.01]    # Row-major 3x3 covariance for the driver-provided orientation.
-    angular_velocity_covariance:    [0.02, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0, 0.01]  # Row-major 3x3 covariance for gyro output in rad^2/s^2.
-    linear_acceleration_covariance: [0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5]     # Row-major 3x3 covariance for accelerometer output in (m/s^2)^2.
+    orientation_covariance:         [0.0016, 0.0, 0.0, 0.0, 0.0016, 0.0, 0.0, 0.0, 0.0036]  # About 2.3 deg sigma roll/pitch and 3.4 deg sigma yaw: conservative for a stable 9-axis AHRS, but far tighter than the old placeholder values.
+    angular_velocity_covariance:    [2.5e-05, 0.0, 0.0, 0.0, 2.5e-05, 0.0, 0.0, 0.0, 2.5e-05]  # Match the localization gyro-noise assumption of roughly 0.005 rad/s sigma on each axis.
+    linear_acceleration_covariance: [0.0625, 0.0, 0.0, 0.0, 0.0625, 0.0, 0.0, 0.0, 0.0625]     # Match the localization accelerometer-noise assumption of roughly 0.25 m/s^2 sigma.
 
 # -- Device fallback configuration --------------------------------------------------
     fallback_baud:                  9600          # Baud used as the fallback serial connection when the preferred baud does not respond.
