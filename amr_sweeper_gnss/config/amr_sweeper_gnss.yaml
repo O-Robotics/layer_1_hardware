@@ -43,8 +43,8 @@
 
     # -- NavSat filtering -----------------------------------------------------
     min_fix_type:                    1                    # Allow a plain GPS fix so NTRIP can bootstrap before RTK converges.
-    min_horizontal_stddev_m:         25.0                 # Keep startup permissive; downstream localization can reject poorer fixes if needed.
-    min_vertical_stddev_m:           50.0                 # Avoid blocking navsat publication during early convergence.
+    min_horizontal_stddev_m:         0.5                  # Shared GNSS covariance floor: realistic enough for replay/multipath while still letting RTK meaningfully influence the initial pose.
+    min_vertical_stddev_m:           1.0                  # Shared vertical floor: keep Z uncertainty conservative without making GNSS effectively useless downstream.
     horizontal_covariance_scale:     4.0                  # Inflate horizontal covariance before handing it downstream.
     vertical_covariance_scale:       4.0                  # Inflate vertical covariance before handing it downstream.
     use_hacc_vacc_covariance_floor:  true                 # Never report covariance below the receiver accuracy estimate.
