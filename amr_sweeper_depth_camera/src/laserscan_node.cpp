@@ -15,9 +15,10 @@ namespace amr_sweeper_depth_camera
 LaserScanNode::LaserScanNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("laserscan", options)
 {
-  // Keep best-effort semantics for camera-style data, but use a deeper queue so
-  // downstream subscribers have more headroom during short callback stalls.
+  // Subscribe to the camera with sensor-data semantics, then publish the derived
+  // scan reliably so downstream localization always receives the newest scan.
   const auto qos = rclcpp::SensorDataQoS().keep_last(50);
+  const auto scan_qos = rclcpp::QoS(rclcpp::KeepLast(50)).reliable();
 
   cam_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
     "depth_camera_info",
@@ -27,7 +28,7 @@ LaserScanNode::LaserScanNode(const rclcpp::NodeOptions & options)
     "depth",
     qos,
     std::bind(&LaserScanNode::depthCb, this, std::placeholders::_1));
-  scan_pub_ = create_publisher<sensor_msgs::msg::LaserScan>("scan", qos);
+  scan_pub_ = create_publisher<sensor_msgs::msg::LaserScan>("scan", scan_qos);
 
   scan_time_ = declare_parameter("scan_time", 0.033);
   range_min_ = declare_parameter("range_min", 0.45);
