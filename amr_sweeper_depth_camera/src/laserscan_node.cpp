@@ -15,8 +15,8 @@ namespace amr_sweeper_depth_camera
 LaserScanNode::LaserScanNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("laserscan", options)
 {
-  // Keep the laserscan path on sensor-data QoS so late frames are dropped
-  // instead of being replayed as stale scan bursts downstream.
+  // Keep the laserscan path on sensor-data QoS so the live scan stream stays
+  // best-effort end-to-end across publishers and consumers.
   const auto qos = rclcpp::SensorDataQoS().keep_last(50);
   const auto scan_qos = rclcpp::SensorDataQoS().keep_last(5);
 
