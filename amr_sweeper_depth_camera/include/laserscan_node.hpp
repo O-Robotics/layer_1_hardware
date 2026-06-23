@@ -76,7 +76,7 @@ private:
       for (uint32_t u = 0; u < depth_msg->width; ++u) {
         const T depth = depth_row[u];
 
-        double range = depth;
+        double range = std::numeric_limits<double>::infinity();
         const double angle = -std::atan2(
           static_cast<double>(u - center_x) * constant_x,
           unit_scaling);

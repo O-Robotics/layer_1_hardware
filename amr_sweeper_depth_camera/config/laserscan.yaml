@@ -2,7 +2,7 @@
   ros__parameters:
     # -- Laser scan extraction -------------------------------------------------
     scan_time:                       0.050                      # Expected scan period in seconds stamped into the published LaserScan.
-    range_min:                       0.0                        # Minimum accepted return distance in meters.
+    range_min:                       0.45                       # Ignore invalid and too-near depth returns; D4xx depth at 0 m is not a real obstacle measurement.
     range_max:                       5.0                        # Maximum accepted return distance in meters.
     scan_height:                     5                          # Number of image rows merged into each scan; the closest valid return across this 5-row band wins.
     scan_tilt_angle_deg:             4.5                        # Positive tilt pitches laserscan_link downward in TF and, for the upside-down camera image, moves the sampled depth rows downward.
