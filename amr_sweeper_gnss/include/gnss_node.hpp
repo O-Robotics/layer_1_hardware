@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "gps_msgs/msg/gps_fix.hpp"
 #include "rtcm_msgs/msg/message.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 
@@ -56,6 +57,19 @@ private:
     double pos_cov_ee{0.0};
     double pos_cov_ed{0.0};
     double pos_cov_dd{0.0};
+  };
+
+  struct NavPvt
+  {
+    std::uint32_t itow{0};
+    std::uint8_t fix_type{0};
+    std::uint8_t flags{0};
+    std::uint8_t flags2{0};
+    std::uint8_t num_sv{0};
+    double ground_speed_mps{0.0};
+    double vertical_speed_mps{0.0};
+    double heading_deg{0.0};
+    double pdop{0.0};
   };
 
   enum class ConfigValueType
@@ -110,6 +124,7 @@ private:
   void handleNavHpPosLlh(const std::vector<std::uint8_t> & payload);
   void handleNavStatus(const std::vector<std::uint8_t> & payload);
   void handleNavCov(const std::vector<std::uint8_t> & payload);
+  void handleNavPvt(const std::vector<std::uint8_t> & payload);
   void tryPublishNavSat();
 
   static std::uint16_t computeChecksumA(std::uint8_t msg_class, std::uint8_t msg_id, const std::vector<std::uint8_t> & payload);
@@ -126,6 +141,7 @@ private:
   int baud_rate_{115200};
   std::string frame_id_{"gnss_link"};
   std::string navsat_topic_{"navsat"};
+  std::string gpsfix_topic_{"fix"};
   std::string rtcm_topic_{"ntrip_client/rtcm"};
   double reconnect_delay_seconds_{2.0};
   double publish_timeout_seconds_{1.0};
@@ -149,6 +165,7 @@ private:
   int nav_hpposllh_rate_{1};
   int nav_status_rate_{5};
   int nav_cov_rate_{1};
+  int nav_pvt_rate_{1};
   ConstellationConfig constellations_{};
 
   int min_fix_type_{3};
@@ -168,10 +185,12 @@ private:
   std::optional<NavHpPosLlh> last_hpposllh_;
   std::optional<NavStatus> last_status_;
   std::optional<NavCov> last_cov_;
+  std::optional<NavPvt> last_pvt_;
   rclcpp::Time last_fix_publish_time_{0, 0, RCL_ROS_TIME};
   std::chrono::steady_clock::time_point last_poll_request_time_{};
 
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr navsat_publisher_;
+  rclcpp::Publisher<gps_msgs::msg::GPSFix>::SharedPtr gpsfix_publisher_;
   rclcpp::Subscription<rtcm_msgs::msg::Message>::SharedPtr rtcm_subscription_;
 
   std::atomic<bool> stop_requested_{false};

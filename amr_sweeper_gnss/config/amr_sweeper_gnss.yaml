@@ -7,6 +7,7 @@
     baud_rate:                       115200               # Serial line speed for the USB CDC device.
     frame_id:                        gnss_link            # Frame stamped on published NavSatFix messages.
     navsat_topic:                    navsat               # NavSatFix output topic inside the GNSS namespace.
+    gpsfix_topic:                    fix                  # GPSFix output topic inside the GNSS namespace for consumers that need satellites_used / RTK float status.
     rtcm_topic:                      ntrip_client/rtcm    # RTCM correction input topic inside the GNSS namespace.
     reconnect_delay_seconds:         2.0                  # Delay before retrying after a disconnect or open failure.
     retry_attempts_before_error:     3                    # Match the IMU pattern: warn first, then escalate to error after repeated failures.
@@ -30,6 +31,7 @@
     dynamic_model_name:              automotive           # Official-style string alias. Good default for an outdoor ground robot.
     dynamic_model:                   4                    # Legacy numeric alias. 4 = automotive / ground vehicle.
     nav_hpposllh_rate:               1                    # High-precision LLH output every measurement cycle.
+    nav_pvt_rate:                    1                    # NAV-PVT output every measurement cycle so the local node can publish gps_msgs/GPSFix with satellites_used and motion metadata.
     nav_status_rate:                 5                    # Lower-rate status output is sufficient for fix quality checks.
     nav_cov_rate:                    1                    # Covariance output every measurement cycle.
 

@@ -7,6 +7,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(gps_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rtcm_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -22,6 +23,7 @@ target_include_directories(gnss_node PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 ament_target_dependencies(gnss_node
+  gps_msgs
   rclcpp
   rtcm_msgs
   sensor_msgs

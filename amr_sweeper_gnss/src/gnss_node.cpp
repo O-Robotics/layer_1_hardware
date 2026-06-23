@@ -14,6 +14,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <system_error>
 
@@ -32,6 +33,7 @@ constexpr std::uint8_t kMsgAckAck = 0x01;
 constexpr std::uint8_t kMsgAckNak = 0x00;
 constexpr std::uint8_t kMsgCfgValset = 0x8A;
 constexpr std::uint8_t kMsgNavStatus = 0x03;
+constexpr std::uint8_t kMsgNavPvt = 0x07;
 constexpr std::uint8_t kMsgNavHpPosLlh = 0x14;
 constexpr std::uint8_t kMsgNavCov = 0x36;
 
@@ -52,6 +54,7 @@ constexpr std::uint32_t kCfgSignalBdsEna = 0x10310022U;
 constexpr std::uint32_t kCfgSignalQzssEna = 0x10310024U;
 constexpr std::uint32_t kCfgSignalGloEna = 0x10310025U;
 constexpr std::uint32_t kCfgMsgoutNavHpPosLlhUsb = 0x20910036;
+constexpr std::uint32_t kCfgMsgoutNavPvtUsb = 0x20910009;
 constexpr std::uint32_t kCfgMsgoutNavStatusUsb = 0x2091001D;
 constexpr std::uint32_t kCfgMsgoutNavCovUsb = 0x20910086;
 
@@ -85,6 +88,8 @@ UbloxNode::UbloxNode(const rclcpp::NodeOptions & options)
 
   navsat_publisher_ = create_publisher<sensor_msgs::msg::NavSatFix>(
     navsat_topic_, rclcpp::SystemDefaultsQoS());
+  gpsfix_publisher_ = create_publisher<gps_msgs::msg::GPSFix>(
+    gpsfix_topic_, rclcpp::SystemDefaultsQoS());
   rtcm_subscription_ = create_subscription<rtcm_msgs::msg::Message>(
     rtcm_topic_,
     rclcpp::SystemDefaultsQoS(),
@@ -110,6 +115,7 @@ void UbloxNode::loadParameters()
   baud_rate_ = declare_parameter("baud_rate", official_uart_baudrate);
   frame_id_ = declare_parameter("frame_id", std::string{"gnss_link"});
   navsat_topic_ = declare_parameter("navsat_topic", std::string{"navsat"});
+  gpsfix_topic_ = declare_parameter("gpsfix_topic", std::string{"fix"});
   rtcm_topic_ = declare_parameter("rtcm_topic", std::string{"ntrip_client/rtcm"});
   reconnect_delay_seconds_ = clampPositive(declare_parameter("reconnect_delay_seconds", 2.0), 2.0);
   publish_timeout_seconds_ = clampPositive(declare_parameter("publish_timeout_seconds", 1.0), 1.0);
@@ -140,6 +146,7 @@ void UbloxNode::loadParameters()
   dynamic_model_name_ = declare_parameter("dynamic_model_name", std::string{"automotive"});
   dynamic_model_ = declare_parameter("dynamic_model", 4);
   nav_hpposllh_rate_ = declare_parameter("nav_hpposllh_rate", 1);
+  nav_pvt_rate_ = declare_parameter("nav_pvt_rate", 1);
   nav_status_rate_ = declare_parameter("nav_status_rate", 5);
   nav_cov_rate_ = declare_parameter("nav_cov_rate", 1);
   constellations_.gps = declare_parameter("gnss.gps", true);
@@ -169,6 +176,7 @@ void UbloxNode::loadParameters()
   dynamic_model_ = dynamicModelIdFromName(dynamic_model_name_, dynamic_model_);
   fix_mode_ = fixModeIdFromName(fix_mode_name_, fix_mode_);
   nav_hpposllh_rate_ = clampMinInt(nav_hpposllh_rate_, 1, 0);
+  nav_pvt_rate_ = clampMinInt(nav_pvt_rate_, 1, 0);
   nav_status_rate_ = clampMinInt(nav_status_rate_, 1, 0);
   nav_cov_rate_ = clampMinInt(nav_cov_rate_, 1, 0);
   logReceiverConfigurationSummary();
@@ -350,6 +358,7 @@ bool UbloxNode::configureReceiver()
     {"CFG_SIGNAL_QZSS_ENA", kCfgSignalQzssEna, ConfigValueType::Bool, constellations_.qzss ? 1U : 0U},
     {"CFG_SIGNAL_GLO_ENA", kCfgSignalGloEna, ConfigValueType::Bool, constellations_.glonass ? 1U : 0U},
     {"CFG_MSGOUT_NAV_HPPOSLLH_USB", kCfgMsgoutNavHpPosLlhUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_hpposllh_rate_)},
+    {"CFG_MSGOUT_NAV_PVT_USB", kCfgMsgoutNavPvtUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_pvt_rate_)},
     {"CFG_MSGOUT_NAV_STATUS_USB", kCfgMsgoutNavStatusUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_status_rate_)},
     {"CFG_MSGOUT_NAV_COV_USB", kCfgMsgoutNavCovUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_cov_rate_)},
   };
@@ -567,6 +576,10 @@ void UbloxNode::processFrame(
     handleNavStatus(payload);
     return;
   }
+  if (msg_class == kClassNav && msg_id == kMsgNavPvt) {
+    handleNavPvt(payload);
+    return;
+  }
   if (msg_class == kClassNav && msg_id == kMsgNavCov) {
     handleNavCov(payload);
   }
@@ -693,16 +706,39 @@ void UbloxNode::handleNavCov(const std::vector<std::uint8_t> & payload)
   last_cov_ = cov;
 }
 
+void UbloxNode::handleNavPvt(const std::vector<std::uint8_t> & payload)
+{
+  if (payload.size() < 92U) {
+    return;
+  }
+
+  NavPvt pvt;
+  pvt.itow = readU32(payload, 0);
+  pvt.fix_type = payload[20];
+  pvt.flags = payload[21];
+  pvt.flags2 = payload[22];
+  pvt.num_sv = payload[23];
+  pvt.ground_speed_mps = static_cast<double>(readI32(payload, 60)) * 1e-3;
+  pvt.vertical_speed_mps = -static_cast<double>(readI32(payload, 56)) * 1e-3;
+  pvt.heading_deg = static_cast<double>(readI32(payload, 64)) * 1e-5;
+  pvt.pdop = static_cast<double>(readU32(payload, 76) & 0xFFFFU) * 0.01;
+
+  std::lock_guard<std::mutex> lock(nav_mutex_);
+  last_pvt_ = pvt;
+}
+
 void UbloxNode::tryPublishNavSat()
 {
   std::optional<NavHpPosLlh> hpposllh;
   std::optional<NavStatus> status;
   std::optional<NavCov> cov;
+  std::optional<NavPvt> pvt;
   {
     std::lock_guard<std::mutex> lock(nav_mutex_);
     hpposllh = last_hpposllh_;
     status = last_status_;
     cov = last_cov_;
+    pvt = last_pvt_;
   }
 
   if (!hpposllh.has_value() || !status.has_value()) {
@@ -781,6 +817,45 @@ void UbloxNode::tryPublishNavSat()
   }
 
   navsat_publisher_->publish(msg);
+
+  if (pvt.has_value() && pvt->itow == hpposllh->itow) {
+    gps_msgs::msg::GPSFix gps_msg;
+    gps_msg.header = msg.header;
+    gps_msg.latitude = msg.latitude;
+    gps_msg.longitude = msg.longitude;
+    gps_msg.altitude = msg.altitude;
+    gps_msg.position_covariance = msg.position_covariance;
+    gps_msg.position_covariance_type = msg.position_covariance_type;
+    gps_msg.speed = pvt->ground_speed_mps;
+    gps_msg.climb = pvt->vertical_speed_mps;
+    gps_msg.track = pvt->heading_deg;
+    gps_msg.pdop = pvt->pdop;
+    gps_msg.hdop = -1.0;
+    gps_msg.vdop = -1.0;
+    gps_msg.err_horz = hpposllh->horizontal_accuracy_m;
+    gps_msg.err_vert = hpposllh->vertical_accuracy_m;
+
+    gps_msg.status.header = gps_msg.header;
+    gps_msg.status.satellites_used = pvt->num_sv;
+    gps_msg.status.position_source = gps_msgs::msg::GPSStatus::SOURCE_GPS;
+    gps_msg.status.motion_source = gps_msgs::msg::GPSStatus::SOURCE_DOPPLER;
+    gps_msg.status.orientation_source = gps_msgs::msg::GPSStatus::SOURCE_POINTS;
+
+    const bool differential_solution = (status->flags & 0x02U) != 0U;
+    if (!gps_fix_ok || status->gps_fix < 2U) {
+      gps_msg.status.status = gps_msgs::msg::GPSStatus::STATUS_NO_FIX;
+    } else if (carrier_solution == 2U) {
+      gps_msg.status.status = gps_msgs::msg::GPSStatus::STATUS_RTK_FIX;
+    } else if (carrier_solution == 1U) {
+      gps_msg.status.status = gps_msgs::msg::GPSStatus::STATUS_RTK_FLOAT;
+    } else if (differential_solution) {
+      gps_msg.status.status = gps_msgs::msg::GPSStatus::STATUS_DGPS_FIX;
+    } else {
+      gps_msg.status.status = gps_msgs::msg::GPSStatus::STATUS_FIX;
+    }
+
+    gpsfix_publisher_->publish(gps_msg);
+  }
 }
 
 std::uint16_t UbloxNode::computeChecksumA(
