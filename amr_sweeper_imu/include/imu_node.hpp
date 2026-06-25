@@ -2,6 +2,7 @@
 #define AMR_SWEEPER_IMU__IMU_NODE_HPP_
 
 #include <rclcpp/rclcpp.hpp>
+#include <compass_msgs/msg/azimuth.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
 #include <atomic>
@@ -85,6 +86,7 @@ private:
   sensor_msgs::msg::Imu build_raw_imu_message(const rclcpp::Time & stamp) const;
   sensor_msgs::msg::Imu build_accel_gyro_message(const sensor_msgs::msg::Imu & raw_msg) const;
   sensor_msgs::msg::Imu build_heading_message(const sensor_msgs::msg::Imu & raw_msg) const;
+  compass_msgs::msg::Azimuth build_azimuth_message(const sensor_msgs::msg::Imu & raw_msg) const;
 
   std::string device_path_;
   int baud_{9600};
@@ -139,6 +141,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_acc_gyro_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_heading_pub_;
+  rclcpp::Publisher<compass_msgs::msg::Azimuth>::SharedPtr imu_azimuth_pub_;
   rclcpp::TimerBase::SharedPtr read_timer_;
   rclcpp::Time last_pub_time_{0, 0, RCL_ROS_TIME};
 

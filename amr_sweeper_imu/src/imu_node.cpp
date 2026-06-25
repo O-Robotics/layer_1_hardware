@@ -1269,6 +1269,7 @@ void JY901ImuNode::maybe_publish(const rclcpp::Time & stamp)
   imu_pub_->publish(raw_msg);
   imu_acc_gyro_pub_->publish(build_accel_gyro_message(raw_msg));
   imu_heading_pub_->publish(build_heading_message(raw_msg));
+  imu_azimuth_pub_->publish(build_azimuth_message(raw_msg));
 }
 
 void JY901ImuNode::ensure_publishers_created()
@@ -1281,6 +1282,9 @@ void JY901ImuNode::ensure_publishers_created()
   }
   if (!imu_heading_pub_) {
     imu_heading_pub_ = create_publisher<sensor_msgs::msg::Imu>("data_heading", rclcpp::SensorDataQoS());
+  }
+  if (!imu_azimuth_pub_) {
+    imu_azimuth_pub_ = create_publisher<compass_msgs::msg::Azimuth>("azimuth", rclcpp::SensorDataQoS());
   }
 }
 
@@ -1426,6 +1430,39 @@ sensor_msgs::msg::Imu JY901ImuNode::build_heading_message(
   const double yaw_variance = raw_msg.orientation_covariance[8] > 0.0 ?
     raw_msg.orientation_covariance[8] : 0.01;
   msg.orientation_covariance = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, yaw_variance};
+  return msg;
+}
+
+compass_msgs::msg::Azimuth JY901ImuNode::build_azimuth_message(
+  const sensor_msgs::msg::Imu & raw_msg) const
+{
+  compass_msgs::msg::Azimuth msg;
+  msg.header = raw_msg.header;
+  msg.unit = compass_msgs::msg::Azimuth::UNIT_RAD;
+  msg.orientation = compass_msgs::msg::Azimuth::ORIENTATION_ENU;
+  msg.reference = compass_msgs::msg::Azimuth::REFERENCE_GEOGRAPHIC;
+
+  if (raw_msg.orientation_covariance[0] < 0.0) {
+    msg.azimuth = 0.0;
+    msg.variance = -1.0;
+    return msg;
+  }
+
+  double roll = 0.0;
+  double pitch = 0.0;
+  double yaw = 0.0;
+  quaternion_to_rpy(
+    raw_msg.orientation.w,
+    raw_msg.orientation.x,
+    raw_msg.orientation.y,
+    raw_msg.orientation.z,
+    roll,
+    pitch,
+    yaw);
+
+  msg.azimuth = yaw;
+  msg.variance = raw_msg.orientation_covariance[8] > 0.0 ?
+    raw_msg.orientation_covariance[8] : 0.01;
   return msg;
 }
 

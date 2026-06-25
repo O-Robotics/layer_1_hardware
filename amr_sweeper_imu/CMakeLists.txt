@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(compass_msgs REQUIRED)
 
 add_executable(imu_node src/imu_node.cpp)
 
@@ -22,6 +23,7 @@ target_include_directories(imu_node PUBLIC
 ament_target_dependencies(imu_node
   rclcpp
   sensor_msgs
+  compass_msgs
 )
 
 install(TARGETS imu_node
