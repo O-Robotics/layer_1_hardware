@@ -13,6 +13,11 @@ For newer register-read and SDK-oriented protocol behavior, the official WitMoti
 - WitStandardProtocol_JY901 GitHub repository
   - https://github.com/WITMOTION/WitStandardProtocol_JY901
 
+Related upstream ROS driver reference used during package review:
+
+- ElettraSciComp/witmotion_IMU_ros
+  - https://github.com/ElettraSciComp/witmotion_IMU_ros
+
 Key protocol details confirmed from the newer official documentation:
 
 - All settings should unlock first with:

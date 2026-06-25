@@ -1226,7 +1226,7 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       euler_deg_[1] = static_cast<double>(d1) / 32768.0 * 180.0;
       euler_deg_[2] = static_cast<double>(d2) / 32768.0 * 180.0;
       if (!output_quaternion_ || !has_quaternion_) {
-        maybe_publish();
+        maybe_publish(now);
       }
       break;
     case 0x59:
@@ -1235,28 +1235,34 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       quaternion_[2] = static_cast<double>(d2) / 32768.0;
       quaternion_[3] = static_cast<double>(read_i16_le(&frame_buf_[8])) / 32768.0;
       has_quaternion_ = true;
-      maybe_publish();
+      maybe_publish(now);
       break;
     default:
       break;
   }
 }
 
-void JY901ImuNode::maybe_publish()
+void JY901ImuNode::maybe_publish(const rclcpp::Time & stamp)
 {
   if (!publishing_enabled_) {
     return;
   }
 
-  const auto now = get_clock()->now();
+  if (last_pub_time_.nanoseconds() != 0) {
+    const double period_s = 1.0 / publish_hz_;
+    if ((stamp - last_pub_time_).seconds() < period_s) {
+      return;
+    }
+  }
+
   ensure_publishers_created();
   if (!publishing_started_logged_) {
     RCLCPP_INFO(get_logger(), "IMU publishing topics");
     publishing_started_logged_ = true;
   }
-  last_pub_time_ = now;
+  last_pub_time_ = stamp;
 
-  const sensor_msgs::msg::Imu raw_msg = build_raw_imu_message(now);
+  const sensor_msgs::msg::Imu raw_msg = build_raw_imu_message(stamp);
   imu_pub_->publish(raw_msg);
   imu_acc_gyro_pub_->publish(build_accel_gyro_message(raw_msg));
   imu_heading_pub_->publish(build_heading_message(raw_msg));
