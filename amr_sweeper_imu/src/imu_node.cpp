@@ -831,7 +831,8 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
     return false;
   }
 
-  log_device_configuration("Current IMU configuration:", current_config.value());
+  log_device_configuration("Current IMU configuration received from device:", current_config.value());
+  log_device_configuration("Requested IMU configuration for this node:", desired_config.value());
 
   const auto mismatches = diff_device_configuration(current_config.value(), desired_config.value());
   if (mismatches.empty()) {
@@ -839,9 +840,11 @@ bool JY901ImuNode::configure_device_profile(int target_baud, double target_rate_
     return true;
   }
 
-  RCLCPP_WARN(get_logger(), "IMU configuration differs from requested parameters; updating device");
+  RCLCPP_INFO(
+    get_logger(),
+    "IMU device configuration differs from this node's requested publish/config profile; synchronizing device settings");
   for (const auto & mismatch : mismatches) {
-    RCLCPP_WARN(get_logger(), "  %s", mismatch.c_str());
+    RCLCPP_INFO(get_logger(), "  %s", mismatch.c_str());
   }
 
   bool okay = send_unlock_command();
