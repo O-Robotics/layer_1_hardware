@@ -34,7 +34,7 @@
     output_satellite_accuracy:      false         # Enable 0x5A satellite-position-accuracy packets.
 
     # -- Software mounting correction ------------------------------------------
-    yaw_offset_deg:                 0.0         # Mounting correction applied as a rotation about +Z to orientation, gyro, and accel outputs. Use 180 when the physical IMU is mounted with X backward and Y right relative to imu_link/base_link.
+    yaw_offset_deg:                 180.0         # Mounting correction applied as a rotation about +Z to orientation, gyro, and accel outputs. Use 180 when the physical IMU is mounted with X backward and Y right relative to imu_link/base_link.
 
     # -- Output covariances ----------------------------------------------------
     orientation_covariance:         [0.0016, 0.0, 0.0, 0.0, 0.0016, 0.0, 0.0, 0.0, 0.0036]  # About 2.3 deg sigma roll/pitch and 3.4 deg sigma yaw: conservative for a stable 9-axis AHRS, but far tighter than the old placeholder values.
