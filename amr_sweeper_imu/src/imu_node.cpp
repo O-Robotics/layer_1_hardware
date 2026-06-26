@@ -310,6 +310,58 @@ bool JY901ImuNode::resolve_orientation_rpy(
   double & pitch,
   double & yaw) const
 {
+  auto apply_mount_yaw = [this](double sensor_roll, double sensor_pitch, double sensor_yaw) {
+    double sensor_w = 1.0;
+    double sensor_x = 0.0;
+    double sensor_y = 0.0;
+    double sensor_z = 0.0;
+    rpy_to_quaternion(
+      sensor_roll,
+      sensor_pitch,
+      sensor_yaw,
+      sensor_w,
+      sensor_x,
+      sensor_y,
+      sensor_z);
+
+    double mount_w = 1.0;
+    double mount_x = 0.0;
+    double mount_y = 0.0;
+    double mount_z = 0.0;
+    rpy_to_quaternion(0.0, 0.0, yaw_offset_rad_, mount_w, mount_x, mount_y, mount_z);
+
+    double corrected_w = 1.0;
+    double corrected_x = 0.0;
+    double corrected_y = 0.0;
+    double corrected_z = 0.0;
+    multiply_quaternions(
+      sensor_w,
+      sensor_x,
+      sensor_y,
+      sensor_z,
+      mount_w,
+      mount_x,
+      mount_y,
+      mount_z,
+      corrected_w,
+      corrected_x,
+      corrected_y,
+      corrected_z);
+
+    double corrected_roll = 0.0;
+    double corrected_pitch = 0.0;
+    double corrected_yaw = 0.0;
+    quaternion_to_rpy(
+      corrected_w,
+      corrected_x,
+      corrected_y,
+      corrected_z,
+      corrected_roll,
+      corrected_pitch,
+      corrected_yaw);
+    return std::array<double, 3>{corrected_roll, corrected_pitch, corrected_yaw};
+  };
+
   const bool use_native_quaternion = orientation_source_uses_native_quaternion(source);
   if (use_native_quaternion && has_quaternion_) {
     const double norm = std::sqrt(
@@ -354,9 +406,13 @@ bool JY901ImuNode::resolve_orientation_rpy(
       "Falling back to Euler-derived orientation.");
   }
 
-  roll = euler_deg_[0] * kDegToRad;
-  pitch = euler_deg_[1] * kDegToRad;
-  yaw = normalize_angle((euler_deg_[2] * kDegToRad) + yaw_offset_rad_);
+  const auto corrected_rpy = apply_mount_yaw(
+    euler_deg_[0] * kDegToRad,
+    euler_deg_[1] * kDegToRad,
+    euler_deg_[2] * kDegToRad);
+  roll = corrected_rpy[0];
+  pitch = corrected_rpy[1];
+  yaw = normalize_angle(corrected_rpy[2]);
   return true;
 }
 
