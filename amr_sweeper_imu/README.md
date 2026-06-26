@@ -44,10 +44,14 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - The package uses the bundled JY901 datasheet for the write-side register map and the newer official WIT standard protocol documentation for register readback (`0x27` read command and `0x5F` reply).
 - `gyroscope_auto_calibration` is treated as a command sent with `0x63`, not as a readable persistent configuration register, because that is how it is described in the bundled JY901 datasheet.
 - The driver can parse the IMU's native `0x59` quaternion packet, but it defaults to synthesizing orientation from the `0x53` Euler packet unless `output_quaternion` is explicitly enabled, following the more conservative behavior used by `ElettraSciComp/witmotion_IMU_ros`.
+- `orientation_source` selects which attitude estimate is stamped into `data_raw`: `euler` or `native`. Native mode requires `output_quaternion: true` and falls back to Euler if the device does not actually emit valid `0x59` packets.
+- `heading_source` selects which attitude estimate feeds the heading-only outputs `data_heading` and `azimuth`: `euler`, `native`, or `orientation`. This supports testing a separate absolute-heading path without changing the raw IMU topic consumed by localization.
+- `heading_lowpass_alpha` applies optional wrapped exponential smoothing to `data_heading` and `azimuth` only. This is useful when the robot needs a steadier absolute heading source for map/GNSS alignment but should still keep accel/gyro on `data_raw` untouched.
 - IMU message timestamps are now taken from the frame-arrival time in the serial parser path instead of being re-stamped at ROS publish time, which reduces executor-induced timing distortion during bursty reads.
 - `yaw_offset_deg` applies a software yaw correction before publishing orientation, angular velocity, and linear acceleration. For a 180 degree yaw mounting mismatch, set `yaw_offset_deg: 180.0`.
 - If `baud` differs from the sensor's current baud, use `fallback_baud` to tell the node how to reach the sensor before reprogramming it. The datasheet notes that baud/rate related changes may require a module restart or re-power to fully take effect.
 - Reading back `algorithm=nine_axis` only confirms the configuration register value. It does not by itself prove that the runtime yaw is magnetically referenced and calibrated.
+- For FusionCore, the safest architecture is often `imu.has_magnetometer: false` on `/imu/data_raw` plus `gnss.azimuth_topic: /amr_sweeper/imu/azimuth`, so raw accel/gyro and absolute heading can be tuned independently.
 - Reconnect failures now follow a warn/error/fatal escalation pattern similar to the GNSS NTRIP client, using `retry_attempts_before_error`, `fatal_after_consecutive_errors`, and `max_reconnect_attempts`.
 
 ## TODO

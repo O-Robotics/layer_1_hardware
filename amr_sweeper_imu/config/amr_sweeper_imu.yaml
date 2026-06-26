@@ -30,8 +30,12 @@
     output_pressure_height:         false         # Enable 0x56 pressure/height packets.
     output_gps_coordinates:         false         # Enable 0x57 longitude/latitude packets.
     output_gps_velocity:            false         # Enable 0x58 GPS speed packets.
-    output_quaternion:              false         # Keep the native quaternion disabled by default and synthesize orientation from Euler angles, matching the more conservative upstream Witmotion ROS behavior.
+    output_quaternion:              true          # Request native 0x59 quaternion packets from the IMU. Keep disabled by default until runtime comparison shows the device quaternion is cleaner than the Euler-derived attitude.
     output_satellite_accuracy:      false         # Enable 0x5A satellite-position-accuracy packets.
+    orientation_source:             euler         # Orientation source for data_raw: euler or native. Native requires output_quaternion=true and falls back to euler if 0x59 packets are unavailable.
+    heading_source:                 native        # Orientation source for data_heading and azimuth: euler, native, or orientation. This lets us test native heading without changing data_raw orientation.
+    heading_lowpass_alpha:          0.15          # Exponential smoothing factor for heading-only outputs. 1.0 disables smoothing; lower values suppress yaw jitter in data_heading/azimuth.
+    heading_filter_reset_dt_s:      0.2           # Reset the heading low-pass state if publish gaps exceed this many seconds, avoiding stale carry-over after serial stalls.
 
     # -- Software mounting correction ------------------------------------------
     yaw_offset_deg:                 180.0         # Mounting correction applied as a rotation about +Z to orientation, gyro, and accel outputs. Use 180 when the physical IMU is mounted with X backward and Y right relative to imu_link/base_link.

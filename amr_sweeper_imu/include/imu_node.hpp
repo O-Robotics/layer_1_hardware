@@ -83,10 +83,17 @@ private:
   void parse_byte(uint8_t byte);
   void maybe_publish(const rclcpp::Time & stamp);
   void ensure_publishers_created();
+  bool resolve_orientation_rpy(
+    const std::string & source,
+    double & roll,
+    double & pitch,
+    double & yaw) const;
+  bool orientation_source_uses_native_quaternion(const std::string & source) const;
+  double filter_heading_yaw(double yaw, const rclcpp::Time & stamp);
   sensor_msgs::msg::Imu build_raw_imu_message(const rclcpp::Time & stamp) const;
   sensor_msgs::msg::Imu build_accel_gyro_message(const sensor_msgs::msg::Imu & raw_msg) const;
-  sensor_msgs::msg::Imu build_heading_message(const sensor_msgs::msg::Imu & raw_msg) const;
-  compass_msgs::msg::Azimuth build_azimuth_message(const sensor_msgs::msg::Imu & raw_msg) const;
+  sensor_msgs::msg::Imu build_heading_message(const sensor_msgs::msg::Imu & raw_msg);
+  compass_msgs::msg::Azimuth build_azimuth_message(const sensor_msgs::msg::Imu & raw_msg);
 
   std::string device_path_;
   int baud_{9600};
@@ -116,6 +123,10 @@ private:
   bool output_gps_velocity_{false};
   bool output_quaternion_{false};
   bool output_satellite_accuracy_{false};
+  std::string orientation_source_{"euler"};
+  std::string heading_source_{"euler"};
+  double heading_lowpass_alpha_{1.0};
+  double heading_filter_reset_dt_s_{0.2};
   double yaw_offset_deg_{0.0};
   double yaw_offset_rad_{0.0};
 
@@ -144,6 +155,9 @@ private:
   rclcpp::Publisher<compass_msgs::msg::Azimuth>::SharedPtr imu_azimuth_pub_;
   rclcpp::TimerBase::SharedPtr read_timer_;
   rclcpp::Time last_pub_time_{0, 0, RCL_ROS_TIME};
+  bool heading_filter_initialized_{false};
+  double filtered_heading_yaw_{0.0};
+  rclcpp::Time last_heading_filter_stamp_{0, 0, RCL_ROS_TIME};
 
   std::array<uint8_t, kFrameLength> frame_buf_{};
   std::size_t frame_size_{0};

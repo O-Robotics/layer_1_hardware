@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
@@ -144,6 +145,17 @@ void rotate_xy(double yaw, double & x, double & y)
   y = rotated_y;
 }
 
+double normalize_angle(double angle)
+{
+  while (angle > kPi) {
+    angle -= 2.0 * kPi;
+  }
+  while (angle < -kPi) {
+    angle += 2.0 * kPi;
+  }
+  return angle;
+}
+
 }  // namespace
 
 namespace amr_sweeper_imu
@@ -182,6 +194,10 @@ JY901ImuNode::JY901ImuNode()
   output_gps_velocity_ = declare_parameter<bool>("output_gps_velocity", false);
   output_quaternion_ = declare_parameter<bool>("output_quaternion", false);
   output_satellite_accuracy_ = declare_parameter<bool>("output_satellite_accuracy", false);
+  orientation_source_ = declare_parameter<std::string>("orientation_source", "euler");
+  heading_source_ = declare_parameter<std::string>("heading_source", "euler");
+  heading_lowpass_alpha_ = declare_parameter<double>("heading_lowpass_alpha", 1.0);
+  heading_filter_reset_dt_s_ = declare_parameter<double>("heading_filter_reset_dt_s", 0.2);
   yaw_offset_deg_ = declare_parameter<double>("yaw_offset_deg", 0.0);
   orientation_covariance_ = declare_parameter<std::vector<double>>(
     "orientation_covariance",
@@ -209,6 +225,34 @@ JY901ImuNode::JY901ImuNode()
 
   if (publish_hz_ < 1.0) {
     publish_hz_ = 1.0;
+  }
+  std::transform(
+    orientation_source_.begin(),
+    orientation_source_.end(),
+    orientation_source_.begin(),
+    [](unsigned char value) {return static_cast<char>(std::tolower(value));});
+  std::transform(
+    heading_source_.begin(),
+    heading_source_.end(),
+    heading_source_.begin(),
+    [](unsigned char value) {return static_cast<char>(std::tolower(value));});
+  if (orientation_source_ != "euler" && orientation_source_ != "native") {
+    RCLCPP_WARN(
+      get_logger(),
+      "orientation_source='%s' is invalid; using 'euler'.",
+      orientation_source_.c_str());
+    orientation_source_ = "euler";
+  }
+  if (heading_source_ != "euler" && heading_source_ != "native" && heading_source_ != "orientation") {
+    RCLCPP_WARN(
+      get_logger(),
+      "heading_source='%s' is invalid; using 'euler'.",
+      heading_source_.c_str());
+    heading_source_ = "euler";
+  }
+  heading_lowpass_alpha_ = std::clamp(heading_lowpass_alpha_, 0.0, 1.0);
+  if (heading_filter_reset_dt_s_ < 0.0) {
+    heading_filter_reset_dt_s_ = 0.0;
   }
   if (read_period_ms_ < 1) {
     read_period_ms_ = 1;
@@ -253,6 +297,95 @@ JY901ImuNode::JY901ImuNode()
 
   read_timer_ = create_wall_timer(
     std::chrono::milliseconds(read_period_ms_), std::bind(&JY901ImuNode::read_serial, this));
+}
+
+bool JY901ImuNode::orientation_source_uses_native_quaternion(const std::string & source) const
+{
+  return source == "native" || (source == "orientation" && orientation_source_ == "native");
+}
+
+bool JY901ImuNode::resolve_orientation_rpy(
+  const std::string & source,
+  double & roll,
+  double & pitch,
+  double & yaw) const
+{
+  const bool use_native_quaternion = orientation_source_uses_native_quaternion(source);
+  if (use_native_quaternion && has_quaternion_) {
+    const double norm = std::sqrt(
+      (quaternion_[0] * quaternion_[0]) +
+      (quaternion_[1] * quaternion_[1]) +
+      (quaternion_[2] * quaternion_[2]) +
+      (quaternion_[3] * quaternion_[3]));
+    if (norm > 1e-9) {
+      double corrected_w = 1.0;
+      double corrected_x = 0.0;
+      double corrected_y = 0.0;
+      double corrected_z = 0.0;
+      double mount_w = 1.0;
+      double mount_x = 0.0;
+      double mount_y = 0.0;
+      double mount_z = 0.0;
+      rpy_to_quaternion(0.0, 0.0, yaw_offset_rad_, mount_w, mount_x, mount_y, mount_z);
+      multiply_quaternions(
+        quaternion_[0] / norm,
+        quaternion_[1] / norm,
+        quaternion_[2] / norm,
+        quaternion_[3] / norm,
+        mount_w,
+        mount_x,
+        mount_y,
+        mount_z,
+        corrected_w,
+        corrected_x,
+        corrected_y,
+        corrected_z);
+      quaternion_to_rpy(corrected_w, corrected_x, corrected_y, corrected_z, roll, pitch, yaw);
+      return true;
+    }
+  }
+
+  if (use_native_quaternion) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      10000,
+      "Native quaternion orientation requested, but no valid 0x59 quaternion packets are available. "
+      "Falling back to Euler-derived orientation.");
+  }
+
+  roll = euler_deg_[0] * kDegToRad;
+  pitch = euler_deg_[1] * kDegToRad;
+  yaw = normalize_angle((euler_deg_[2] * kDegToRad) + yaw_offset_rad_);
+  return true;
+}
+
+double JY901ImuNode::filter_heading_yaw(double yaw, const rclcpp::Time & stamp)
+{
+  yaw = normalize_angle(yaw);
+  if (heading_lowpass_alpha_ >= 1.0) {
+    heading_filter_initialized_ = false;
+    return yaw;
+  }
+
+  if (!heading_filter_initialized_) {
+    filtered_heading_yaw_ = yaw;
+    last_heading_filter_stamp_ = stamp;
+    heading_filter_initialized_ = true;
+    return filtered_heading_yaw_;
+  }
+
+  const double dt = (stamp - last_heading_filter_stamp_).seconds();
+  if (dt <= 0.0 || (heading_filter_reset_dt_s_ > 0.0 && dt > heading_filter_reset_dt_s_)) {
+    filtered_heading_yaw_ = yaw;
+    last_heading_filter_stamp_ = stamp;
+    return filtered_heading_yaw_;
+  }
+
+  filtered_heading_yaw_ = normalize_angle(
+    filtered_heading_yaw_ + heading_lowpass_alpha_ * normalize_angle(yaw - filtered_heading_yaw_));
+  last_heading_filter_stamp_ = stamp;
+  return filtered_heading_yaw_;
 }
 
 JY901ImuNode::~JY901ImuNode()
@@ -1294,72 +1427,20 @@ sensor_msgs::msg::Imu JY901ImuNode::build_raw_imu_message(const rclcpp::Time & s
   msg.header.stamp = stamp;
   msg.header.frame_id = frame_id_;
   bool orientation_valid = true;
-  double orientation_w = 1.0;
-  double orientation_x = 0.0;
-  double orientation_y = 0.0;
-  double orientation_z = 0.0;
-
-  if (output_quaternion_ && has_quaternion_) {
-    const double norm = std::sqrt(
-      (quaternion_[0] * quaternion_[0]) +
-      (quaternion_[1] * quaternion_[1]) +
-      (quaternion_[2] * quaternion_[2]) +
-      (quaternion_[3] * quaternion_[3]));
-    if (norm > 1e-9) {
-      orientation_w = quaternion_[0] / norm;
-      orientation_x = quaternion_[1] / norm;
-      orientation_y = quaternion_[2] / norm;
-      orientation_z = quaternion_[3] / norm;
-    } else {
-      orientation_valid = false;
-    }
-  } else {
+  double roll = 0.0;
+  double pitch = 0.0;
+  double yaw = 0.0;
+  if (resolve_orientation_rpy(orientation_source_, roll, pitch, yaw)) {
     rpy_to_quaternion(
-      euler_deg_[0] * kDegToRad,
-      euler_deg_[1] * kDegToRad,
-      euler_deg_[2] * kDegToRad,
-      orientation_w,
-      orientation_x,
-      orientation_y,
-      orientation_z);
-  }
-
-  if (orientation_valid) {
-    // Apply the configured mounting correction as a frame rotation so the
-    // published imu_link orientation matches the rotated accel/gyro outputs.
-    double mount_w = 1.0;
-    double mount_x = 0.0;
-    double mount_y = 0.0;
-    double mount_z = 0.0;
-    rpy_to_quaternion(0.0, 0.0, yaw_offset_rad_, mount_w, mount_x, mount_y, mount_z);
-
-    multiply_quaternions(
-      orientation_w,
-      orientation_x,
-      orientation_y,
-      orientation_z,
-      mount_w,
-      mount_x,
-      mount_y,
-      mount_z,
+      roll,
+      pitch,
+      yaw,
       msg.orientation.w,
       msg.orientation.x,
       msg.orientation.y,
       msg.orientation.z);
-
-    const double corrected_norm = std::sqrt(
-      (msg.orientation.w * msg.orientation.w) +
-      (msg.orientation.x * msg.orientation.x) +
-      (msg.orientation.y * msg.orientation.y) +
-      (msg.orientation.z * msg.orientation.z));
-    if (corrected_norm > 1e-9) {
-      msg.orientation.w /= corrected_norm;
-      msg.orientation.x /= corrected_norm;
-      msg.orientation.y /= corrected_norm;
-      msg.orientation.z /= corrected_norm;
-    } else {
-      orientation_valid = false;
-    }
+  } else {
+    orientation_valid = false;
   }
   std::copy(orientation_covariance_.begin(), orientation_covariance_.end(), msg.orientation_covariance.begin());
   if (!orientation_valid) {
@@ -1400,29 +1481,22 @@ sensor_msgs::msg::Imu JY901ImuNode::build_accel_gyro_message(
 }
 
 sensor_msgs::msg::Imu JY901ImuNode::build_heading_message(
-  const sensor_msgs::msg::Imu & raw_msg) const
+  const sensor_msgs::msg::Imu & raw_msg)
 {
   sensor_msgs::msg::Imu msg = raw_msg;
-  if (raw_msg.orientation_covariance[0] < 0.0) {
+  double roll = 0.0;
+  double pitch = 0.0;
+  double yaw = 0.0;
+  if (raw_msg.orientation_covariance[0] < 0.0 || !resolve_orientation_rpy(heading_source_, roll, pitch, yaw)) {
     msg.orientation_covariance = {-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     return msg;
   }
 
-  double roll = 0.0;
-  double pitch = 0.0;
-  double yaw = 0.0;
-  quaternion_to_rpy(
-    raw_msg.orientation.w,
-    raw_msg.orientation.x,
-    raw_msg.orientation.y,
-    raw_msg.orientation.z,
-    roll,
-    pitch,
-    yaw);
+  const double filtered_yaw = filter_heading_yaw(yaw, raw_msg.header.stamp);
   rpy_to_quaternion(
     0.0,
     0.0,
-    yaw,
+    filtered_yaw,
     msg.orientation.w,
     msg.orientation.x,
     msg.orientation.y,
@@ -1434,7 +1508,7 @@ sensor_msgs::msg::Imu JY901ImuNode::build_heading_message(
 }
 
 compass_msgs::msg::Azimuth JY901ImuNode::build_azimuth_message(
-  const sensor_msgs::msg::Imu & raw_msg) const
+  const sensor_msgs::msg::Imu & raw_msg)
 {
   compass_msgs::msg::Azimuth msg;
   msg.header = raw_msg.header;
@@ -1442,25 +1516,16 @@ compass_msgs::msg::Azimuth JY901ImuNode::build_azimuth_message(
   msg.orientation = compass_msgs::msg::Azimuth::ORIENTATION_ENU;
   msg.reference = compass_msgs::msg::Azimuth::REFERENCE_GEOGRAPHIC;
 
-  if (raw_msg.orientation_covariance[0] < 0.0) {
+  double roll = 0.0;
+  double pitch = 0.0;
+  double yaw = 0.0;
+  if (raw_msg.orientation_covariance[0] < 0.0 || !resolve_orientation_rpy(heading_source_, roll, pitch, yaw)) {
     msg.azimuth = 0.0;
     msg.variance = -1.0;
     return msg;
   }
 
-  double roll = 0.0;
-  double pitch = 0.0;
-  double yaw = 0.0;
-  quaternion_to_rpy(
-    raw_msg.orientation.w,
-    raw_msg.orientation.x,
-    raw_msg.orientation.y,
-    raw_msg.orientation.z,
-    roll,
-    pitch,
-    yaw);
-
-  msg.azimuth = yaw;
+  msg.azimuth = filter_heading_yaw(yaw, raw_msg.header.stamp);
   msg.variance = raw_msg.orientation_covariance[8] > 0.0 ?
     raw_msg.orientation_covariance[8] : 0.01;
   return msg;
