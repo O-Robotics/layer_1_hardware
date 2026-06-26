@@ -41,7 +41,7 @@
     yaw_offset_deg:                 180.0         # Mounting correction applied as a rotation about +Z to orientation, gyro, and accel outputs. Use 180 when the physical IMU is mounted with X backward and Y right relative to imu_link/base_link.
 
     # -- Output covariances ----------------------------------------------------
-    orientation_covariance:         [1.0e-04, 0.0, 0.0, 0.0, 1.0e-04, 0.0, 0.0, 0.0, 1.0e-04]  # Very tight orientation covariance so FusionCore heavily trusts the driver quaternion during startup and heading convergence tests.
+    orientation_covariance:         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]           # Publish unknown orientation covariance so FusionCore falls back to its own internal orientation-noise model for the IMU quaternion path.
     angular_velocity_covariance:    [2.5e-05, 0.0, 0.0, 0.0, 2.5e-05, 0.0, 0.0, 0.0, 2.5e-05]  # Match the localization gyro-noise assumption of roughly 0.005 rad/s sigma on each axis.
     linear_acceleration_covariance: [0.0625, 0.0, 0.0, 0.0, 0.0625, 0.0, 0.0, 0.0, 0.0625]     # Match the localization accelerometer-noise assumption of roughly 0.25 m/s^2 sigma.
 
