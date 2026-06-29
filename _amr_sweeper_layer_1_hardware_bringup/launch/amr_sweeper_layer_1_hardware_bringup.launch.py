@@ -39,6 +39,7 @@ def _scoped_include(package_name: str, launch_file_name: str, launch_arguments: 
 def _launch_setup(context, *args, **kwargs):
     namespace = LaunchConfiguration("namespace").perform(context)
     use_sim_time = LaunchConfiguration("use_sim_time").perform(context)
+    use_simulation = LaunchConfiguration("use_simulation").perform(context)
     log_level = LaunchConfiguration("log_level").perform(context)
     realsense_log_level = LaunchConfiguration("realsense_log_level").perform(context)
     ublox_log_level = LaunchConfiguration("ublox_log_level").perform(context)
@@ -66,6 +67,18 @@ def _launch_setup(context, *args, **kwargs):
 
     actions = []
 
+    if _as_bool(use_simulation):
+        actions.append(_scoped_include(
+            "amr_sweeper_simulation",
+            "amr_sweeper_gazebo.launch.py",
+            {
+                "namespace": namespace,
+                "enable_gnss": "true" if use_amr_sweeper_gnss else "false",
+                "enable_imu": "true" if use_amr_sweeper_imu else "false",
+                "enable_depth_camera": "true" if use_amr_sweeper_depth_camera else "false",
+            },
+        ))
+
     if use_amr_sweeper_description:
         actions.append(_scoped_include(
             "amr_sweeper_description",
@@ -73,6 +86,7 @@ def _launch_setup(context, *args, **kwargs):
             {
                 "namespace": namespace,
                 "use_sim_time": use_sim_time,
+                "use_simulation": use_simulation,
                 "use_ros2_control": "true" if use_amr_sweeper_ros2_control else "false",
                 "enable_usb_cameras": "true" if use_amr_sweeper_usb_cameras else "false",
                 "enable_gnss": "true" if use_amr_sweeper_gnss else "false",
@@ -88,6 +102,7 @@ def _launch_setup(context, *args, **kwargs):
             {
                 "namespace": namespace,
                 "use_sim_time": use_sim_time,
+                "use_simulation": use_simulation,
                 "use_ros2_control": "true",
             },
         )
@@ -107,6 +122,7 @@ def _launch_setup(context, *args, **kwargs):
             "amr_sweeper_system_info.launch.py",
             {
                 "namespace": _child_namespace(namespace, "system_info"),
+                "use_simulation": use_simulation,
                 "params_file": LaunchConfiguration("system_info_params_file").perform(context),
             },
         ))
@@ -118,6 +134,7 @@ def _launch_setup(context, *args, **kwargs):
             {
                 "namespace": _child_namespace(namespace, "battery"),
                 "can_interface": LaunchConfiguration("battery_can_interface").perform(context),
+                "use_simulation": use_simulation,
                 "params_file": LaunchConfiguration("battery_params_file").perform(context),
             },
         ))
@@ -128,6 +145,7 @@ def _launch_setup(context, *args, **kwargs):
             "amr_sweeper_gnss.launch.py",
             {
                 "gnss_namespace": _child_namespace(namespace, "gnss"),
+                "use_simulation": use_simulation,
                 "use_ntrip_client": "true" if use_ntrip_client else "false",
                 "use_nmea_to_caster": "true" if use_ntrip_client else "false",
                 "gnss_frame_id": LaunchConfiguration("gnss_frame_id").perform(context),
@@ -144,6 +162,7 @@ def _launch_setup(context, *args, **kwargs):
             {
                 "namespace": _child_namespace(namespace, "imu"),
                 "use_sim_time": use_sim_time,
+                "use_simulation": use_simulation,
                 "device_path": LaunchConfiguration("imu_device_path").perform(context),
                 "port": LaunchConfiguration("imu_port").perform(context),
                 "baud": LaunchConfiguration("imu_baud").perform(context),
@@ -158,6 +177,7 @@ def _launch_setup(context, *args, **kwargs):
             {
                 "namespace": _child_namespace(namespace, "usb_cameras"),
                 "log_level": log_level,
+                "use_simulation": use_simulation,
                 "front_left_camera_enabled": LaunchConfiguration("front_left_camera_enabled").perform(context),
                 "front_right_camera_enabled": LaunchConfiguration("front_right_camera_enabled").perform(context),
                 "rear_left_camera_enabled": LaunchConfiguration("rear_left_camera_enabled").perform(context),
@@ -175,6 +195,7 @@ def _launch_setup(context, *args, **kwargs):
                 "log_level": log_level,
                 "realsense_log_level": realsense_log_level,
                 "use_sim_time": use_sim_time,
+                "use_simulation": use_simulation,
                 "camera_domain_id": LaunchConfiguration("depth_camera_camera_domain_id").perform(context),
                 "params_file": LaunchConfiguration("depth_camera_params_file").perform(context),
                 "use_laserscan": LaunchConfiguration("depth_camera_use_laserscan").perform(context),
@@ -206,6 +227,7 @@ def generate_launch_description():
         DeclareLaunchArgument("realsense_log_level", default_value="error"),
         DeclareLaunchArgument("ublox_log_level", default_value="WARN"),
         DeclareLaunchArgument("use_sim_time", default_value="false"),
+        DeclareLaunchArgument("use_simulation", default_value="false"),
         DeclareLaunchArgument("use_amr_sweeper_description", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_ros2_control", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_battery", default_value="true"),

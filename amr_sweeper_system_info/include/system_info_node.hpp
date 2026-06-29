@@ -20,6 +20,7 @@ private:
     const std::string & key,
     const std::string & value) const;
 
+  bool use_simulation_{false};
   rclcpp::Publisher<amr_sweeper_system_info_msgs::msg::SystemState>::SharedPtr publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
   std::vector<std::string> monitored_files_;

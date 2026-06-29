@@ -61,7 +61,10 @@ def _verify_realsense_package_available() -> None:
 
 
 def _launch_setup(context, *args, **kwargs):
-    _verify_realsense_package_available()
+    use_simulation = LaunchConfiguration('use_simulation').perform(context).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+    if not use_simulation:
+        _verify_realsense_package_available()
 
     namespace_value = _normalize_namespace(LaunchConfiguration('namespace').perform(context))
     camera_parent_namespace_value, camera_name_value = _split_namespace(namespace_value)
@@ -110,48 +113,82 @@ def _launch_setup(context, *args, **kwargs):
     if not depth_camera_info_topic_value:
         depth_camera_info_topic_value = default_depth_camera_info_topic
 
-    realsense_node = Node(
-        package='realsense2_camera',
-        executable='realsense2_camera_node',
-        namespace=camera_parent_namespace_value,
-        name=camera_name_value,
-        output='log',
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('realsense_log_level')],
-        parameters=[
-            depth_camera_params,
-            {
-                'camera_name': camera_name_value,
-                'use_sim_time': ParameterValue(
-                    LaunchConfiguration('use_sim_time'),
-                    value_type=bool,
-                ),
-            },
-        ],
-    )
+    realsense_node = None
+    simulation_node = None
+    if use_simulation:
+        simulation_node = Node(
+            package='amr_sweeper_depth_camera',
+            executable='depth_camera_simulation_node',
+            name='depth_camera_simulation_node',
+            namespace=namespace_value,
+            output='screen',
+            arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+            parameters=[
+                {
+                    'use_sim_time': ParameterValue(
+                        LaunchConfiguration('use_sim_time'),
+                        value_type=bool,
+                    ),
+                    'input_scan_topic': 'scan_gz',
+                    'output_scan_topic': LaunchConfiguration('scan_topic'),
+                    'camera_info_topic': 'depth/camera_info',
+                    'pointcloud_topic': 'depth/color/points',
+                    'camera_frame_id': depth_camera_frame_value,
+                    'output_frame': laserscan_frame_value,
+                    'range_min': float(laserscan_params.get('range_min', 0.20)),
+                    'range_max': float(laserscan_params.get('range_max', 5.0)),
+                    'scan_time': float(laserscan_params.get('scan_time', 0.05)),
+                    'camera_width': 640,
+                    'camera_height': 480,
+                    'camera_fov_deg': 87.0,
+                },
+            ],
+        )
+    else:
+        realsense_node = Node(
+            package='realsense2_camera',
+            executable='realsense2_camera_node',
+            namespace=camera_parent_namespace_value,
+            name=camera_name_value,
+            output='log',
+            arguments=['--ros-args', '--log-level', LaunchConfiguration('realsense_log_level')],
+            parameters=[
+                depth_camera_params,
+                {
+                    'camera_name': camera_name_value,
+                    'use_sim_time': ParameterValue(
+                        LaunchConfiguration('use_sim_time'),
+                        value_type=bool,
+                    ),
+                },
+            ],
+        )
 
-    laserscan_node = Node(
-        package='amr_sweeper_depth_camera',
-        executable='laserscan_node',
-        name='laserscan',
-        namespace=namespace_value,
-        output='screen',
-        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
-        parameters=[
-            laserscan_params,
-            {
-                'use_sim_time': ParameterValue(
-                    LaunchConfiguration('use_sim_time'),
-                    value_type=bool,
-                ),
-            },
-        ],
-        remappings=[
-            ('depth', depth_image_topic_value),
-            ('depth_camera_info', depth_camera_info_topic_value),
-            ('scan', LaunchConfiguration('scan_topic')),
-        ],
-        condition=IfCondition(LaunchConfiguration('use_laserscan')),
-    )
+    laserscan_node = None
+    if not use_simulation:
+        laserscan_node = Node(
+            package='amr_sweeper_depth_camera',
+            executable='laserscan_node',
+            name='laserscan',
+            namespace=namespace_value,
+            output='screen',
+            arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
+            parameters=[
+                laserscan_params,
+                {
+                    'use_sim_time': ParameterValue(
+                        LaunchConfiguration('use_sim_time'),
+                        value_type=bool,
+                    ),
+                },
+            ],
+            remappings=[
+                ('depth', depth_image_topic_value),
+                ('depth_camera_info', depth_camera_info_topic_value),
+                ('scan', LaunchConfiguration('scan_topic')),
+            ],
+            condition=IfCondition(LaunchConfiguration('use_laserscan')),
+        )
 
     laserscan_tf_node = Node(
         package='tf2_ros',
@@ -172,11 +209,15 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration('use_laserscan')),
     )
 
-    return [
-        realsense_node,
-        laserscan_tf_node,
-        laserscan_node,
-    ]
+    actions = [laserscan_tf_node]
+    if simulation_node is not None:
+        actions.append(simulation_node)
+    if laserscan_node is not None:
+        actions.append(laserscan_node)
+    if realsense_node is not None:
+        actions.insert(0, realsense_node)
+
+    return actions
 
 
 def generate_launch_description():
@@ -196,6 +237,7 @@ def generate_launch_description():
         DeclareLaunchArgument('log_level', default_value='info'),
         DeclareLaunchArgument('realsense_log_level', default_value='error'),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument('use_simulation', default_value='false'),
         DeclareLaunchArgument('camera_domain_id', default_value='5'),
         DeclareLaunchArgument('params_file', default_value=default_params_file),
         DeclareLaunchArgument('use_laserscan', default_value='true'),

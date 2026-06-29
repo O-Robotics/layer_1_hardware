@@ -10,6 +10,7 @@ from launch_ros.substitutions import FindPackageShare
 def launch_setup(context, *args, **kwargs):
     ns = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    use_simulation = LaunchConfiguration('use_simulation').perform(context).strip().lower() in {'1', 'true', 'yes', 'on'}
     params_file = LaunchConfiguration('params_file')
     device_path = LaunchConfiguration('device_path').perform(context)
     port = LaunchConfiguration('port').perform(context)
@@ -17,6 +18,23 @@ def launch_setup(context, *args, **kwargs):
     imu_frame_id = LaunchConfiguration('imu_frame_id').perform(context)
     publish_hz = LaunchConfiguration('publish_hz').perform(context)
     use_imu_node = LaunchConfiguration('use_imu_node')
+
+    if use_simulation:
+        return [
+            Node(
+                package='amr_sweeper_imu',
+                executable='gz_imu_adapter',
+                name='imu_node',
+                namespace=ns,
+                parameters=[
+                    {
+                        'use_sim_time': use_sim_time,
+                    }
+                ],
+                output='screen',
+                condition=IfCondition(use_imu_node),
+            )
+        ]
 
     parameters = [
         params_file,
@@ -56,6 +74,10 @@ def generate_launch_description():
         name='use_sim_time',
         default_value='false',
         description='Use ROS time if true')
+    declare_use_simulation = DeclareLaunchArgument(
+        name='use_simulation',
+        default_value='false',
+        description='Disable the hardware IMU node when running in simulation')
     declare_device_path = DeclareLaunchArgument(
         name='device_path',
         default_value='',
@@ -94,6 +116,7 @@ def generate_launch_description():
         [
             declare_namespace,
             declare_use_sim_time,
+            declare_use_simulation,
             declare_device_path,
             declare_port,
             declare_baud,

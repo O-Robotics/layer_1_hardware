@@ -1,28 +1,29 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>amr_sweeper_depth_camera</name>
+  <name>amr_sweeper_simulation</name>
   <version>0.0.1</version>
-  <description>Launch wrapper around the bundled realsense2_camera subtree plus the AMR Sweeper laser scan pipeline.</description>
-
+  <description>AMR Sweeper: Gazebo simulation assets and bringup.</description>
   <maintainer email="info@O-Robotics.com">O-Robotics</maintainer>
-
-  <license>Proprietary</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>image_geometry</depend>
-  <depend>libopencv-dev</depend>
-  <depend>rclcpp</depend>
-  <depend>realsense2_camera</depend>
-  <depend>realsense2_camera_msgs</depend>
-  <depend>sensor_msgs</depend>
-
+  <exec_depend>amr_sweeper_description</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>gps_msgs</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>tf2_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>xacro</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

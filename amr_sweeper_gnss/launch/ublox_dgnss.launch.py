@@ -3,13 +3,14 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression, TextSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     use_ublox_dgnss_node = LaunchConfiguration("use_ublox_dgnss_node")
+    use_simulation = LaunchConfiguration("use_simulation")
     gnss_namespace = LaunchConfiguration("gnss_namespace")
     gnss_frame_id = LaunchConfiguration("gnss_frame_id")
     params_file = LaunchConfiguration("params_file")
@@ -20,6 +21,11 @@ def generate_launch_description():
             "use_ublox_dgnss_node",
             default_value=TextSubstitution(text="true"),
             description="Launch the local AMR Sweeper u-blox node",
+        ),
+        DeclareLaunchArgument(
+            "use_simulation",
+            default_value=TextSubstitution(text="false"),
+            description="Disable the local hardware GNSS node when running in simulation",
         ),
         DeclareLaunchArgument(
             "use_ublox_nav_sat_fix_hp",
@@ -59,6 +65,8 @@ def generate_launch_description():
                     "frame_id": gnss_frame_id,
                 },
             ],
-            condition=IfCondition(use_ublox_dgnss_node),
+            condition=IfCondition(PythonExpression([
+                "'", use_ublox_dgnss_node, "' == 'true' and '", use_simulation, "' != 'true'"
+            ])),
         ),
     ])

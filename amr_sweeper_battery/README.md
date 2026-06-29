@@ -20,6 +20,7 @@ This package publishes battery-state and battery-health information for the AMR 
 - `namespace`: default `amr_sweeper/battery`
 - `params_file`: default `<package_share>/config/amr_sweeper_battery.yaml`
 - `can_interface`: default `can0`
+- `use_simulation`: default `false`
 
 ## Overview
 `amr_sweeper_battery` wraps the battery node that talks to the physical battery subsystem over CAN and exposes the information into ROS 2. It is typically launched as part of the layer 1 hardware bringup, but it can also be launched on its own for battery diagnostics or integration testing.
@@ -27,4 +28,5 @@ This package publishes battery-state and battery-health information for the AMR 
 ## Notes
 - Main node: `battery_node`.
 - Default package parameters live in `config/amr_sweeper_battery.yaml`.
+- Set `use_simulation:=true` to publish a simulated battery without opening the CAN interface.
 - This package is a sensor and monitoring package and does not control motion.

@@ -8,11 +8,13 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
     can_interface = LaunchConfiguration("can_interface")
+    use_simulation = LaunchConfiguration("use_simulation")
     params_file = LaunchConfiguration("params_file")
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper/battery"),
         DeclareLaunchArgument("can_interface", default_value="can0"),
+        DeclareLaunchArgument("use_simulation", default_value="false"),
         DeclareLaunchArgument(
             "params_file",
             default_value=PathJoinSubstitution([
@@ -31,6 +33,7 @@ def generate_launch_description():
                 params_file,
                 {
                     "can_interface": can_interface,
+                    "use_simulation": use_simulation,
                 },
             ],
         ),

@@ -86,6 +86,7 @@ BatteryNode::ProtectionLimit load_protection_limit(
 BatteryNode::BatteryNode()
 : Node("battery_node")
 {
+  declare_parameter<bool>("use_simulation", false);
   declare_parameter<std::string>("can_interface", "can0");
   declare_parameter<double>("timer_period", 15.0);
   declare_parameter<int64_t>("priority", 0x18);
@@ -127,6 +128,7 @@ BatteryNode::BatteryNode()
   declare_parameter<double>("protection.discharging.under_temperature.threshold", 0.0);
   declare_parameter<std::string>("protection.discharging.under_temperature.units", "degC");
 
+  use_simulation_ = get_parameter("use_simulation").as_bool();
   can_interface_ = get_parameter("can_interface").as_string();
   const auto timer_period = get_parameter("timer_period").as_double();
   priority_ = static_cast<uint8_t>(get_parameter("priority").as_int());
@@ -148,10 +150,14 @@ BatteryNode::BatteryNode()
     max_reconnect_attempts_ = 0;
   }
 
-  RCLCPP_INFO(
-    get_logger(),
-    "Using interface %s, 29-bit IDs, prio=0x%02X, BMS=0x%02X, PC=0x%02X",
-    can_interface_.c_str(), priority_, bms_addr_, pc_addr_);
+  if (use_simulation_) {
+    RCLCPP_INFO(get_logger(), "Battery node running in simulation mode.");
+  } else {
+    RCLCPP_INFO(
+      get_logger(),
+      "Using interface %s, 29-bit IDs, prio=0x%02X, BMS=0x%02X, PC=0x%02X",
+      can_interface_.c_str(), priority_, bms_addr_, pc_addr_);
+  }
 
   const auto safety_stop_qos = rclcpp::QoS(10).reliable().transient_local();
   batt_pub_ = create_publisher<sensor_msgs::msg::BatteryState>(
@@ -176,7 +182,9 @@ BatteryNode::BatteryNode()
     protection_states_[protection_index(type)].limit = load_protection_limit(*this, type);
   }
 
-  if (!setup_can_socket(true)) {
+  if (use_simulation_) {
+    initialize_simulation_state();
+  } else if (!setup_can_socket(true)) {
     report_connection_issue(last_connection_error_message_);
   }
 
@@ -191,6 +199,39 @@ BatteryNode::BatteryNode()
 BatteryNode::~BatteryNode()
 {
   close_can_socket();
+}
+
+void BatteryNode::initialize_simulation_state()
+{
+  std::lock_guard<std::mutex> lock(state_mutex_);
+
+  pack_voltage_ = 41.0;
+  pack_current_ = -2.0;
+  soc_percent_ = 80.0;
+  max_cell_voltage_ = 3.154;
+  max_cell_index_ = 1;
+  min_cell_voltage_ = 3.152;
+  min_cell_index_ = 13;
+  max_temp_ = 28.0;
+  max_temp_index_ = 1;
+  min_temp_ = 26.0;
+  min_temp_index_ = 2;
+  state_ = 2;
+  charge_mos_ = 0;
+  discharge_mos_ = 1;
+  bms_life_cycles_ = 0;
+  remaining_capacity_m_ah_ = 80000;
+  series_cells_ = 13;
+  temp_sensors_ = 2;
+  charger_connected_ = false;
+  load_connected_ = true;
+  di_states_ = {0, 0, 0, 0};
+  do_states_ = {0, 0, 0, 0};
+  cell_voltages_.assign(*series_cells_, 3.153);
+  cell_temperatures_ = {28.0, 26.0};
+  balance_state_.assign(*series_cells_, 0);
+  failure_bytes_ = std::vector<uint8_t>(8, 0U);
+  first_battery_sample_published_.store(true);
 }
 
 bool BatteryNode::setup_can_socket(bool log_failure)
@@ -394,6 +435,13 @@ BatteryNode::ParsedId BatteryNode::parse_bms_to_pc_id(uint32_t arb_id)
 void BatteryNode::on_timer()
 {
   if (fatal_error_.load()) {
+    return;
+  }
+
+  if (use_simulation_) {
+    publish_battery_state();
+    publish_battery_health();
+    evaluate_protections();
     return;
   }
 
@@ -870,6 +918,7 @@ void BatteryNode::publish_battery_health()
   if (series_cells) {
     values.push_back(make_kv("series_cells", std::to_string(*series_cells)));
   }
+  values.push_back(make_kv("simulation_mode", use_simulation_ ? "True" : "False"));
   if (temp_sensors) {
     values.push_back(make_kv("temp_sensors", std::to_string(*temp_sensors)));
   }
@@ -946,7 +995,10 @@ void BatteryNode::publish_battery_health()
     values.push_back(make_kv("balancing_cells", join_strings(balancing_cells, ",")));
   }
 
-  if (failure_bytes) {
+  if (use_simulation_) {
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    status.message = "Simulation mode active";
+  } else if (failure_bytes) {
     const auto faults = decode_fault_messages(*failure_bytes);
     values.push_back(make_kv("failure_bytes_hex", bytes_to_hex(*failure_bytes)));
     if (!faults.empty()) {

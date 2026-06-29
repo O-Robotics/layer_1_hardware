@@ -4,7 +4,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression, TextSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -20,6 +20,7 @@ def generate_launch_description():
     use_ublox_dgnss_node = LaunchConfiguration("use_ublox_dgnss_node")
     use_ublox_nav_sat_fix_hp = LaunchConfiguration("use_ublox_nav_sat_fix_hp")
     use_ntrip_client = LaunchConfiguration("use_ntrip_client")
+    use_simulation = LaunchConfiguration("use_simulation")
     use_nmea_to_caster = LaunchConfiguration("use_nmea_to_caster")
     fix_topic = LaunchConfiguration("fix_topic")
     gnss_namespace = LaunchConfiguration("gnss_namespace")
@@ -46,6 +47,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "use_nmea_to_caster",
             default_value=TextSubstitution(text="true"),
+        ),
+        DeclareLaunchArgument(
+            "use_simulation",
+            default_value=TextSubstitution(text="false"),
         ),
         DeclareLaunchArgument(
             "fix_topic",
@@ -98,6 +103,7 @@ def generate_launch_description():
                 "use_ublox_nav_sat_fix_hp": use_ublox_nav_sat_fix_hp,
                 "gnss_namespace": gnss_namespace,
                 "gnss_frame_id": gnss_frame_id,
+                "use_simulation": use_simulation,
                 "params_file": ublox_params_file,
                 "device_family": device_family,
                 "device_serial_string": device_serial_string,
@@ -111,9 +117,12 @@ def generate_launch_description():
                 "use_nmea_to_caster": use_nmea_to_caster,
                 "fix_topic": fix_topic,
                 "gnss_namespace": gnss_namespace,
+                "use_simulation": use_simulation,
                 "params_file": ntrip_params_file,
                 "log_level": log_level,
             }.items(),
-            condition=IfCondition(use_ntrip_client),
+            condition=IfCondition(PythonExpression([
+                "'", use_ntrip_client, "' == 'true' and '", use_simulation, "' != 'true'"
+            ])),
         ),
     ])

@@ -7,10 +7,12 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     namespace = LaunchConfiguration("namespace")
+    use_simulation = LaunchConfiguration("use_simulation")
     params_file = LaunchConfiguration("params_file")
 
     return LaunchDescription([
         DeclareLaunchArgument("namespace", default_value="amr_sweeper/system_info"),
+        DeclareLaunchArgument("use_simulation", default_value="false"),
         DeclareLaunchArgument(
             "params_file",
             default_value=PathJoinSubstitution([
@@ -25,6 +27,6 @@ def generate_launch_description():
             namespace=namespace,
             name="system_info_node",
             output="screen",
-            parameters=[params_file],
+            parameters=[params_file, {"use_simulation": use_simulation}],
         ),
     ])

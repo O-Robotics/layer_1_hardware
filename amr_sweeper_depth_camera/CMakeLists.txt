@@ -45,6 +45,12 @@ install(
 )
 
 install(
+  PROGRAMS simulation/depth_camera_simulation_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME depth_camera_simulation_node
+)
+
+install(
   TARGETS laserscan_node topic_bridge_node
   DESTINATION lib/${PROJECT_NAME}
 )

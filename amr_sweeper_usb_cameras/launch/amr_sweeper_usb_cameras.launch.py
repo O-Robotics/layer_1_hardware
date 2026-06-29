@@ -1,5 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -22,9 +22,35 @@ def _camera_node(camera_key: str, namespace, log_level):
     )
 
 
-def generate_launch_description():
+def _launch_setup(context, *args, **kwargs):
     namespace = LaunchConfiguration("namespace")
     log_level = LaunchConfiguration("log_level")
+    use_simulation = LaunchConfiguration("use_simulation").perform(context).strip().lower() in {"1", "true", "yes", "on"}
+    default_enabled = {
+        "front_left_camera": "false",
+        "front_right_camera": "false",
+        "rear_left_camera": "true",
+        "rear_right_camera": "true",
+        "tools_camera": "true",
+    }
+
+    if use_simulation:
+        return []
+
+    actions = []
+    for camera_key in [
+        "front_left_camera",
+        "front_right_camera",
+        "rear_left_camera",
+        "rear_right_camera",
+        "tools_camera",
+    ]:
+        actions.append(_camera_node(camera_key, namespace, log_level))
+
+    return actions
+
+
+def generate_launch_description():
     default_enabled = {
         "front_left_camera": "false",
         "front_right_camera": "false",
@@ -36,6 +62,7 @@ def generate_launch_description():
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper/usb_cameras"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
+    ld.add_action(DeclareLaunchArgument("use_simulation", default_value="false"))
 
     for camera_key in [
         "front_left_camera",
@@ -50,6 +77,6 @@ def generate_launch_description():
                 default_value=default_enabled[camera_key],
             )
         )
-        ld.add_action(_camera_node(camera_key, namespace, log_level))
 
+    ld.add_action(OpaqueFunction(function=_launch_setup))
     return ld

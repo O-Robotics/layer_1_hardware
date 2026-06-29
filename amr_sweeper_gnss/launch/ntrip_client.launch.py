@@ -3,7 +3,7 @@
 import launch
 from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.conditions import IfCondition, UnlessCondition
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression, TextSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -19,6 +19,9 @@ def generate_launch_description():
     )
     use_ntrip_client_node_arg = DeclareLaunchArgument(
         'use_ntrip_client_node', default_value=TextSubstitution(text='true')
+    )
+    use_simulation_arg = DeclareLaunchArgument(
+        'use_simulation', default_value=TextSubstitution(text='false')
     )
     params_file_arg = DeclareLaunchArgument(
         'params_file',
@@ -79,6 +82,7 @@ def generate_launch_description():
         use_nmea_to_caster_arg,
         fix_topic_arg,
         use_ntrip_client_node_arg,
+        use_simulation_arg,
         params_file_arg,
         gnss_namespace_arg,
         log_level_arg,
@@ -87,7 +91,13 @@ def generate_launch_description():
         ),
         ntrip_debug,
         launch.actions.GroupAction(
-            condition=IfCondition(LaunchConfiguration('use_ntrip_client_node')),
+            condition=IfCondition(
+                PythonExpression([
+                    "'", LaunchConfiguration('use_ntrip_client_node'),
+                    "' == 'true' and '", LaunchConfiguration('use_simulation'),
+                    "' != 'true'"
+                ])
+            ),
             actions=[
                 ntrip_node_with_nmea,
                 ntrip_node_without_nmea,

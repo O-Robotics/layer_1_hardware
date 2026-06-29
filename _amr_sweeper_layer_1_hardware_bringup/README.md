@@ -27,6 +27,7 @@ This package is the main entrypoint for the AMR Sweeper hardware layer. It is a 
 - `realsense_log_level`: default `error`
 - `ublox_log_level`: default `WARN`
 - `use_sim_time`: default `false`
+- `use_simulation`: default `false`
 - `use_amr_sweeper_description`: default `true`
 - `use_amr_sweeper_ros2_control`: default `true`
 - `use_amr_sweeper_battery`: default `true`

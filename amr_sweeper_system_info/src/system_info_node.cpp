@@ -23,6 +23,7 @@ bool string_to_bool(const std::string & value)
 
 SystemInfoPublisher::SystemInfoPublisher()
 : Node("system_info_node"),
+  use_simulation_(declare_parameter<bool>("use_simulation", false)),
   monitored_files_(declare_parameter<std::vector<std::string>>(
       "monitored_files",
       std::vector<std::string>{
@@ -48,6 +49,21 @@ SystemInfoPublisher::SystemInfoPublisher()
 void SystemInfoPublisher::publish_data()
 {
   auto message = amr_sweeper_system_info_msgs::msg::SystemState();
+
+  if (use_simulation_) {
+    message.device_type = "simulation";
+    message.robot_number = 0;
+    message.temperature = 25;
+    message.cpu_load = 10;
+    message.cpu_idle = 90;
+    message.memory_usage = 20;
+    message.disk_usage = 15;
+    message.conn_type = "simulated";
+    message.is_wifi = false;
+    message.is_mobile = false;
+    publisher_->publish(message);
+    return;
+  }
 
   for (const auto & filename : monitored_files_) {
     std::ifstream file(filename);

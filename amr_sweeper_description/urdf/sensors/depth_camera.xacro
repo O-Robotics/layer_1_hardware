@@ -7,7 +7,15 @@
     <origin xyz="0.47 0 0.11" rpy="0 0 0"/>
   </joint>
 
-  <link name="realsense_mount"/>
+  <link name="realsense_mount">
+    <xacro:if value="$(arg simulation_physics)">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.02"/>
+        <inertia ixx="1.0e-5" ixy="0.0" ixz="0.0" iyy="1.0e-5" iyz="0.0" izz="1.0e-5"/>
+      </inertial>
+    </xacro:if>
+  </link>
 
   <joint name="realsense_mount_to_depth_camera_link" type="fixed">
     <parent link="realsense_mount"/>
@@ -15,7 +23,15 @@
     <origin xyz="0.015 0 -0.003" rpy="${pi} 0 0"/>
   </joint>
 
-  <link name="depth_camera_link"/>
+  <link name="depth_camera_link">
+    <xacro:if value="$(arg simulation_physics)">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.08"/>
+        <inertia ixx="2.0e-5" ixy="0.0" ixz="0.0" iyy="2.0e-5" iyz="0.0" izz="2.0e-5"/>
+      </inertial>
+    </xacro:if>
+  </link>
 
   <joint name="depth_camera_depth_frame_joint" type="fixed">
     <parent link="depth_camera_link"/>

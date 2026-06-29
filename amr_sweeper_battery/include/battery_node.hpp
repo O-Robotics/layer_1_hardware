@@ -65,6 +65,7 @@ public:
 
 private:
 
+  void initialize_simulation_state();
   bool setup_can_socket(bool log_failure);
   bool confirm_bms_reply(std::chrono::milliseconds timeout);
   void close_can_socket();
@@ -105,6 +106,7 @@ private:
   static std::vector<std::string> decode_fault_messages(const std::vector<uint8_t> & failure_bytes);
 
   std::string can_interface_;
+  bool use_simulation_{false};
   uint8_t priority_ {};
   uint8_t bms_addr_ {};
   uint8_t pc_addr_ {};
