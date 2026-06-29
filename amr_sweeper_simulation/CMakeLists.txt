@@ -13,6 +13,12 @@ install(PROGRAMS
   RENAME gz_pose_to_gps
 )
 
+install(PROGRAMS
+  scripts/simulate_programmed_missions.sh
+  scripts/set_gazebo_simulation_speed.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
