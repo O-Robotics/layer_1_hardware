@@ -52,7 +52,7 @@ def generate_launch_description():
                     "ros2",
                     "run",
                     "amr_sweeper_simulation",
-                    "set_gazebo_simulation_speed",
+                    "set_gazebo_simulation_speed.py",
                     "--speed",
                     simulation_speed,
                     "--world",
