@@ -58,8 +58,10 @@ If you also want localization, mapping, and Nav2, start layer 1 first, then laye
 ### 5. Simulate programmed missions through the full FSM cycle
 Use this entrypoint when you want a schedule-driven simulation that runs the normal layer 0 stack and lets the FSM progress through `INITIALIZING`, `IDLING`, and `RUNNING`.
 
+Direct bringup launch:
+
 ```bash
-ros2 launch amr_sweeper_simulation simulate_programmed_missions.launch.py   schedule_ics_path:=missions/database/schedule_20260000T000000Z.ics   simulation_speed:=10.0
+ros2 launch amr_sweeper_bringup amr_sweeper_bringup.launch.py   use_simulation:=true   use_profile:=050   schedule_ics_path:=missions/database/schedule_20260000T000000Z.ics
 ```
 
 Wrapper script from the source tree:
@@ -74,9 +76,12 @@ Wrapper script after install:
 $(ros2 pkg prefix amr_sweeper_simulation)/lib/amr_sweeper_simulation/simulate_programmed_missions.sh   schedule_ics_path:=missions/database/schedule_20260000T000000Z.ics   simulation_speed:=10.0
 ```
 
+The wrapper script auto-sources ROS 2 and the workspace overlay before delegating to `amr_sweeper_bringup.launch.py` in simulation mode. It also applies the Gazebo speed override via `simulation_speed:=...`.
+
 Main launch arguments:
 - `schedule_ics_path`: explicit `.ics` schedule file. Leave empty to let the scheduler auto-discover the newest `schedule_*.ics` in `missions/database`.
-- `simulation_speed`: Gazebo real-time factor. Default `10.0`.
+- `simulation_speed`: wrapper-only Gazebo real-time factor. Default `10.0`.
+- `simulation_world_name`: wrapper-only Gazebo world name. Default `amr_sweeper_test`.
 - `missions_from_db_directory`: mission database root. Default `missions/database`.
 - `missions_log_directory`: simulation log root. Default `missions/simulations`.
 - `use_profile`: startup FSM profile. Default `050`.
