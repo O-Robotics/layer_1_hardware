@@ -122,10 +122,19 @@ def main() -> None:
     node = DepthCameraSimulationNode()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            node.destroy_node()
+        except (KeyboardInterrupt, RuntimeError):
+            pass
+
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except RuntimeError:
+            pass
 
 
 if __name__ == "__main__":

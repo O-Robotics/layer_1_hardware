@@ -5,10 +5,8 @@ from typing import Optional
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSDurabilityPolicy
-from rclpy.qos import QoSProfile
-from rclpy.qos import QoSReliabilityPolicy
 from rclpy.qos import qos_profile_sensor_data
+from rclpy.time import Time
 
 from compass_msgs.msg import Azimuth
 from sensor_msgs.msg import Imu
@@ -42,6 +40,9 @@ class GzImuAdapter(Node):
         self._heading_output_topic = self.declare_parameter("heading_output_topic", "data_heading").value
         self._azimuth_output_topic = self.declare_parameter("azimuth_output_topic", "azimuth").value
         self._frame_id = self.declare_parameter("frame_id", "imu_link").value
+        self._override_stamp_with_ros_time = bool(
+            self.declare_parameter("override_stamp_with_ros_time", True).value
+        )
         self._orientation_covariance = list(
             self.declare_parameter(
                 "orientation_covariance",
@@ -50,14 +51,18 @@ class GzImuAdapter(Node):
         )
         self._heading_variance = float(self.declare_parameter("heading_variance", 0.05).value)
         self._warned_invalid_orientation = False
-        publisher_qos = QoSProfile(depth=10)
-        publisher_qos.reliability = QoSReliabilityPolicy.RELIABLE
-        publisher_qos.durability = QoSDurabilityPolicy.VOLATILE
+        self._warned_waiting_for_clock = False
 
-        self._raw_publisher = self.create_publisher(Imu, self._raw_output_topic, publisher_qos)
-        self._acc_gyro_publisher = self.create_publisher(Imu, self._acc_gyro_output_topic, publisher_qos)
-        self._heading_publisher = self.create_publisher(Imu, self._heading_output_topic, publisher_qos)
-        self._azimuth_publisher = self.create_publisher(Azimuth, self._azimuth_output_topic, publisher_qos)
+        self._raw_publisher = self.create_publisher(Imu, self._raw_output_topic, qos_profile_sensor_data)
+        self._acc_gyro_publisher = self.create_publisher(
+            Imu, self._acc_gyro_output_topic, qos_profile_sensor_data
+        )
+        self._heading_publisher = self.create_publisher(
+            Imu, self._heading_output_topic, qos_profile_sensor_data
+        )
+        self._azimuth_publisher = self.create_publisher(
+            Azimuth, self._azimuth_output_topic, qos_profile_sensor_data
+        )
         self._subscription = self.create_subscription(
             Imu,
             self._input_topic,
@@ -65,9 +70,34 @@ class GzImuAdapter(Node):
             qos_profile_sensor_data,
         )
 
+    def _resolve_output_stamp(self, msg: Imu):
+        current_time = self.get_clock().now()
+
+        if current_time.nanoseconds <= 0:
+            if not self._warned_waiting_for_clock:
+                self.get_logger().warn(
+                    "Waiting for ROS time before publishing simulated IMU data."
+                )
+                self._warned_waiting_for_clock = True
+            return None
+
+        self._warned_waiting_for_clock = False
+        if self._override_stamp_with_ros_time:
+            return current_time.to_msg()
+
+        input_stamp = Time.from_msg(msg.header.stamp)
+        if input_stamp.nanoseconds <= 0:
+            return current_time.to_msg()
+
+        return msg.header.stamp
+
     def _handle_imu(self, msg: Imu) -> None:
         raw_msg = msg
         raw_msg.header.frame_id = self._frame_id
+        resolved_stamp = self._resolve_output_stamp(msg)
+        if resolved_stamp is None:
+            return
+        raw_msg.header.stamp = resolved_stamp
 
         normalized = _normalize_quaternion(
             raw_msg.orientation.x,
@@ -140,10 +170,19 @@ def main() -> None:
     node = GzImuAdapter()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            node.destroy_node()
+        except (KeyboardInterrupt, RuntimeError):
+            pass
+
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except RuntimeError:
+            pass
 
 
 if __name__ == "__main__":

@@ -225,7 +225,7 @@ def generate_launch_description():
         DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"),
         DeclareLaunchArgument("use_ntrip_client", default_value="true"),
-        DeclareLaunchArgument("ros2_control_startup_delay_sec", default_value="2.0"),
+        DeclareLaunchArgument("ros2_control_startup_delay_sec", default_value="3.0"),
         DeclareLaunchArgument("battery_can_interface", default_value="can0"),
         DeclareLaunchArgument("battery_params_file", default_value=PathJoinSubstitution([
             FindPackageShare("amr_sweeper_battery"),
