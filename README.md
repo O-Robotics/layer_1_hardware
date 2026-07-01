@@ -15,13 +15,12 @@ Dependencies to other AMR Sweeper packages:
 - `../layer_0_supervisors/amr_sweeper_msgs/amr_sweeper_system_info_msgs`
 - `amr_sweeper_odrive`
 - `amr_sweeper_ros2_control`
-- `amr_sweeper_simulation`
 - `amr_sweeper_steadydrive`
 - `amr_sweeper_system_info`
 - `amr_sweeper_usb_cameras`
 
 ## Purpose
-This repository is the hardware-adjacent runtime layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, the shared `ros2_control` runtime that activates them, battery monitoring, GNSS, IMU, USB cameras, depth-camera laser-scan conversion, system-health publishing, and the workspace-owned Gazebo simulation package.
+This repository is the hardware-adjacent runtime layer for the AMR Sweeper. It contains the packages that expose the physical robot model, wheel and tool motor interfaces, the shared `ros2_control` runtime that activates them, battery monitoring, GNSS, IMU, USB cameras, depth-camera laser-scan conversion, and system-health publishing.
 
 ## Launch Arguments
 - `namespace`: default `amr_sweeper`
@@ -69,7 +68,7 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 ## Notes
 - The default command launches the full layer 1 hardware bringup package.
 - `amr_sweeper_layer_1_hardware_bringup` is now a launch-only package that includes the package launch files for sensors, `robot_state_publisher`, and `ros2_control`.
-- `amr_sweeper_simulation` owns the AMR Sweeper-specific Gazebo world, model, and ROS bridge plumbing so upstream simulation dependencies can stay stock.
+- Gazebo world startup, simulation config, and ROS bridge plumbing are now owned by `amr_sweeper_bringup`, while layer 1 keeps the simulation-aware hardware launch adaptations.
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
 - The vendored RealSense ROS packages live under `amr_sweeper_depth_camera/src/realsense-ros`, but `colcon` will only discover them when they are also exposed at the workspace root `src/`. Run `src/layer_1_hardware/amr_sweeper_depth_camera/scripts/ensure_workspace_links.sh` before `colcon build`, or use `./update.sh`, which now does this automatically.
 - Under the default robot root `/amr_sweeper`, package-owned sensor namespaces follow the package role, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras`, and `/amr_sweeper/depth_camera`.

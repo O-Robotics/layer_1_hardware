@@ -66,7 +66,6 @@ class GzImuAdapter(Node):
         )
 
     def _handle_imu(self, msg: Imu) -> None:
-        raw_msg = Imu()
         raw_msg = msg
         raw_msg.header.frame_id = self._frame_id
 
@@ -143,7 +142,8 @@ def main() -> None:
         rclpy.spin(node)
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

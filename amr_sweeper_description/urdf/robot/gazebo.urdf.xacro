@@ -4,6 +4,12 @@
   <xacro:arg name="robot_namespace" default="amr_sweeper"/>
   <xacro:arg name="entity_name" default="amr_sweeper"/>
   <xacro:arg name="use_simulation" default="true"/>
+  <xacro:arg name="simulation_physics" default="true"/>
+  <xacro:arg name="use_ros2_control" default="false"/>
+  <xacro:arg name="enable_usb_cameras" default="false"/>
+  <xacro:arg name="enable_gnss" default="true"/>
+  <xacro:arg name="enable_imu" default="true"/>
+  <xacro:arg name="enable_depth_camera" default="true"/>
 
   <xacro:include filename="$(find amr_sweeper_description)/urdf/robot/robot.urdf.xacro"/>
 

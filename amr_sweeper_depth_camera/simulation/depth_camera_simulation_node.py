@@ -47,7 +47,6 @@ class DepthCameraSimulationNode(Node):
         )
 
     def _handle_scan(self, msg: LaserScan) -> None:
-        scan_msg = LaserScan()
         scan_msg = msg
         scan_msg.header.frame_id = self._output_frame
         scan_msg.range_min = self._range_min
@@ -125,7 +124,8 @@ def main() -> None:
         rclpy.spin(node)
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

@@ -67,18 +67,6 @@ def _launch_setup(context, *args, **kwargs):
 
     actions = []
 
-    if _as_bool(use_simulation):
-        actions.append(_scoped_include(
-            "amr_sweeper_simulation",
-            "amr_sweeper_gazebo.launch.py",
-            {
-                "namespace": namespace,
-                "enable_gnss": "true" if use_amr_sweeper_gnss else "false",
-                "enable_imu": "true" if use_amr_sweeper_imu else "false",
-                "enable_depth_camera": "true" if use_amr_sweeper_depth_camera else "false",
-            },
-        ))
-
     if use_amr_sweeper_description:
         actions.append(_scoped_include(
             "amr_sweeper_description",
