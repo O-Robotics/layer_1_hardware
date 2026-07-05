@@ -41,7 +41,7 @@ class GzImuAdapter(Node):
         self._azimuth_output_topic = self.declare_parameter("azimuth_output_topic", "azimuth").value
         self._frame_id = self.declare_parameter("frame_id", "imu_link").value
         self._override_stamp_with_ros_time = bool(
-            self.declare_parameter("override_stamp_with_ros_time", True).value
+            self.declare_parameter("override_stamp_with_ros_time", False).value
         )
         self._orientation_covariance = list(
             self.declare_parameter(

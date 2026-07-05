@@ -29,6 +29,7 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[
                     {
                         'use_sim_time': use_sim_time,
+                        'override_stamp_with_ros_time': False,
                     }
                 ],
                 output='screen',

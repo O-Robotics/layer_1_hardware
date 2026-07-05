@@ -134,6 +134,7 @@ def _launch_setup(context, *args, **kwargs):
             {
                 "gnss_namespace": _child_namespace(namespace, "gnss"),
                 "use_simulation": use_simulation,
+                "use_sim_time": use_sim_time,
                 "use_ntrip_client": "true" if use_ntrip_client else "false",
                 "use_nmea_to_caster": "true" if use_ntrip_client else "false",
                 "gnss_frame_id": LaunchConfiguration("gnss_frame_id").perform(context),

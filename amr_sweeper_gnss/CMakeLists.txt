@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+﻿cmake_minimum_required(VERSION 3.8)
 project(amr_sweeper_gnss)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -49,24 +49,34 @@ ament_target_dependencies(ntrip_client
   sensor_msgs
 )
 
-install(TARGETS ntrip_client
+install(TARGETS gnss_node ntrip_client
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS gnss_node
+install(PROGRAMS
+  simulation/simulated_gnss_node.py
   DESTINATION lib/${PROJECT_NAME}
+  RENAME simulated_gnss_node
+)
+
+install(PROGRAMS
+  simulation/simulated_ntrip_client.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME simulated_ntrip_client
 )
 
 install(DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+  PATTERN "__pycache__" EXCLUDE
+  PATTERN "*.pyc" EXCLUDE
 )
 
-install(DIRECTORY config
-  DESTINATION share/${PROJECT_NAME}
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
 )
 
 if(BUILD_TESTING)
