@@ -126,6 +126,7 @@ private:
   void handleNavCov(const std::vector<std::uint8_t> & payload);
   void handleNavPvt(const std::vector<std::uint8_t> & payload);
   void tryPublishNavSat();
+  rclcpp::Time resolveFixStamp(std::uint32_t itow_ms);
 
   static std::uint16_t computeChecksumA(std::uint8_t msg_class, std::uint8_t msg_id, const std::vector<std::uint8_t> & payload);
   static std::uint32_t readU32(const std::vector<std::uint8_t> & data, std::size_t offset);
@@ -187,6 +188,8 @@ private:
   std::optional<NavCov> last_cov_;
   std::optional<NavPvt> last_pvt_;
   rclcpp::Time last_fix_publish_time_{0, 0, RCL_ROS_TIME};
+  std::optional<std::uint32_t> last_fix_itow_ms_;
+  rclcpp::Time last_fix_measurement_stamp_{0, 0, RCL_ROS_TIME};
   std::chrono::steady_clock::time_point last_poll_request_time_{};
 
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr navsat_publisher_;

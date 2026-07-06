@@ -71,6 +71,8 @@ double clampPositive(double value, double fallback)
   return value > 0.0 ? value : fallback;
 }
 
+constexpr std::int64_t kGpsWeekMilliseconds = 7LL * 24LL * 60LL * 60LL * 1000LL;
+
 int clampMinInt(int value, int fallback, int minimum)
 {
   if (value < minimum) {
@@ -757,9 +759,10 @@ void UbloxNode::tryPublishNavSat()
 
   const bool gps_fix_ok = (status->flags & 0x01U) != 0U;
   const std::uint8_t carrier_solution = static_cast<std::uint8_t>((status->flags2 >> 6U) & 0x03U);
+  const rclcpp::Time fix_stamp = resolveFixStamp(hpposllh->itow);
 
   sensor_msgs::msg::NavSatFix msg;
-  msg.header.stamp = now();
+  msg.header.stamp = fix_stamp;
   msg.header.frame_id = frame_id_;
   msg.latitude = hpposllh->latitude_deg;
   msg.longitude = hpposllh->longitude_deg;
@@ -856,6 +859,38 @@ void UbloxNode::tryPublishNavSat()
 
     gpsfix_publisher_->publish(gps_msg);
   }
+}
+
+rclcpp::Time UbloxNode::resolveFixStamp(std::uint32_t itow_ms)
+{
+  const rclcpp::Time receipt_stamp = now();
+  if (!last_fix_itow_ms_.has_value() || last_fix_measurement_stamp_.nanoseconds() == 0) {
+    last_fix_itow_ms_ = itow_ms;
+    last_fix_measurement_stamp_ = receipt_stamp;
+    return receipt_stamp;
+  }
+
+  std::int64_t delta_ms = static_cast<std::int64_t>(itow_ms) -
+    static_cast<std::int64_t>(*last_fix_itow_ms_);
+  if (delta_ms < 0) {
+    delta_ms += kGpsWeekMilliseconds;
+  }
+  if (delta_ms < 0 || delta_ms > 10000) {
+    delta_ms = 0;
+  }
+
+  rclcpp::Time stamp = last_fix_measurement_stamp_ +
+    rclcpp::Duration::from_nanoseconds(delta_ms * 1000000LL);
+  if (stamp > receipt_stamp) {
+    stamp = receipt_stamp;
+  }
+  if (stamp <= last_fix_measurement_stamp_) {
+    stamp = last_fix_measurement_stamp_ + rclcpp::Duration::from_nanoseconds(1);
+  }
+
+  last_fix_itow_ms_ = itow_ms;
+  last_fix_measurement_stamp_ = stamp;
+  return stamp;
 }
 
 std::uint16_t UbloxNode::computeChecksumA(

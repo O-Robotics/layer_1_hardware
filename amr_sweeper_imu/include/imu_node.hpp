@@ -81,6 +81,7 @@ private:
   void reset_issue_counters();
   void read_serial();
   void parse_byte(uint8_t byte);
+  rclcpp::Time resolve_frame_stamp(const rclcpp::Time & receipt_stamp);
   void maybe_publish(const rclcpp::Time & stamp);
   void ensure_publishers_created();
   bool resolve_orientation_rpy(
@@ -155,6 +156,7 @@ private:
   rclcpp::Publisher<compass_msgs::msg::Azimuth>::SharedPtr imu_azimuth_pub_;
   rclcpp::TimerBase::SharedPtr read_timer_;
   rclcpp::Time last_pub_time_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time current_frame_start_stamp_{0, 0, RCL_ROS_TIME};
   bool heading_filter_initialized_{false};
   double filtered_heading_yaw_{0.0};
   rclcpp::Time last_heading_filter_stamp_{0, 0, RCL_ROS_TIME};

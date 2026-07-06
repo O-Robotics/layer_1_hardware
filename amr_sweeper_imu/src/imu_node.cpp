@@ -1379,6 +1379,10 @@ void JY901ImuNode::parse_byte(uint8_t byte)
     return;
   }
 
+  if (frame_size_ == 0U) {
+    current_frame_start_stamp_ = get_clock()->now();
+  }
+
   frame_buf_[frame_size_++] = byte;
   if (frame_size_ < kFrameLength) {
     return;
@@ -1390,11 +1394,12 @@ void JY901ImuNode::parse_byte(uint8_t byte)
   }
 
   saw_valid_frame_since_open_ = true;
-  const auto now = get_clock()->now();
+  const auto receipt_stamp = get_clock()->now();
+  const auto frame_stamp = resolve_frame_stamp(receipt_stamp);
   if (validation_frame_count_ == 0U) {
-    validation_first_frame_time_ = now;
+    validation_first_frame_time_ = frame_stamp;
   }
-  validation_last_frame_time_ = now;
+  validation_last_frame_time_ = frame_stamp;
   ++validation_frame_count_;
 
   const uint8_t type = frame_buf_[1];
@@ -1418,7 +1423,7 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       euler_deg_[1] = static_cast<double>(d1) / 32768.0 * 180.0;
       euler_deg_[2] = static_cast<double>(d2) / 32768.0 * 180.0;
       if (!output_quaternion_ || !has_quaternion_) {
-        maybe_publish(now);
+        maybe_publish(frame_stamp);
       }
       break;
     case 0x59:
@@ -1427,11 +1432,24 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       quaternion_[2] = static_cast<double>(d2) / 32768.0;
       quaternion_[3] = static_cast<double>(read_i16_le(&frame_buf_[8])) / 32768.0;
       has_quaternion_ = true;
-      maybe_publish(now);
+      maybe_publish(frame_stamp);
       break;
     default:
       break;
   }
+}
+
+rclcpp::Time JY901ImuNode::resolve_frame_stamp(const rclcpp::Time & receipt_stamp)
+{
+  rclcpp::Time stamp = current_frame_start_stamp_.nanoseconds() > 0 ?
+    current_frame_start_stamp_ :
+    receipt_stamp;
+
+  if (last_pub_time_.nanoseconds() > 0 && stamp <= last_pub_time_) {
+    stamp = last_pub_time_ + rclcpp::Duration::from_nanoseconds(1);
+  }
+
+  return stamp;
 }
 
 void JY901ImuNode::maybe_publish(const rclcpp::Time & stamp)
