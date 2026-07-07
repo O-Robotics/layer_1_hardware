@@ -129,18 +129,11 @@ def _launch_setup(context, *args, **kwargs):
                         LaunchConfiguration('use_sim_time'),
                         value_type=bool,
                     ),
-                    'input_scan_topic': 'scan_gz',
-                    'output_scan_topic': LaunchConfiguration('scan_topic'),
+                    'input_depth_topic': 'input/depth/image_rect_raw',
+                    'input_camera_info_topic': 'input/depth/camera_info',
+                    'depth_topic': 'depth/image_rect_raw',
                     'camera_info_topic': 'depth/camera_info',
                     'pointcloud_topic': 'depth/color/points',
-                    'camera_frame_id': depth_camera_frame_value,
-                    'output_frame': laserscan_frame_value,
-                    'range_min': float(laserscan_params.get('range_min', 0.20)),
-                    'range_max': float(laserscan_params.get('range_max', 5.0)),
-                    'scan_time': float(laserscan_params.get('scan_time', 0.05)),
-                    'camera_width': 640,
-                    'camera_height': 480,
-                    'camera_fov_deg': 87.0,
                 },
             ],
         )
@@ -165,7 +158,7 @@ def _launch_setup(context, *args, **kwargs):
         )
 
     laserscan_node = None
-    if not use_simulation:
+    if LaunchConfiguration('use_laserscan').perform(context).strip().lower() in {'1', 'true', 'yes', 'on'}:
         laserscan_node = Node(
             package='amr_sweeper_depth_camera',
             executable='laserscan_node',
@@ -186,8 +179,7 @@ def _launch_setup(context, *args, **kwargs):
                 ('depth', depth_image_topic_value),
                 ('depth_camera_info', depth_camera_info_topic_value),
                 ('scan', LaunchConfiguration('scan_topic')),
-            ],
-            condition=IfCondition(LaunchConfiguration('use_laserscan')),
+            ]
         )
 
     laserscan_tf_node = Node(
