@@ -8,6 +8,7 @@ import rclpy
 from gps_msgs.msg import GPSFix, GPSStatus
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from rtcm_msgs.msg import Message as RtcmMessage
 from sensor_msgs.msg import NavSatFix, NavSatStatus
@@ -165,7 +166,12 @@ class SimulatedGnssNode(Node):
         self.gpsfix_publisher = self.create_publisher(GPSFix, self.gpsfix_topic, 10)
         self.odometry_publisher = self.create_publisher(Odometry, self.odometry_topic, 10)
         self.marker_publisher = self.create_publisher(Marker, self.status_marker_topic, 10)
-        self.pose_subscription = self.create_subscription(TFMessage, self.pose_topic, self.pose_callback, 10)
+        self.pose_subscription = self.create_subscription(
+            TFMessage,
+            self.pose_topic,
+            self.pose_callback,
+            qos_profile_sensor_data,
+        )
         self.rtcm_subscription = self.create_subscription(RtcmMessage, self.rtcm_topic, self.handle_rtcm, 10)
 
         self.body_frame_id: Optional[str] = None
