@@ -1,4 +1,4 @@
-# Copyright (c) 2026 O-Robotics
+﻿# Copyright (c) 2026 O-Robotics
 
 import math
 from pathlib import Path
@@ -28,6 +28,16 @@ def _split_namespace(namespace: str) -> tuple[str, str]:
     if len(parts) == 1:
         return '/', parts[0]
     return '/' + '/'.join(parts[:-1]), parts[-1]
+
+
+def _simulation_input_topic(namespace: str, sensor_name: str, topic_suffix: str) -> str:
+    normalized = _normalize_namespace(namespace)
+    parts = [part for part in normalized.split('/') if part]
+    if parts and parts[-1] == sensor_name:
+        parts = parts[:-1]
+    root_namespace = '/'.join(parts)
+    prefix = f'{root_namespace}/simulation' if root_namespace else 'simulation'
+    return f'/{prefix}/{topic_suffix.strip().lstrip("/")}'
 
 
 def _load_ros_parameter_file(path: str) -> dict:
@@ -116,6 +126,16 @@ def _launch_setup(context, *args, **kwargs):
     realsense_node = None
     simulation_node = None
     if use_simulation:
+        simulation_depth_topic = _simulation_input_topic(
+            namespace_value,
+            'depth_camera',
+            'depth_camera/input/depth/image_rect_raw',
+        )
+        simulation_camera_info_topic = _simulation_input_topic(
+            namespace_value,
+            'depth_camera',
+            'depth_camera/input/depth/camera_info',
+        )
         simulation_node = Node(
             package='amr_sweeper_depth_camera',
             executable='depth_camera_simulation_node',
@@ -129,8 +149,8 @@ def _launch_setup(context, *args, **kwargs):
                         LaunchConfiguration('use_sim_time'),
                         value_type=bool,
                     ),
-                    'input_depth_topic': 'input/depth/image_rect_raw',
-                    'input_camera_info_topic': 'input/depth/camera_info',
+                    'input_depth_topic': simulation_depth_topic,
+                    'input_camera_info_topic': simulation_camera_info_topic,
                     'depth_topic': 'depth/image_rect_raw',
                     'camera_info_topic': 'depth/camera_info',
                     'pointcloud_topic': 'depth/color/points',

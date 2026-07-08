@@ -1,10 +1,19 @@
-from launch import LaunchDescription
+﻿from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+
+
+def _simulation_input_topic(namespace: str, sensor_name: str, topic_suffix: str) -> str:
+    parts = [part for part in namespace.strip().strip('/').split('/') if part]
+    if parts and parts[-1] == sensor_name:
+        parts = parts[:-1]
+    root_namespace = '/'.join(parts)
+    prefix = f"{root_namespace}/simulation" if root_namespace else "simulation"
+    return f"/{prefix}/{topic_suffix.strip().lstrip('/')}"
 
 
 def launch_setup(context, *args, **kwargs):
@@ -20,6 +29,11 @@ def launch_setup(context, *args, **kwargs):
     use_imu_node = LaunchConfiguration('use_imu_node')
 
     if use_simulation:
+        simulation_input_topic = _simulation_input_topic(
+            ns.perform(context),
+            'imu',
+            'imu/data_raw',
+        )
         return [
             Node(
                 package='amr_sweeper_imu',
@@ -29,6 +43,7 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[
                     {
                         'use_sim_time': use_sim_time,
+                        'input_topic': simulation_input_topic,
                         'override_stamp_with_ros_time': False,
                     }
                 ],

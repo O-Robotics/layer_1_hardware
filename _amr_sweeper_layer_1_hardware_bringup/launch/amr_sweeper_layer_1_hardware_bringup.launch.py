@@ -1,4 +1,4 @@
-"""Launch the layer-1 hardware stack from package launch files."""
+﻿"""Launch the layer-1 hardware stack from package launch files."""
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction, SetEnvironmentVariable, TimerAction
@@ -139,6 +139,7 @@ def _launch_setup(context, *args, **kwargs):
                 "use_nmea_to_caster": "true" if use_ntrip_client else "false",
                 "gnss_frame_id": LaunchConfiguration("gnss_frame_id").perform(context),
                 "ntrip_params_file": LaunchConfiguration("ntrip_params_file").perform(context),
+                "pose_topic": LaunchConfiguration("simulation_pose_topic").perform(context),
                 "log_level": log_level,
                 "ublox_log_level": ublox_log_level,
             },
@@ -274,6 +275,10 @@ def generate_launch_description():
             "config",
             "amr_sweeper_gnss_ntrip_client.yaml",
         ])),
+        DeclareLaunchArgument(
+            "simulation_pose_topic",
+            default_value="/amr_sweeper/simulation/pose/info",
+        ),
         DeclareLaunchArgument("front_left_camera_enabled", default_value="false"),
         DeclareLaunchArgument("front_right_camera_enabled", default_value="false"),
         DeclareLaunchArgument("rear_left_camera_enabled", default_value="true"),

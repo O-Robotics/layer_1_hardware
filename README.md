@@ -1,4 +1,4 @@
-# layer_1_hardware
+﻿# layer_1_hardware
 
 ```
 ros2 launch amr_sweeper_layer_1_hardware_bringup amr_sweeper_layer_1_hardware_bringup.launch.py
@@ -68,7 +68,7 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 ## Notes
 - The default command launches the full layer 1 hardware bringup package.
 - `amr_sweeper_layer_1_hardware_bringup` is now a launch-only package that includes the package launch files for sensors, `robot_state_publisher`, and `ros2_control`.
-- Gazebo world startup, simulation config, and ROS bridge plumbing are now owned by `amr_sweeper_bringup`, while layer 1 keeps the simulation-aware hardware launch adaptations.
+- Gazebo world startup, simulation config, and ROS bridge plumbing are now owned by `amr_sweeper_simulation`, while layer 1 keeps the simulation-aware hardware launch adaptations.
 - Layer 2 and layer 3 should be started only after the required layer 1 hardware interfaces are available.
 - The vendored RealSense ROS packages live under `amr_sweeper_depth_camera/src/realsense-ros`, but `colcon` will only discover them when they are also exposed at the workspace root `src/`. Run `src/layer_1_hardware/amr_sweeper_depth_camera/scripts/ensure_workspace_links.sh` before `colcon build`, or use `./update.sh`, which now does this automatically.
 - Under the default robot root `/amr_sweeper`, package-owned sensor namespaces follow the package role, including `/amr_sweeper/imu`, `/amr_sweeper/gnss`, `/amr_sweeper/usb_cameras`, and `/amr_sweeper/depth_camera`.
@@ -79,3 +79,4 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - Controller spawners in the layer 1 ros2_control launch load controller settings from `amr_sweeper_description/urdf/control/ros2_control.yaml`, which keeps the bringup aligned with ROS 2 Jazzy while remaining workable on Humble.
 - The robot description entrypoint is `amr_sweeper_description.launch.py`, which also owns the default controller-config path used by the bringup.
 - Hardware-specific wheel and tool-motor parameters such as CAN interface, motor IDs, positive motor directions, and gear ratios now live in `amr_sweeper_odrive/config/amr_sweeper_odrive.yaml` and `amr_sweeper_steadydrive/config/amr_sweeper_steadydrive.yaml`.
+
