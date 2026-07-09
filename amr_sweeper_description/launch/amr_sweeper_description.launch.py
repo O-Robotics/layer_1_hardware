@@ -3,6 +3,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -17,6 +18,12 @@ def generate_launch_description():
     enable_gnss = LaunchConfiguration('enable_gnss')
     enable_imu = LaunchConfiguration('enable_imu')
     enable_depth_camera = LaunchConfiguration('enable_depth_camera')
+    enable_seed_publishers = LaunchConfiguration('enable_seed_publishers')
+    seed_publish_rate_hz = LaunchConfiguration('seed_publish_rate_hz')
+    seed_base_link_roll_deg = LaunchConfiguration('seed_base_link_roll_deg')
+    seed_base_link_pitch_deg = LaunchConfiguration('seed_base_link_pitch_deg')
+    seed_base_link_yaw_deg = LaunchConfiguration('seed_base_link_yaw_deg')
+    seed_base_link_z_m = LaunchConfiguration('seed_base_link_z_m')
     pkg_path = get_package_share_directory('amr_sweeper_description')
     xacro_file = os.path.join(pkg_path, 'urdf', 'robot', 'robot.urdf.xacro')
     default_ros2_control_file = os.path.join(pkg_path, 'urdf', 'control', 'ros2_control.yaml')
@@ -38,6 +45,12 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('use_simulation', default_value='false'),
         DeclareLaunchArgument('use_ros2_control', default_value='true'),
+        DeclareLaunchArgument('enable_seed_publishers', default_value='true'),
+        DeclareLaunchArgument('seed_publish_rate_hz', default_value='2.0'),
+        DeclareLaunchArgument('seed_base_link_roll_deg', default_value='0.0'),
+        DeclareLaunchArgument('seed_base_link_pitch_deg', default_value='4.5'),
+        DeclareLaunchArgument('seed_base_link_yaw_deg', default_value='0.0'),
+        DeclareLaunchArgument('seed_base_link_z_m', default_value='0.13'),
         # The description package owns the default controller config path used by layer 1 bringup.
         DeclareLaunchArgument('ros2_control_config_file', default_value=default_ros2_control_file),
         DeclareLaunchArgument('enable_usb_cameras', default_value='true'),
@@ -56,6 +69,21 @@ def generate_launch_description():
             parameters=[{
                 'robot_description': robot_description,
                 'use_sim_time': use_sim_time,
+            }],
+        ),
+        Node(
+            package='amr_sweeper_description',
+            executable='description_seed_publisher.py',
+            namespace=namespace,
+            output='screen',
+            condition=IfCondition(enable_seed_publishers),
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'publish_rate_hz': seed_publish_rate_hz,
+                'base_link_seed_roll_deg': seed_base_link_roll_deg,
+                'base_link_seed_pitch_deg': seed_base_link_pitch_deg,
+                'base_link_seed_yaw_deg': seed_base_link_yaw_deg,
+                'base_link_seed_z_m': seed_base_link_z_m,
             }],
         ),
     ])

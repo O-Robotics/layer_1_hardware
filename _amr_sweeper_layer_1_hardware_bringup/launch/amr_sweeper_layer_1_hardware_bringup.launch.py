@@ -75,7 +75,7 @@ def _launch_setup(context, *args, **kwargs):
                 "namespace": namespace,
                 "use_sim_time": use_sim_time,
                 "use_simulation": use_simulation,
-                "use_ros2_control": "true" if use_amr_sweeper_ros2_control else "false",
+                "use_ros2_control": "true",
                 "enable_usb_cameras": "true" if use_amr_sweeper_usb_cameras else "false",
                 "enable_gnss": "true" if use_amr_sweeper_gnss else "false",
                 "enable_imu": "true" if use_amr_sweeper_imu else "false",

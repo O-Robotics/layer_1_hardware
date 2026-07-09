@@ -12,7 +12,7 @@ def _simulation_input_topic(namespace: str, sensor_name: str, topic_suffix: str)
     if parts and parts[-1] == sensor_name:
         parts = parts[:-1]
     root_namespace = '/'.join(parts)
-    prefix = f"{root_namespace}/simulation" if root_namespace else "simulation"
+    prefix = f"{root_namespace}/simulation/{sensor_name}" if root_namespace else f"simulation/{sensor_name}"
     return f"/{prefix}/{topic_suffix.strip().lstrip('/')}"
 
 
@@ -32,7 +32,7 @@ def launch_setup(context, *args, **kwargs):
         simulation_input_topic = _simulation_input_topic(
             ns.perform(context),
             'imu',
-            'imu/data_raw',
+            'data_raw',
         )
         return [
             Node(

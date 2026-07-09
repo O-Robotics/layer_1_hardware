@@ -36,7 +36,7 @@ def _simulation_input_topic(namespace: str, sensor_name: str, topic_suffix: str)
     if parts and parts[-1] == sensor_name:
         parts = parts[:-1]
     root_namespace = '/'.join(parts)
-    prefix = f'{root_namespace}/simulation' if root_namespace else 'simulation'
+    prefix = f'{root_namespace}/simulation/{sensor_name}' if root_namespace else f'simulation/{sensor_name}'
     return f'/{prefix}/{topic_suffix.strip().lstrip("/")}'
 
 
@@ -129,12 +129,12 @@ def _launch_setup(context, *args, **kwargs):
         simulation_depth_topic = _simulation_input_topic(
             namespace_value,
             'depth_camera',
-            'depth_camera/input/depth/image_rect_raw',
+            'image_rect_raw',
         )
         simulation_camera_info_topic = _simulation_input_topic(
             namespace_value,
             'depth_camera',
-            'depth_camera/input/depth/camera_info',
+            'camera_info',
         )
         simulation_node = Node(
             package='amr_sweeper_depth_camera',
