@@ -196,6 +196,7 @@ JY901ImuNode::JY901ImuNode()
   output_satellite_accuracy_ = declare_parameter<bool>("output_satellite_accuracy", false);
   orientation_source_ = declare_parameter<std::string>("orientation_source", "euler");
   heading_source_ = declare_parameter<std::string>("heading_source", "euler");
+  simulation_input_topic_ = declare_parameter<std::string>("simulation_input_topic", "");
   heading_lowpass_alpha_ = declare_parameter<double>("heading_lowpass_alpha", 1.0);
   heading_filter_reset_dt_s_ = declare_parameter<double>("heading_filter_reset_dt_s", 0.2);
   yaw_offset_deg_ = declare_parameter<double>("yaw_offset_deg", 0.0);
@@ -284,19 +285,32 @@ JY901ImuNode::JY901ImuNode()
     linear_acceleration_covariance_ = {0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5};
   }
 
-  if (!establish_initial_connection()) {
-    report_connection_issue(
-      last_serial_error_message_.empty() ?
-      "Failed to establish IMU serial device '" + device_path_ + "'" :
-      last_serial_error_message_);
-  } else {
-    RCLCPP_INFO(get_logger(), "IMU configuration complete");
+  if (!simulation_input_topic_.empty()) {
+    simulated_imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
+      simulation_input_topic_,
+      rclcpp::SensorDataQoS(),
+      std::bind(&JY901ImuNode::handle_simulated_imu, this, std::placeholders::_1));
     publishing_enabled_ = true;
     reset_issue_counters();
-  }
+    RCLCPP_INFO(
+      get_logger(),
+      "IMU running in simulated-input mode from '%s' using the hardware IMU processing path",
+      simulation_input_topic_.c_str());
+  } else {
+    if (!establish_initial_connection()) {
+      report_connection_issue(
+        last_serial_error_message_.empty() ?
+        "Failed to establish IMU serial device '" + device_path_ + "'" :
+        last_serial_error_message_);
+    } else {
+      RCLCPP_INFO(get_logger(), "IMU configuration complete");
+      publishing_enabled_ = true;
+      reset_issue_counters();
+    }
 
-  read_timer_ = create_wall_timer(
-    std::chrono::milliseconds(read_period_ms_), std::bind(&JY901ImuNode::read_serial, this));
+    read_timer_ = create_wall_timer(
+      std::chrono::milliseconds(read_period_ms_), std::bind(&JY901ImuNode::read_serial, this));
+  }
 }
 
 bool JY901ImuNode::orientation_source_uses_native_quaternion(const std::string & source) const
@@ -335,14 +349,14 @@ bool JY901ImuNode::resolve_orientation_rpy(
     double corrected_y = 0.0;
     double corrected_z = 0.0;
     multiply_quaternions(
-      sensor_w,
-      sensor_x,
-      sensor_y,
-      sensor_z,
       mount_w,
       mount_x,
       mount_y,
       mount_z,
+      sensor_w,
+      sensor_x,
+      sensor_y,
+      sensor_z,
       corrected_w,
       corrected_x,
       corrected_y,
@@ -380,14 +394,14 @@ bool JY901ImuNode::resolve_orientation_rpy(
       double mount_z = 0.0;
       rpy_to_quaternion(0.0, 0.0, yaw_offset_rad_, mount_w, mount_x, mount_y, mount_z);
       multiply_quaternions(
-        quaternion_[0] / norm,
-        quaternion_[1] / norm,
-        quaternion_[2] / norm,
-        quaternion_[3] / norm,
         mount_w,
         mount_x,
         mount_y,
         mount_z,
+        quaternion_[0] / norm,
+        quaternion_[1] / norm,
+        quaternion_[2] / norm,
+        quaternion_[3] / norm,
         corrected_w,
         corrected_x,
         corrected_y,
@@ -1477,6 +1491,82 @@ void JY901ImuNode::maybe_publish(const rclcpp::Time & stamp)
   imu_acc_gyro_pub_->publish(build_accel_gyro_message(raw_msg));
   imu_heading_pub_->publish(build_heading_message(raw_msg));
   imu_azimuth_pub_->publish(build_azimuth_message(raw_msg));
+}
+
+void JY901ImuNode::handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
+{
+  if (!msg) {
+    return;
+  }
+
+  const rclcpp::Time stamp =
+    (msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0) ?
+    get_clock()->now() :
+    rclcpp::Time(msg->header.stamp);
+
+  const double norm =
+    (msg->orientation.w * msg->orientation.w) +
+    (msg->orientation.x * msg->orientation.x) +
+    (msg->orientation.y * msg->orientation.y) +
+    (msg->orientation.z * msg->orientation.z);
+  if (!std::isfinite(norm) || norm <= 1e-9) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 10000,
+      "Simulated IMU orientation is invalid; skipping sample");
+    return;
+  }
+
+  // Convert Gazebo's imu_link/base_link-aligned IMU output into the synthetic
+  // raw sensor frame first, then run the same hardware correction path that
+  // the JY901 uses on real packets.
+  double mount_w = 1.0;
+  double mount_x = 0.0;
+  double mount_y = 0.0;
+  double mount_z = 0.0;
+  rpy_to_quaternion(0.0, 0.0, -yaw_offset_rad_, mount_w, mount_x, mount_y, mount_z);
+
+  double sensor_w = 1.0;
+  double sensor_x = 0.0;
+  double sensor_y = 0.0;
+  double sensor_z = 0.0;
+  multiply_quaternions(
+    msg->orientation.w / std::sqrt(norm),
+    msg->orientation.x / std::sqrt(norm),
+    msg->orientation.y / std::sqrt(norm),
+    msg->orientation.z / std::sqrt(norm),
+    mount_w,
+    mount_x,
+    mount_y,
+    mount_z,
+    sensor_w,
+    sensor_x,
+    sensor_y,
+    sensor_z);
+
+  quaternion_[0] = sensor_w;
+  quaternion_[1] = sensor_x;
+  quaternion_[2] = sensor_y;
+  quaternion_[3] = sensor_z;
+  has_quaternion_ = true;
+
+  double roll_rad = 0.0;
+  double pitch_rad = 0.0;
+  double yaw_rad = 0.0;
+  quaternion_to_rpy(sensor_w, sensor_x, sensor_y, sensor_z, roll_rad, pitch_rad, yaw_rad);
+  euler_deg_[0] = roll_rad / kDegToRad;
+  euler_deg_[1] = pitch_rad / kDegToRad;
+  euler_deg_[2] = yaw_rad / kDegToRad;
+
+  accel_[0] = msg->linear_acceleration.x;
+  accel_[1] = msg->linear_acceleration.y;
+  accel_[2] = msg->linear_acceleration.z;
+  gyro_[0] = msg->angular_velocity.x;
+  gyro_[1] = msg->angular_velocity.y;
+  gyro_[2] = msg->angular_velocity.z;
+  rotate_xy(-yaw_offset_rad_, accel_[0], accel_[1]);
+  rotate_xy(-yaw_offset_rad_, gyro_[0], gyro_[1]);
+
+  maybe_publish(stamp);
 }
 
 void JY901ImuNode::ensure_publishers_created()

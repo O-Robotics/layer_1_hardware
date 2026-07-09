@@ -19,6 +19,7 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 ## Launch Arguments
 - `namespace`: default `amr_sweeper/imu`
 - `use_sim_time`: default `false`
+- `use_simulation`: default `false`
 - `params_file`: default `config/amr_sweeper_imu.yaml`
 - `device_path`: default empty, so the YAML value is used unless explicitly overridden
 - `port`: default empty (deprecated compatibility alias)
@@ -28,12 +29,13 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - `use_imu_node`: default `true`
 
 ## Overview
-`amr_sweeper_imu` provides the ROS 2 node that reads the physical IMU and publishes the orientation-related data used by the rest of the robot stack. It is a foundational sensor package for localization and is typically started as part of layer 1 bringup.
+`amr_sweeper_imu` provides the ROS 2 node that publishes the orientation-related data used by the rest of the robot stack. On hardware it reads the physical JY901 IMU over serial. In simulation it consumes the bridged Gazebo IMU topic but still runs the same C++ processing path, parameter file, covariance table, and yaw-correction math as hardware.
 
 ## Notes
 - Main node: `imu_node`.
 - Layer 3 localization relies on this package for IMU data.
 - Default tunable parameters live in `config/amr_sweeper_imu.yaml`.
+- `use_simulation:=true` keeps the package on the same `imu_node` executable and switches its input to the simulation IMU topic, so simulation and hardware share one implementation path.
 - The node publishes three IMU topics under the selected namespace:
 - `data_raw`: full corrected IMU message with orientation, gyro, and acceleration. With the default namespace this resolves to `/amr_sweeper/imu/data_raw`.
 - `data_acc_gyro`: acceleration and gyro only, with orientation marked unavailable. With the default namespace this resolves to `/amr_sweeper/imu/data_acc_gyro`.
@@ -48,7 +50,7 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - `heading_source` selects which attitude estimate feeds the heading-only outputs `data_heading` and `azimuth`: `euler`, `native`, or `orientation`. This supports testing a separate absolute-heading path without changing the raw IMU topic consumed by localization.
 - `heading_lowpass_alpha` applies optional wrapped exponential smoothing to `data_heading` and `azimuth` only. This is useful when the robot needs a steadier absolute heading source for map/GNSS alignment but should still keep accel/gyro on `data_raw` untouched.
 - IMU message timestamps are now taken from the frame-arrival time in the serial parser path instead of being re-stamped at ROS publish time, which reduces executor-induced timing distortion during bursty reads.
-- `yaw_offset_deg` applies a software yaw correction before publishing orientation, angular velocity, and linear acceleration. For a 180 degree yaw mounting mismatch, set `yaw_offset_deg: 180.0`.
+- `yaw_offset_deg` applies the IMU-to-base yaw mounting correction before publishing orientation, angular velocity, and linear acceleration, using the same rotation convention as FusionCore's IMU frame handling.
 - If `baud` differs from the sensor's current baud, use `fallback_baud` to tell the node how to reach the sensor before reprogramming it. The datasheet notes that baud/rate related changes may require a module restart or re-power to fully take effect.
 - Reading back `algorithm=nine_axis` only confirms the configuration register value. It does not by itself prove that the runtime yaw is magnetically referenced and calibrated.
 - For FusionCore, the safest architecture is often `imu.has_magnetometer: false` on `/imu/data_raw` plus `gnss.azimuth_topic: /amr_sweeper/imu/azimuth`, so raw accel/gyro and absolute heading can be tuned independently.

@@ -42,10 +42,4 @@ install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(PROGRAMS
-  simulation/gz_imu_adapter.py
-  DESTINATION lib/${PROJECT_NAME}
-  RENAME gz_imu_adapter
-)
-
 ament_package()

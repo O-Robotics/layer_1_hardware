@@ -34,19 +34,24 @@ def launch_setup(context, *args, **kwargs):
             'imu',
             'data_raw',
         )
+        parameters = [
+            params_file,
+            {
+                'use_sim_time': use_sim_time,
+                'simulation_input_topic': simulation_input_topic,
+            },
+        ]
+        if imu_frame_id:
+            parameters.append({'imu_frame_id': imu_frame_id})
+        if publish_hz:
+            parameters.append({'publish_hz': float(publish_hz)})
         return [
             Node(
                 package='amr_sweeper_imu',
-                executable='gz_imu_adapter',
+                executable='imu_node',
                 name='imu_node',
                 namespace=ns,
-                parameters=[
-                    {
-                        'use_sim_time': use_sim_time,
-                        'input_topic': simulation_input_topic,
-                        'override_stamp_with_ros_time': False,
-                    }
-                ],
+                parameters=parameters,
                 output='screen',
                 condition=IfCondition(use_imu_node),
             )

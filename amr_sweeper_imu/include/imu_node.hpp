@@ -84,6 +84,7 @@ private:
   rclcpp::Time resolve_frame_stamp(const rclcpp::Time & receipt_stamp);
   void maybe_publish(const rclcpp::Time & stamp);
   void ensure_publishers_created();
+  void handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr msg);
   bool resolve_orientation_rpy(
     const std::string & source,
     double & roll,
@@ -126,6 +127,7 @@ private:
   bool output_satellite_accuracy_{false};
   std::string orientation_source_{"euler"};
   std::string heading_source_{"euler"};
+  std::string simulation_input_topic_;
   double heading_lowpass_alpha_{1.0};
   double heading_filter_reset_dt_s_{0.2};
   double yaw_offset_deg_{0.0};
@@ -154,6 +156,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_acc_gyro_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_heading_pub_;
   rclcpp::Publisher<compass_msgs::msg::Azimuth>::SharedPtr imu_azimuth_pub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr simulated_imu_sub_;
   rclcpp::TimerBase::SharedPtr read_timer_;
   rclcpp::Time last_pub_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time current_frame_start_stamp_{0, 0, RCL_ROS_TIME};
