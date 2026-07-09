@@ -168,6 +168,8 @@ class DescriptionSeedPublisher(Node):
 
     def _publish_seed_data(self) -> None:
         now = self.get_clock().now().to_msg()
+        if now.sec == 0 and now.nanosec == 0:
+            return
 
         if self.seed_map_to_odom:
             self.tf_broadcaster.sendTransform(self._identity_transform(now, self.map_frame, self.odom_frame))
