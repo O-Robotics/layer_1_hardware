@@ -348,15 +348,18 @@ bool JY901ImuNode::resolve_orientation_rpy(
     double corrected_x = 0.0;
     double corrected_y = 0.0;
     double corrected_z = 0.0;
+    // Mount offset is a fixed rotation of the sensor's own axes, so it must be
+    // post-multiplied (sensor * mount); pre-multiplying would apply it in the
+    // world frame instead and corrupt roll/pitch whenever the sensor is tilted.
     multiply_quaternions(
-      mount_w,
-      mount_x,
-      mount_y,
-      mount_z,
       sensor_w,
       sensor_x,
       sensor_y,
       sensor_z,
+      mount_w,
+      mount_x,
+      mount_y,
+      mount_z,
       corrected_w,
       corrected_x,
       corrected_y,
@@ -393,15 +396,17 @@ bool JY901ImuNode::resolve_orientation_rpy(
       double mount_y = 0.0;
       double mount_z = 0.0;
       rpy_to_quaternion(0.0, 0.0, yaw_offset_rad_, mount_w, mount_x, mount_y, mount_z);
+      // Post-multiply, matching apply_mount_yaw: the mount offset rotates the
+      // sensor's own axes, not the world frame.
       multiply_quaternions(
-        mount_w,
-        mount_x,
-        mount_y,
-        mount_z,
         quaternion_[0] / norm,
         quaternion_[1] / norm,
         quaternion_[2] / norm,
         quaternion_[3] / norm,
+        mount_w,
+        mount_x,
+        mount_y,
+        mount_z,
         corrected_w,
         corrected_x,
         corrected_y,
