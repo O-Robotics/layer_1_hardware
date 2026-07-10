@@ -79,6 +79,8 @@ class SimulatedGnssNode(Node):
         self.declare_parameter("origin_lat", 56.164520029)
         self.declare_parameter("origin_lon", 10.1453534275)
         self.declare_parameter("origin_alt", 100.0)
+        self.declare_parameter("spawn_x", 0.0)
+        self.declare_parameter("spawn_y", 0.0)
         self.declare_parameter("publish_rate_hz", 5.0)
         self.declare_parameter("stationary_speed_threshold_mps", 0.05)
         self.declare_parameter("noise_correlation_tau_s", 12.0)
@@ -124,6 +126,8 @@ class SimulatedGnssNode(Node):
         self.origin_lat = self.get_parameter("origin_lat").get_parameter_value().double_value
         self.origin_lon = self.get_parameter("origin_lon").get_parameter_value().double_value
         self.origin_alt = self.get_parameter("origin_alt").get_parameter_value().double_value
+        self.spawn_x = self.get_parameter("spawn_x").get_parameter_value().double_value
+        self.spawn_y = self.get_parameter("spawn_y").get_parameter_value().double_value
         self.publish_rate_hz = max(0.5, self.get_parameter("publish_rate_hz").get_parameter_value().double_value)
         self.publish_period_ns = int(1e9 / self.publish_rate_hz)
         self.stationary_speed_threshold_mps = max(
@@ -175,6 +179,7 @@ class SimulatedGnssNode(Node):
         self.rtcm_subscription = self.create_subscription(RtcmMessage, self.rtcm_topic, self.handle_rtcm, 10)
 
         self.body_frame_id: Optional[str] = None
+        self.last_body_xy: Tuple[float, float] = (self.spawn_x, self.spawn_y)
         self.start_ns: Optional[int] = None
         self.last_publish_ns: Optional[int] = None
         self.last_rtcm_ns: Optional[int] = None
@@ -224,32 +229,49 @@ class SimulatedGnssNode(Node):
         return self.in_window("spike2_at_s", "spike2_duration_s")
 
     def find_body_transform(self, message: TFMessage):
-        if self.body_frame_id is not None:
+        # Preferred path: if child_frame_id is ever populated with a real name
+        # (e.g. a future bridge fix), lock onto the named base_link for good.
+        if self.body_frame_id:
             for transform in message.transforms:
                 if transform.child_frame_id == self.body_frame_id:
                     translation = transform.transform.translation
                     if 0.05 < translation.z < 0.8:
+                        self.last_body_xy = (translation.x, translation.y)
                         return transform
         for transform in message.transforms:
             if is_base_link(transform.child_frame_id):
                 translation = transform.transform.translation
                 if 0.05 < translation.z < 0.8:
                     self.body_frame_id = transform.child_frame_id
+                    self.last_body_xy = (translation.x, translation.y)
                     return transform
+
+        # The Gazebo Pose_V -> TFMessage bridge used here never carries entity
+        # names, so every transform has an empty frame_id/child_frame_id and
+        # neither lookup above can ever succeed -- this world/pose/info topic
+        # reports every model in the scene, not just the robot. Identify the
+        # robot by nearest-neighbor continuity instead: among everything at
+        # plausible chassis height, take whichever entry is closest to where
+        # we last saw it (seeded from the known spawn pose). The robot moves
+        # continuously and slowly relative to this topic's publish rate, so
+        # it's always the closest match to its own previous position, while
+        # unrelated static props sit elsewhere and never win.
+        last_x, last_y = self.last_body_xy
         best_transform = None
-        best_magnitude = -1.0
-        best_frame_id = None
+        best_distance_sq = float("inf")
         for transform in message.transforms:
             translation = transform.transform.translation
             if not (0.05 < translation.z < 0.8):
                 continue
-            magnitude = translation.x * translation.x + translation.y * translation.y
-            if magnitude > best_magnitude:
-                best_magnitude = magnitude
+            dx = translation.x - last_x
+            dy = translation.y - last_y
+            distance_sq = dx * dx + dy * dy
+            if distance_sq < best_distance_sq:
+                best_distance_sq = distance_sq
                 best_transform = transform
-                best_frame_id = transform.child_frame_id
-        if best_frame_id is not None:
-            self.body_frame_id = best_frame_id
+        if best_transform is not None:
+            translation = best_transform.transform.translation
+            self.last_body_xy = (translation.x, translation.y)
         return best_transform
 
     def current_fix_state(self, now_ns: int) -> str:
