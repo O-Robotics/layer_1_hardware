@@ -7,7 +7,9 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(gps_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rtcm_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -23,7 +25,9 @@ target_include_directories(gnss_node PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 ament_target_dependencies(gnss_node
+  geometry_msgs
   gps_msgs
+  nav_msgs
   rclcpp
   rtcm_msgs
   sensor_msgs
@@ -51,12 +55,6 @@ ament_target_dependencies(ntrip_client
 
 install(TARGETS gnss_node ntrip_client
   DESTINATION lib/${PROJECT_NAME}
-)
-
-install(PROGRAMS
-  simulation/simulated_gnss_node.py
-  DESTINATION lib/${PROJECT_NAME}
-  RENAME simulated_gnss_node
 )
 
 install(PROGRAMS

@@ -15,6 +15,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <random>
 #include <stdexcept>
 #include <system_error>
 
@@ -57,6 +58,11 @@ constexpr std::uint32_t kCfgMsgoutNavHpPosLlhUsb = 0x20910036;
 constexpr std::uint32_t kCfgMsgoutNavPvtUsb = 0x20910009;
 constexpr std::uint32_t kCfgMsgoutNavStatusUsb = 0x2091001D;
 constexpr std::uint32_t kCfgMsgoutNavCovUsb = 0x20910086;
+constexpr double kWgs84SemiMajorAxisM = 6378137.0;
+constexpr double kWgs84Flattening = 1.0 / 298.257223563;
+constexpr double kPi = 3.14159265358979323846;
+constexpr double kDegreesToRadians = kPi / 180.0;
+constexpr double kRadiansToDegrees = 180.0 / kPi;
 
 template<typename T>
 void appendLittleEndian(std::vector<std::uint8_t> & buffer, T value)
@@ -81,12 +87,18 @@ int clampMinInt(int value, int fallback, int minimum)
   return value;
 }
 
+double clampNonNegative(double value, double fallback)
+{
+  return value >= 0.0 ? value : fallback;
+}
+
 }  // namespace
 
 UbloxNode::UbloxNode(const rclcpp::NodeOptions & options)
 : Node("gnss_node", options)
 {
   loadParameters();
+  simulation_rng_.seed(std::random_device{}());
 
   navsat_publisher_ = create_publisher<sensor_msgs::msg::NavSatFix>(
     navsat_topic_, rclcpp::SystemDefaultsQoS());
@@ -97,7 +109,39 @@ UbloxNode::UbloxNode(const rclcpp::NodeOptions & options)
     rclcpp::SystemDefaultsQoS(),
     std::bind(&UbloxNode::onRtcmMessage, this, std::placeholders::_1));
 
-  worker_thread_ = std::thread(&UbloxNode::run, this);
+  if (use_simulation_) {
+    odometry_publisher_ = create_publisher<nav_msgs::msg::Odometry>(
+      odometry_topic_, rclcpp::SystemDefaultsQoS());
+    simulation_pose_subscription_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+      robot_pose_topic_,
+      rclcpp::SensorDataQoS(),
+      std::bind(&UbloxNode::onSimulationRobotPose, this, std::placeholders::_1));
+    simulation_timer_ = create_wall_timer(
+      std::chrono::duration<double>(1.0 / simulation_publish_rate_hz_),
+      [this]() {
+        std::optional<geometry_msgs::msg::PoseStamped> pose;
+        {
+          std::lock_guard<std::mutex> lock(simulation_mutex_);
+          pose = last_simulation_pose_;
+        }
+        if (pose.has_value()) {
+          publishSimulationFix(*pose);
+        } else {
+          RCLCPP_WARN_THROTTLE(
+            get_logger(),
+            *get_clock(),
+            5000,
+            "Waiting for simulated robot pose on %s",
+            robot_pose_topic_.c_str());
+        }
+      });
+    RCLCPP_INFO(
+      get_logger(),
+      "GNSS node running in simulation mode from robot pose topic %s",
+      robot_pose_topic_.c_str());
+  } else {
+    worker_thread_ = std::thread(&UbloxNode::run, this);
+  }
 }
 
 UbloxNode::~UbloxNode()
@@ -118,7 +162,10 @@ void UbloxNode::loadParameters()
   frame_id_ = declare_parameter("frame_id", std::string{"gnss_link"});
   navsat_topic_ = declare_parameter("navsat_topic", std::string{"navsat"});
   gpsfix_topic_ = declare_parameter("gpsfix_topic", std::string{"fix"});
+  odometry_topic_ = declare_parameter("odometry_topic", std::string{"odometry"});
   rtcm_topic_ = declare_parameter("rtcm_topic", std::string{"ntrip_client/rtcm"});
+  use_simulation_ = declare_parameter("use_simulation", false);
+  robot_pose_topic_ = declare_parameter("robot_pose_topic", std::string{"/amr_sweeper/simulation/robot_pose"});
   reconnect_delay_seconds_ = clampPositive(declare_parameter("reconnect_delay_seconds", 2.0), 2.0);
   publish_timeout_seconds_ = clampPositive(declare_parameter("publish_timeout_seconds", 1.0), 1.0);
   configure_on_connect_ = declare_parameter("configure_on_connect", true);
@@ -158,12 +205,37 @@ void UbloxNode::loadParameters()
   constellations_.qzss = declare_parameter("gnss.qzss", false);
   constellations_.glonass = declare_parameter("gnss.glonass", true);
 
-  min_fix_type_ = declare_parameter("min_fix_type", 3);
   min_horizontal_stddev_m_ = declare_parameter("min_horizontal_stddev_m", 1.5);
   min_vertical_stddev_m_ = declare_parameter("min_vertical_stddev_m", 3.0);
   horizontal_covariance_scale_ = declare_parameter("horizontal_covariance_scale", 4.0);
   vertical_covariance_scale_ = declare_parameter("vertical_covariance_scale", 4.0);
   use_hacc_vacc_covariance_floor_ = declare_parameter("use_hacc_vacc_covariance_floor", true);
+
+  simulation_publish_rate_hz_ = clampPositive(declare_parameter("publish_rate_hz", rate_hz), rate_hz);
+  origin_lat_deg_ = declare_parameter("origin_lat", origin_lat_deg_);
+  origin_lon_deg_ = declare_parameter("origin_lon", origin_lon_deg_);
+  origin_alt_m_ = declare_parameter("origin_alt", origin_alt_m_);
+  autonomous_noise_h_m_ = clampNonNegative(declare_parameter("autonomous_noise_h_m", autonomous_noise_h_m_), autonomous_noise_h_m_);
+  autonomous_noise_v_m_ = clampNonNegative(declare_parameter("autonomous_noise_v_m", autonomous_noise_v_m_), autonomous_noise_v_m_);
+  dgps_noise_h_m_ = clampNonNegative(declare_parameter("dgps_noise_h_m", dgps_noise_h_m_), dgps_noise_h_m_);
+  dgps_noise_v_m_ = clampNonNegative(declare_parameter("dgps_noise_v_m", dgps_noise_v_m_), dgps_noise_v_m_);
+  rtk_float_noise_h_m_ = clampNonNegative(declare_parameter("rtk_float_noise_h_m", rtk_float_noise_h_m_), rtk_float_noise_h_m_);
+  rtk_float_noise_v_m_ = clampNonNegative(declare_parameter("rtk_float_noise_v_m", rtk_float_noise_v_m_), rtk_float_noise_v_m_);
+  rtk_fixed_noise_h_m_ = clampNonNegative(declare_parameter("rtk_fixed_noise_h_m", rtk_fixed_noise_h_m_), rtk_fixed_noise_h_m_);
+  rtk_fixed_noise_v_m_ = clampNonNegative(declare_parameter("rtk_fixed_noise_v_m", rtk_fixed_noise_v_m_), rtk_fixed_noise_v_m_);
+  noise_correlation_tau_s_ = clampPositive(declare_parameter("noise_correlation_tau_s", noise_correlation_tau_s_), noise_correlation_tau_s_);
+  stationary_speed_threshold_mps_ = clampNonNegative(
+    declare_parameter("stationary_speed_threshold_mps", stationary_speed_threshold_mps_),
+    stationary_speed_threshold_mps_);
+  autonomous_satellites_ = std::max(
+    0,
+    static_cast<int>(declare_parameter("autonomous_satellites", autonomous_satellites_)));
+  corrected_satellites_ = std::max(
+    0,
+    static_cast<int>(declare_parameter("corrected_satellites", corrected_satellites_)));
+  correction_timeout_s_ = clampPositive(declare_parameter("correction_timeout_s", correction_timeout_s_), correction_timeout_s_);
+  dgps_warmup_s_ = clampNonNegative(declare_parameter("dgps_warmup_s", dgps_warmup_s_), dgps_warmup_s_);
+  rtk_float_warmup_s_ = clampNonNegative(declare_parameter("rtk_float_warmup_s", rtk_float_warmup_s_), rtk_float_warmup_s_);
 
   if (retry_attempts_before_error_ < 1) {
     retry_attempts_before_error_ = 1;
@@ -181,11 +253,26 @@ void UbloxNode::loadParameters()
   nav_pvt_rate_ = clampMinInt(nav_pvt_rate_, 1, 0);
   nav_status_rate_ = clampMinInt(nav_status_rate_, 1, 0);
   nav_cov_rate_ = clampMinInt(nav_cov_rate_, 1, 0);
+  if (use_simulation_ && robot_pose_topic_.empty()) {
+    robot_pose_topic_ = "/amr_sweeper/simulation/robot_pose";
+  }
+
   logReceiverConfigurationSummary();
 }
 
 void UbloxNode::onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg)
 {
+  if (use_simulation_) {
+    const rclcpp::Time stamp = now();
+    std::lock_guard<std::mutex> lock(simulation_mutex_);
+    last_simulation_rtcm_time_ = stamp;
+    if (first_simulation_rtcm_time_.nanoseconds() == 0) {
+      first_simulation_rtcm_time_ = stamp;
+    }
+    (void)msg;
+    return;
+  }
+
   std::lock_guard<std::mutex> lock(device_mutex_);
   if (device_fd_ < 0) {
     RCLCPP_WARN_THROTTLE(
@@ -859,6 +946,234 @@ void UbloxNode::tryPublishNavSat()
 
     gpsfix_publisher_->publish(gps_msg);
   }
+}
+
+void UbloxNode::onSimulationRobotPose(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+{
+  std::lock_guard<std::mutex> lock(simulation_mutex_);
+  last_simulation_pose_ = *msg;
+}
+
+UbloxNode::SimFixState UbloxNode::simulationFixState(const rclcpp::Time & stamp) const
+{
+  std::lock_guard<std::mutex> lock(simulation_mutex_);
+  if (
+    last_simulation_rtcm_time_.nanoseconds() == 0 ||
+    (stamp - last_simulation_rtcm_time_).seconds() > correction_timeout_s_)
+  {
+    return SimFixState::Autonomous;
+  }
+  if (first_simulation_rtcm_time_.nanoseconds() == 0) {
+    return SimFixState::Dgps;
+  }
+
+  const double corrected_age_s = (stamp - first_simulation_rtcm_time_).seconds();
+  if (corrected_age_s < dgps_warmup_s_) {
+    return SimFixState::Dgps;
+  }
+  if (corrected_age_s < dgps_warmup_s_ + rtk_float_warmup_s_) {
+    return SimFixState::RtkFloat;
+  }
+  return SimFixState::RtkFixed;
+}
+
+void UbloxNode::simulationNoiseForState(
+  SimFixState state,
+  double & horizontal_stddev,
+  double & vertical_stddev) const
+{
+  switch (state) {
+    case SimFixState::RtkFixed:
+      horizontal_stddev = rtk_fixed_noise_h_m_;
+      vertical_stddev = rtk_fixed_noise_v_m_;
+      return;
+    case SimFixState::RtkFloat:
+      horizontal_stddev = rtk_float_noise_h_m_;
+      vertical_stddev = rtk_float_noise_v_m_;
+      return;
+    case SimFixState::Dgps:
+      horizontal_stddev = dgps_noise_h_m_;
+      vertical_stddev = dgps_noise_v_m_;
+      return;
+    case SimFixState::Autonomous:
+      horizontal_stddev = autonomous_noise_h_m_;
+      vertical_stddev = autonomous_noise_v_m_;
+      return;
+  }
+}
+
+void UbloxNode::publishSimulationFix(const geometry_msgs::msg::PoseStamped & pose_msg)
+{
+  rclcpp::Time stamp{pose_msg.header.stamp};
+  if (stamp.nanoseconds() == 0) {
+    stamp = now();
+  }
+
+  const SimFixState fix_state = simulationFixState(stamp);
+  double sigma_h = 0.0;
+  double sigma_v = 0.0;
+  simulationNoiseForState(fix_state, sigma_h, sigma_v);
+
+  double dt_s = 0.0;
+  if (last_simulation_publish_time_.nanoseconds() != 0) {
+    dt_s = std::max(0.0, (stamp - last_simulation_publish_time_).seconds());
+  }
+
+  const double alpha = dt_s > 0.0 ? std::exp(-dt_s / noise_correlation_tau_s_) : 0.0;
+  const double beta = std::sqrt(std::max(0.0, 1.0 - alpha * alpha));
+  std::normal_distribution<double> horizontal_noise{0.0, sigma_h};
+  std::normal_distribution<double> vertical_noise{0.0, sigma_v};
+  simulation_noise_x_m_ = alpha * simulation_noise_x_m_ + beta * horizontal_noise(simulation_rng_);
+  simulation_noise_y_m_ = alpha * simulation_noise_y_m_ + beta * horizontal_noise(simulation_rng_);
+  simulation_noise_z_m_ = alpha * simulation_noise_z_m_ + beta * vertical_noise(simulation_rng_);
+
+  const auto & true_position = pose_msg.pose.position;
+  const double noisy_east_m = true_position.x + simulation_noise_x_m_;
+  const double noisy_north_m = true_position.y + simulation_noise_y_m_;
+  const double noisy_up_m = true_position.z + simulation_noise_z_m_;
+
+  const double origin_lat_rad = origin_lat_deg_ * kDegreesToRadians;
+  const double origin_lon_rad = origin_lon_deg_ * kDegreesToRadians;
+  const double eccentricity_sq = kWgs84Flattening * (2.0 - kWgs84Flattening);
+  const double sin_lat = std::sin(origin_lat_rad);
+  const double cos_lat = std::cos(origin_lat_rad);
+  const double sin_lon = std::sin(origin_lon_rad);
+  const double cos_lon = std::cos(origin_lon_rad);
+  const double radius = kWgs84SemiMajorAxisM / std::sqrt(1.0 - eccentricity_sq * sin_lat * sin_lat);
+
+  const double origin_x = (radius + origin_alt_m_) * cos_lat * cos_lon;
+  const double origin_y = (radius + origin_alt_m_) * cos_lat * sin_lon;
+  const double origin_z = (radius * (1.0 - eccentricity_sq) + origin_alt_m_) * sin_lat;
+  const double ecef_dx = -sin_lon * noisy_east_m - sin_lat * cos_lon * noisy_north_m +
+    cos_lat * cos_lon * noisy_up_m;
+  const double ecef_dy = cos_lon * noisy_east_m - sin_lat * sin_lon * noisy_north_m +
+    cos_lat * sin_lon * noisy_up_m;
+  const double ecef_dz = cos_lat * noisy_north_m + sin_lat * noisy_up_m;
+  const double ecef_x = origin_x + ecef_dx;
+  const double ecef_y = origin_y + ecef_dy;
+  const double ecef_z = origin_z + ecef_dz;
+
+  const double b = kWgs84SemiMajorAxisM * (1.0 - kWgs84Flattening);
+  const double ep_sq =
+    (kWgs84SemiMajorAxisM * kWgs84SemiMajorAxisM - b * b) / (b * b);
+  const double p = std::hypot(ecef_x, ecef_y);
+  const double theta = std::atan2(ecef_z * kWgs84SemiMajorAxisM, p * b);
+  const double latitude_rad = std::atan2(
+    ecef_z + ep_sq * b * std::pow(std::sin(theta), 3.0),
+    p - eccentricity_sq * kWgs84SemiMajorAxisM * std::pow(std::cos(theta), 3.0));
+  const double longitude_rad = std::atan2(ecef_y, ecef_x);
+  const double latitude_sin = std::sin(latitude_rad);
+  const double latitude_radius = kWgs84SemiMajorAxisM /
+    std::sqrt(1.0 - eccentricity_sq * latitude_sin * latitude_sin);
+  const double altitude_m = p / std::cos(latitude_rad) - latitude_radius;
+
+  const double min_horizontal_stddev = std::max(0.0, min_horizontal_stddev_m_);
+  const double min_vertical_stddev = std::max(0.0, min_vertical_stddev_m_);
+  const double horizontal_floor_stddev = std::max(
+    min_horizontal_stddev,
+    use_hacc_vacc_covariance_floor_ ? sigma_h : 0.0);
+  const double vertical_floor_stddev = std::max(
+    min_vertical_stddev,
+    use_hacc_vacc_covariance_floor_ ? sigma_v : 0.0);
+  const double horizontal_variance = std::max(
+    sigma_h * sigma_h * std::max(1.0, horizontal_covariance_scale_),
+    horizontal_floor_stddev * horizontal_floor_stddev);
+  const double vertical_variance = std::max(
+    sigma_v * sigma_v * std::max(1.0, vertical_covariance_scale_),
+    vertical_floor_stddev * vertical_floor_stddev);
+
+  sensor_msgs::msg::NavSatFix navsat;
+  navsat.header.stamp = stamp;
+  navsat.header.frame_id = frame_id_;
+  navsat.latitude = latitude_rad * kRadiansToDegrees;
+  navsat.longitude = longitude_rad * kRadiansToDegrees;
+  navsat.altitude = altitude_m;
+  navsat.status.service = navSatServiceMask();
+  navsat.status.status = fix_state == SimFixState::RtkFixed ?
+    sensor_msgs::msg::NavSatStatus::STATUS_GBAS_FIX :
+    sensor_msgs::msg::NavSatStatus::STATUS_FIX;
+  navsat.position_covariance[0] = horizontal_variance;
+  navsat.position_covariance[4] = horizontal_variance;
+  navsat.position_covariance[8] = vertical_variance;
+  navsat.position_covariance_type =
+    sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
+  navsat_publisher_->publish(navsat);
+
+  double speed_mps = 0.0;
+  double climb_mps = 0.0;
+  if (last_published_simulation_pose_.has_value() && dt_s > 1e-6) {
+    const auto & previous = last_published_simulation_pose_->pose.position;
+    const double vx_mps = (true_position.x - previous.x) / dt_s;
+    const double vy_mps = (true_position.y - previous.y) / dt_s;
+    const double vz_mps = (true_position.z - previous.z) / dt_s;
+    speed_mps = std::hypot(vx_mps, vy_mps);
+    climb_mps = vz_mps;
+    if (speed_mps > stationary_speed_threshold_mps_) {
+      last_simulation_track_deg_ = std::fmod(
+        std::atan2(vx_mps, vy_mps) * kRadiansToDegrees + 360.0,
+        360.0);
+    }
+  }
+
+  gps_msgs::msg::GPSFix gpsfix;
+  gpsfix.header = navsat.header;
+  gpsfix.status.header = navsat.header;
+  gpsfix.latitude = navsat.latitude;
+  gpsfix.longitude = navsat.longitude;
+  gpsfix.altitude = navsat.altitude;
+  gpsfix.position_covariance = navsat.position_covariance;
+  gpsfix.position_covariance_type = gps_msgs::msg::GPSFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
+  gpsfix.speed = speed_mps;
+  gpsfix.climb = climb_mps;
+  gpsfix.track = last_simulation_track_deg_;
+  gpsfix.pdop = std::sqrt(std::max(1e-9, sigma_h * sigma_h + sigma_v * sigma_v));
+  gpsfix.hdop = std::sqrt(std::max(1e-9, horizontal_variance));
+  gpsfix.vdop = std::sqrt(std::max(1e-9, vertical_variance));
+  gpsfix.err = std::max(sigma_h, sigma_v);
+  gpsfix.err_horz = sigma_h;
+  gpsfix.err_vert = sigma_v;
+  gpsfix.status.position_source = gps_msgs::msg::GPSStatus::SOURCE_GPS;
+  gpsfix.status.motion_source = gps_msgs::msg::GPSStatus::SOURCE_DOPPLER;
+  gpsfix.status.orientation_source = gps_msgs::msg::GPSStatus::SOURCE_POINTS;
+
+  switch (fix_state) {
+    case SimFixState::RtkFixed:
+      gpsfix.status.status = gps_msgs::msg::GPSStatus::STATUS_RTK_FIX;
+      gpsfix.status.satellites_used = corrected_satellites_;
+      break;
+    case SimFixState::RtkFloat:
+      gpsfix.status.status = gps_msgs::msg::GPSStatus::STATUS_RTK_FLOAT;
+      gpsfix.status.satellites_used = std::max(corrected_satellites_ - 1, autonomous_satellites_);
+      break;
+    case SimFixState::Dgps:
+      gpsfix.status.status = gps_msgs::msg::GPSStatus::STATUS_DGPS_FIX;
+      gpsfix.status.satellites_used = std::max(corrected_satellites_ - 2, autonomous_satellites_);
+      break;
+    case SimFixState::Autonomous:
+      gpsfix.status.status = gps_msgs::msg::GPSStatus::STATUS_FIX;
+      gpsfix.status.satellites_used = autonomous_satellites_;
+      break;
+  }
+  gpsfix_publisher_->publish(gpsfix);
+
+  nav_msgs::msg::Odometry odometry;
+  odometry.header.stamp = stamp;
+  odometry.header.frame_id = "odom";
+  odometry.child_frame_id = "base_link";
+  odometry.pose.pose.position.x = noisy_east_m;
+  odometry.pose.pose.position.y = noisy_north_m;
+  odometry.pose.pose.position.z = 0.0;
+  odometry.pose.pose.orientation.w = 1.0;
+  odometry.pose.covariance[0] = horizontal_variance;
+  odometry.pose.covariance[7] = horizontal_variance;
+  odometry.pose.covariance[14] = 1e6;
+  odometry.pose.covariance[21] = 1e6;
+  odometry.pose.covariance[28] = 1e6;
+  odometry.pose.covariance[35] = 1e6;
+  odometry_publisher_->publish(odometry);
+
+  last_simulation_publish_time_ = stamp;
+  last_published_simulation_pose_ = pose_msg;
 }
 
 rclcpp::Time UbloxNode::resolveFixStamp(std::uint32_t itow_ms)

@@ -8,7 +8,7 @@ Dependencies to other AMR Sweeper packages:
 - None
 
 ## Purpose
-This package contains the AMR Sweeper GNSS stack: a local C++ u-blox receiver node plus the local C++ NTRIP client node.
+This package contains the AMR Sweeper GNSS stack: a local C++ GNSS receiver node plus the local C++ NTRIP client node. In simulation, the same `gnss_node` executable consumes the simulated robot pose and publishes receiver-style GNSS topics.
 
 ## Main Launch File
 `launch/amr_sweeper_gnss.launch.py`
@@ -23,6 +23,8 @@ This package contains the AMR Sweeper GNSS stack: a local C++ u-blox receiver no
 - `use_ublox_nav_sat_fix_hp`: default `true` (deprecated compatibility argument; the local node publishes `navsat` directly)
 - `use_ntrip_client`: default `true`
 - `use_nmea_to_caster`: default `true`
+- `use_simulation`: default `false`
+- `robot_pose_topic`: default `""` (`gnss_node` falls back to `/amr_sweeper/simulation/robot_pose` in simulation mode)
 - `ublox_params_file`: default `config/amr_sweeper_gnss.yaml`
 - `ntrip_params_file`: default `config/amr_sweeper_gnss_ntrip_client.yaml`
 - `fix_topic`: default `navsat`
@@ -34,7 +36,7 @@ This package contains the AMR Sweeper GNSS stack: a local C++ u-blox receiver no
 - `ublox_log_level`: default `WARN`
 
 ## Overview
-`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the local `gnss_node` receiver node and the optional local `ntrip_client_node` for RTCM correction streaming. The local u-blox node configures the receiver on connect, subscribes to `ntrip_client/rtcm`, and publishes `navsat` directly.
+`amr_sweeper_gnss` keeps the workspace-specific launch entrypoint, namespace defaults, and package-owned YAML configuration for the robot GNSS stack. The launch starts the local `gnss_node` receiver node and the optional local `ntrip_client_node` for RTCM correction streaming. In hardware mode, `gnss_node` configures the u-blox receiver on connect, subscribes to `ntrip_client/rtcm`, and publishes `navsat` directly. In simulation mode, `gnss_node` subscribes to the configured robot pose topic, converts the local simulation pose to WGS84 latitude/longitude/altitude, and uses simulated RTCM to report GPS/DGPS/RTK states.
 
 ## External Dependencies
 - `rtcm_msgs`: installed from the ROS Jazzy packages and used by both the
@@ -60,7 +62,7 @@ sudo apt install ros-jazzy-rtcm-msgs
   GGA messages to the caster. The default `fix_topic` is `navsat`, and the
   default `use_nmea_to_caster` value is `true`.
 - `ntrip_client.launch.py` starts only the `ntrip_client_node` for RTCM correction streaming.
-- `ublox_dgnss.launch.py` now launches the local `gnss_node` for compatibility with existing bringup wiring.
+- `ublox_dgnss.launch.py` launches the same local `gnss_node` in hardware and simulation modes.
 
 ## Configuration Files
 The GNSS stack uses one YAML file for the local u-blox node and one YAML file for the local NTRIP client.

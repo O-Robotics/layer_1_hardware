@@ -6,14 +6,17 @@
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <set>
 #include <string>
 #include <termios.h>
 #include <thread>
 #include <vector>
 
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "gps_msgs/msg/gps_fix.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "rtcm_msgs/msg/message.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 
@@ -72,6 +75,14 @@ private:
     double pdop{0.0};
   };
 
+  enum class SimFixState
+  {
+    Autonomous,
+    Dgps,
+    RtkFloat,
+    RtkFixed,
+  };
+
   enum class ConfigValueType
   {
     Bool,
@@ -126,6 +137,10 @@ private:
   void handleNavCov(const std::vector<std::uint8_t> & payload);
   void handleNavPvt(const std::vector<std::uint8_t> & payload);
   void tryPublishNavSat();
+  void onSimulationRobotPose(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  void publishSimulationFix(const geometry_msgs::msg::PoseStamped & pose_msg);
+  SimFixState simulationFixState(const rclcpp::Time & stamp) const;
+  void simulationNoiseForState(SimFixState state, double & horizontal_stddev, double & vertical_stddev) const;
   rclcpp::Time resolveFixStamp(std::uint32_t itow_ms);
 
   static std::uint16_t computeChecksumA(std::uint8_t msg_class, std::uint8_t msg_id, const std::vector<std::uint8_t> & payload);
@@ -143,9 +158,12 @@ private:
   std::string frame_id_{"gnss_link"};
   std::string navsat_topic_{"navsat"};
   std::string gpsfix_topic_{"fix"};
+  std::string odometry_topic_{"odometry"};
   std::string rtcm_topic_{"ntrip_client/rtcm"};
+  std::string robot_pose_topic_{};
   double reconnect_delay_seconds_{2.0};
   double publish_timeout_seconds_{1.0};
+  bool use_simulation_{false};
   bool configure_on_connect_{true};
   double poll_interval_seconds_{1.0};
   int retry_attempts_before_error_{3};
@@ -169,12 +187,31 @@ private:
   int nav_pvt_rate_{1};
   ConstellationConfig constellations_{};
 
-  int min_fix_type_{3};
   double min_horizontal_stddev_m_{1.5};
   double min_vertical_stddev_m_{3.0};
   double horizontal_covariance_scale_{4.0};
   double vertical_covariance_scale_{4.0};
   bool use_hacc_vacc_covariance_floor_{true};
+
+  double simulation_publish_rate_hz_{5.0};
+  double origin_lat_deg_{56.164520029};
+  double origin_lon_deg_{10.1453534275};
+  double origin_alt_m_{100.0};
+  double autonomous_noise_h_m_{1.25};
+  double autonomous_noise_v_m_{2.5};
+  double dgps_noise_h_m_{0.7};
+  double dgps_noise_v_m_{1.3};
+  double rtk_float_noise_h_m_{0.3};
+  double rtk_float_noise_v_m_{0.55};
+  double rtk_fixed_noise_h_m_{0.12};
+  double rtk_fixed_noise_v_m_{0.25};
+  double noise_correlation_tau_s_{12.0};
+  double stationary_speed_threshold_mps_{0.05};
+  int autonomous_satellites_{10};
+  int corrected_satellites_{14};
+  double correction_timeout_s_{3.0};
+  double dgps_warmup_s_{2.0};
+  double rtk_float_warmup_s_{8.0};
 
   int device_fd_{-1};
   std::mutex device_mutex_;
@@ -190,11 +227,25 @@ private:
   rclcpp::Time last_fix_publish_time_{0, 0, RCL_ROS_TIME};
   std::optional<std::uint32_t> last_fix_itow_ms_;
   rclcpp::Time last_fix_measurement_stamp_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_simulation_publish_time_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time first_simulation_rtcm_time_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_simulation_rtcm_time_{0, 0, RCL_ROS_TIME};
+  std::optional<geometry_msgs::msg::PoseStamped> last_simulation_pose_;
+  std::optional<geometry_msgs::msg::PoseStamped> last_published_simulation_pose_;
+  double simulation_noise_x_m_{0.0};
+  double simulation_noise_y_m_{0.0};
+  double simulation_noise_z_m_{0.0};
+  double last_simulation_track_deg_{0.0};
   std::chrono::steady_clock::time_point last_poll_request_time_{};
 
   rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr navsat_publisher_;
   rclcpp::Publisher<gps_msgs::msg::GPSFix>::SharedPtr gpsfix_publisher_;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_publisher_;
   rclcpp::Subscription<rtcm_msgs::msg::Message>::SharedPtr rtcm_subscription_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr simulation_pose_subscription_;
+  rclcpp::TimerBase::SharedPtr simulation_timer_;
+  mutable std::mutex simulation_mutex_;
+  std::mt19937 simulation_rng_;
 
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> fatal_error_{false};

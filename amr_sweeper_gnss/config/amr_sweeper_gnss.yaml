@@ -44,7 +44,6 @@
     gnss.glonass:                    true                 # Keep enabled by default; easy to turn off if reflected signals from a specific constellation look problematic.
 
     # -- NavSat filtering -----------------------------------------------------
-    min_fix_type:                    1                    # Allow a plain GPS fix so NTRIP can bootstrap before RTK converges.
     min_horizontal_stddev_m:         0.5                  # Shared GNSS covariance floor: realistic enough for replay/multipath while still letting RTK meaningfully influence the initial pose.
     min_vertical_stddev_m:           1.0                  # Shared vertical floor: keep Z uncertainty conservative without making GNSS effectively useless downstream.
     horizontal_covariance_scale:     4.0                  # Inflate horizontal covariance before handing it downstream.
