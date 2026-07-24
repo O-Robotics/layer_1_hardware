@@ -545,6 +545,10 @@ void JY901ImuNode::close_serial()
   serial_fd_ = -1;
   frame_size_ = 0U;
   saw_valid_frame_since_open_ = false;
+  accel_fresh_ = false;
+  gyro_fresh_ = false;
+  euler_fresh_ = false;
+  quaternion_fresh_ = false;
 }
 
 bool JY901ImuNode::send_command(uint8_t address, uint16_t value)
@@ -1431,16 +1435,19 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       accel_[0] = static_cast<double>(d0) / 32768.0 * 16.0 * kGravity;
       accel_[1] = static_cast<double>(d1) / 32768.0 * 16.0 * kGravity;
       accel_[2] = static_cast<double>(d2) / 32768.0 * 16.0 * kGravity;
+      accel_fresh_ = true;
       break;
     case 0x52:
       gyro_[0] = static_cast<double>(d0) / 32768.0 * 2000.0 * kDegToRad;
       gyro_[1] = static_cast<double>(d1) / 32768.0 * 2000.0 * kDegToRad;
       gyro_[2] = static_cast<double>(d2) / 32768.0 * 2000.0 * kDegToRad;
+      gyro_fresh_ = true;
       break;
     case 0x53:
       euler_deg_[0] = static_cast<double>(d0) / 32768.0 * 180.0;
       euler_deg_[1] = static_cast<double>(d1) / 32768.0 * 180.0;
       euler_deg_[2] = static_cast<double>(d2) / 32768.0 * 180.0;
+      euler_fresh_ = true;
       if (!output_quaternion_ || !has_quaternion_) {
         maybe_publish(frame_stamp);
       }
@@ -1451,6 +1458,34 @@ void JY901ImuNode::parse_byte(uint8_t byte)
       quaternion_[2] = static_cast<double>(d2) / 32768.0;
       quaternion_[3] = static_cast<double>(read_i16_le(&frame_buf_[8])) / 32768.0;
       has_quaternion_ = true;
+      quaternion_fresh_ = true;
+      // Keep the Euler-backed output path aligned with the same native quaternion
+      // sample that triggers publication. This matches the simulated IMU path,
+      // where euler_deg_ is derived from the incoming quaternion before publish.
+      {
+        const double norm = std::sqrt(
+          (quaternion_[0] * quaternion_[0]) +
+          (quaternion_[1] * quaternion_[1]) +
+          (quaternion_[2] * quaternion_[2]) +
+          (quaternion_[3] * quaternion_[3]));
+        if (std::isfinite(norm) && norm > 1e-9) {
+          double roll_rad = 0.0;
+          double pitch_rad = 0.0;
+          double yaw_rad = 0.0;
+          quaternion_to_rpy(
+            quaternion_[0] / norm,
+            quaternion_[1] / norm,
+            quaternion_[2] / norm,
+            quaternion_[3] / norm,
+            roll_rad,
+            pitch_rad,
+            yaw_rad);
+          euler_deg_[0] = roll_rad / kDegToRad;
+          euler_deg_[1] = pitch_rad / kDegToRad;
+          euler_deg_[2] = yaw_rad / kDegToRad;
+          euler_fresh_ = true;
+        }
+      }
       maybe_publish(frame_stamp);
       break;
     default:
@@ -1471,9 +1506,48 @@ rclcpp::Time JY901ImuNode::resolve_frame_stamp(const rclcpp::Time & receipt_stam
   return stamp;
 }
 
+bool JY901ImuNode::have_complete_sample_for_publish() const
+{
+  if (!simulation_input_topic_.empty()) {
+    return true;
+  }
+
+  if (!accel_fresh_ || !gyro_fresh_) {
+    return false;
+  }
+
+  const bool raw_uses_native = orientation_source_ == "native";
+  const bool heading_uses_native =
+    heading_source_ == "native" || (heading_source_ == "orientation" && orientation_source_ == "native");
+  const bool heading_uses_euler =
+    heading_source_ == "euler" || (heading_source_ == "orientation" && orientation_source_ == "euler");
+
+  if ((raw_uses_native || heading_uses_native) && !quaternion_fresh_) {
+    return false;
+  }
+
+  if ((!raw_uses_native || heading_uses_euler) && !euler_fresh_) {
+    return false;
+  }
+
+  return true;
+}
+
+void JY901ImuNode::mark_complete_sample_published()
+{
+  accel_fresh_ = false;
+  gyro_fresh_ = false;
+  euler_fresh_ = false;
+  quaternion_fresh_ = false;
+}
+
 void JY901ImuNode::maybe_publish(const rclcpp::Time & stamp)
 {
   if (!publishing_enabled_) {
+    return;
+  }
+
+  if (!have_complete_sample_for_publish()) {
     return;
   }
 
@@ -1496,6 +1570,7 @@ void JY901ImuNode::maybe_publish(const rclcpp::Time & stamp)
   imu_acc_gyro_pub_->publish(build_accel_gyro_message(raw_msg));
   imu_heading_pub_->publish(build_heading_message(raw_msg));
   imu_azimuth_pub_->publish(build_azimuth_message(raw_msg));
+  mark_complete_sample_published();
 }
 
 void JY901ImuNode::handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -1570,6 +1645,10 @@ void JY901ImuNode::handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr m
   gyro_[2] = msg->angular_velocity.z;
   rotate_xy(-yaw_offset_rad_, accel_[0], accel_[1]);
   rotate_xy(-yaw_offset_rad_, gyro_[0], gyro_[1]);
+  accel_fresh_ = true;
+  gyro_fresh_ = true;
+  euler_fresh_ = true;
+  quaternion_fresh_ = true;
 
   maybe_publish(stamp);
 }

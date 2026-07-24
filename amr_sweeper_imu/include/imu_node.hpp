@@ -82,6 +82,8 @@ private:
   void read_serial();
   void parse_byte(uint8_t byte);
   rclcpp::Time resolve_frame_stamp(const rclcpp::Time & receipt_stamp);
+  bool have_complete_sample_for_publish() const;
+  void mark_complete_sample_published();
   void maybe_publish(const rclcpp::Time & stamp);
   void ensure_publishers_created();
   void handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr msg);
@@ -171,6 +173,10 @@ private:
   std::array<double, 3> euler_deg_{0.0, 0.0, 0.0};
   std::array<double, 4> quaternion_{1.0, 0.0, 0.0, 0.0};
   bool has_quaternion_{false};
+  bool accel_fresh_{false};
+  bool gyro_fresh_{false};
+  bool euler_fresh_{false};
+  bool quaternion_fresh_{false};
 
   std::vector<double> orientation_covariance_;
   std::vector<double> angular_velocity_covariance_;

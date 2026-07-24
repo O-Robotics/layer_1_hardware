@@ -32,7 +32,7 @@
     output_gps_velocity:            false         # Enable 0x58 GPS speed packets.
     output_quaternion:              true          # Request native 0x59 quaternion packets from the IMU. Keep disabled by default until runtime comparison shows the device quaternion is cleaner than the Euler-derived attitude.
     output_satellite_accuracy:      false         # Enable 0x5A satellite-position-accuracy packets.
-    orientation_source:             euler         # Orientation source for data_raw: euler or native. Native requires output_quaternion=true and falls back to euler if 0x59 packets are unavailable.
+    orientation_source:             euler         # Orientation source for data_raw: euler or native. Native requires output_quaternion=true and falls back to euler if 0x59 packets are unavailable. When native quaternion packets are present, the hardware path also refreshes the cached Euler sample from the same quaternion before publishing so the euler-backed publish path stays aligned with simulation.
     heading_source:                 native        # Orientation source for data_heading and azimuth: euler, native, or orientation. This lets us test native heading without changing data_raw orientation.
     heading_lowpass_alpha:          0.15          # Exponential smoothing factor for heading-only outputs. 1.0 disables smoothing; lower values suppress yaw jitter in data_heading/azimuth.
     heading_filter_reset_dt_s:      0.2           # Reset the heading low-pass state if publish gaps exceed this many seconds, avoiding stale carry-over after serial stalls.
