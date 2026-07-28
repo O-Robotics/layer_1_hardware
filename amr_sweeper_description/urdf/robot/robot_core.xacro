@@ -41,7 +41,7 @@
       <collision>
         <origin xyz="0.06 0.0 0.095" rpy="0 0 0"/>
         <geometry>
-          <box size="0.70 0.55 0.24"/>
+          <box size="0.70 0.40 0.24"/>
         </geometry>
       </collision>
       <inertial>
@@ -74,12 +74,22 @@
       </geometry>
       <material name="yellow"/>
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
-      <geometry>
-        <mesh filename="package://amr_sweeper_description/meshes/WheelAssembly.stl"/>
-      </geometry>
-    </collision>
+    <xacro:if value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.13" length="0.08"/>
+        </geometry>
+      </collision>
+    </xacro:if>
+    <xacro:unless value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh filename="package://amr_sweeper_description/meshes/WheelAssembly.stl"/>
+        </geometry>
+      </collision>
+    </xacro:unless>
     <inertial>
       <origin xyz="0 -0.000056 0" rpy="0 0 0"/>
       <mass value="0.55"/>
@@ -102,12 +112,22 @@
       </geometry>
       <material name="yellow"/>
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
-      <geometry>
-        <mesh filename="package://amr_sweeper_description/meshes/WheelAssembly.stl"/>
-      </geometry>
-    </collision>
+    <xacro:if value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.13" length="0.08"/>
+        </geometry>
+      </collision>
+    </xacro:if>
+    <xacro:unless value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <mesh filename="package://amr_sweeper_description/meshes/WheelAssembly.stl"/>
+        </geometry>
+      </collision>
+    </xacro:unless>
     <inertial>
       <origin xyz="0 0.000056 0" rpy="0 0 0"/>
       <mass value="0.55"/>
@@ -153,12 +173,22 @@
       </geometry>
       <material name="red"/>
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <mesh filename="package://amr_sweeper_description/meshes/Brush.stl"/>
-      </geometry>
-    </collision>
+    <xacro:if value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 -0.055" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.14" length="0.04"/>
+        </geometry>
+      </collision>
+    </xacro:if>
+    <xacro:unless value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://amr_sweeper_description/meshes/Brush.stl"/>
+        </geometry>
+      </collision>
+    </xacro:unless>
     <inertial>
       <origin xyz="0.000007 0 -0.00877" rpy="0 0 0"/>
       <mass value="1.5"/>
@@ -182,12 +212,22 @@
       </geometry>
       <material name="red"/>
     </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <mesh filename="package://amr_sweeper_description/meshes/Brush.stl"/>
-      </geometry>
-    </collision>
+    <xacro:if value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 -0.055" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.14" length="0.04"/>
+        </geometry>
+      </collision>
+    </xacro:if>
+    <xacro:unless value="$(arg simulation_physics)">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://amr_sweeper_description/meshes/Brush.stl"/>
+        </geometry>
+      </collision>
+    </xacro:unless>
     <inertial>
       <origin xyz="0.000007 0 -0.00877" rpy="0 0 0"/>
       <mass value="1.5"/>
