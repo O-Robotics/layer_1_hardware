@@ -33,7 +33,7 @@
           trip_duration_ms:           100     # Time above threshold required before latching.
         over_speed:
           enabled:                    true    # Uses ODrive velocity feedback to latch a stop if motor speed exceeds the configured envelope.
-          threshold:                  209.44  # 2000 rpm motor speed before gearbox reduction.
+          threshold:                  314.16  # 3000 rpm motor speed before gearbox reduction.
           units:                      "rad/s" # Motor-shaft speed before the 50:1 gearbox reduction.
           trip_duration_ms:           100     # Time above threshold required before latching.
         over_temperature:
