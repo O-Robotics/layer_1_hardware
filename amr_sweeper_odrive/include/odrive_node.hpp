@@ -179,6 +179,7 @@ protected:
   std::string last_connection_error_message_;
   std::chrono::steady_clock::time_point last_reconnect_attempt_time_{};
   rclcpp::Time activation_time_{0, 0, RCL_ROS_TIME};
+  bool startup_ignore_time_pending_{false};
   rclcpp::Publisher<amr_sweeper_safety_msgs::msg::SafetyStop>::SharedPtr safety_stop_publisher_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr clear_safety_stop_service_;
 

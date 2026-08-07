@@ -1388,7 +1388,8 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_activate(
     "ODrive activation started on %s with timeout=%lld ms",
     can_interface_.c_str(), static_cast<long long>(motor_ready_timeout_.count()));
   lifecycle_active_ = true;
-  activation_time_ = impl_->timestamp.nanoseconds() == 0 ? rclcpp::Clock(RCL_ROS_TIME).now() : impl_->timestamp;
+  activation_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
+  startup_ignore_time_pending_ = true;
   if (clear_faults_on_activate_) {
     clearProtectionFaults();
   }
@@ -1426,6 +1427,8 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_deactivate(
 {
   RCLCPP_INFO(rclcpp::get_logger(hw_name_), "Stopping ...please wait...");
   lifecycle_active_ = false;
+  startup_ignore_time_pending_ = false;
+  activation_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);
 
   if (impl_->can_intf.is_ready()) {
     for (size_t i = 0; i < num_joints_; ++i) {
@@ -1851,6 +1854,10 @@ hardware_interface::return_type ODriveHardwareInterface::read(
     return fatal_error_ ? return_type::ERROR : return_type::OK;
   }
   impl_->timestamp = time;
+  if (startup_ignore_time_pending_) {
+    activation_time_ = time;
+    startup_ignore_time_pending_ = false;
+  }
   updateJointsFromHardware();
   evaluateProtections(period);
   return fatal_error_ ? return_type::ERROR : return_type::OK;
