@@ -154,6 +154,7 @@ protected:
 
   std::string hw_name_;
   std::string can_interface_;
+  std::string motor_designation_{"Z4BLD60-48"};
   uint8_t num_joints_ = 0;
   int reconnect_attempt_interval_ms_ {1000};
   int retry_attempts_before_error_ {3};

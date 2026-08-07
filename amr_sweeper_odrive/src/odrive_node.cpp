@@ -897,6 +897,8 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
       load_hardware_config("amr_sweeper_odrive", "amr_sweeper_odrive.yaml");
     const double shared_gear_ratio =
       load_required_positive_double(hardware_config, "gear_ratio", "amr_sweeper_odrive.yaml");
+    motor_designation_ =
+      load_required_string(hardware_config, "motor_designation", "amr_sweeper_odrive.yaml");
     can_interface_ =
       load_required_string(hardware_config, "can_interface", "amr_sweeper_odrive.yaml");
     const std::array<uint32_t, 2> config_node_ids = {
@@ -952,6 +954,12 @@ hardware_interface::CallbackReturn ODriveHardwareInterface::on_init(
   if (motor_ready_timeout_ < std::chrono::milliseconds(1)) {
     motor_ready_timeout_ = std::chrono::milliseconds(1);
   }
+
+  RCLCPP_INFO(
+    rclcpp::get_logger(hw_name_),
+    "ODrive wheel motor designation: %s, gear ratio %.3f:1",
+    motor_designation_.c_str(),
+    gear_ratios_.empty() ? 0.0 : gear_ratios_.front());
 
   return CallbackReturn::SUCCESS;
 }
@@ -1782,7 +1790,7 @@ void ODriveHardwareInterface::evaluateProtections(const rclcpp::Duration & perio
     auto & state = protection_states_[i];
     auto & telemetry = joint_telemetry_[i];
 
-    telemetry.speed_rad_s = velocity_states_[i];
+    telemetry.speed_rad_s = velocity_states_[i] * gear_ratios_[i];
     telemetry.has_speed = true;
 
     if (state.fault) {

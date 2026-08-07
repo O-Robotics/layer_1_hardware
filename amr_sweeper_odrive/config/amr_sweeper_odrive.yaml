@@ -4,6 +4,7 @@
     can_interface:                    can0    # SocketCAN interface used by the ODrive wheel controller.
     left_motor_id:                    0       # ODrive node ID for the left wheel motor.
     right_motor_id:                   2       # ODrive node ID for the right wheel motor.
+    motor_designation:                Z4BLD60-48 # Drive motor model from resources/Z4BLD60-48 Data Sheet.pdf.
     left_motor_positive_direction:    CCW     # Positive motor rotation direction for the left wheel joint.
     right_motor_positive_direction:   CW      # Positive motor rotation direction for the right wheel joint.
     gear_ratio:                       50.0    # Shared gearbox ratio from wheel joint to motor shaft.
@@ -15,7 +16,7 @@
 
     # -- Protection configuration ----------------------------------------------
     protection:
-      enabled:                        false   # Master enable for software motor protection and fault latching.
+      enabled:                        true    # Master enable for software motor protection and fault latching.
       clear_faults_on_activate:       true    # Clears latched faults when the hardware interface is activated.
       latch_faults:                   true    # Keeps a tripped protection active until an explicit recovery step.
       startup_ignore_ms:              500     # Grace period before protection checks begin after startup.
@@ -31,9 +32,9 @@
           units:                      "Nm"    # Torque units for ODrive protection thresholds.
           trip_duration_ms:           100     # Time above threshold required before latching.
         over_speed:
-          enabled:                    false   # Uses ODrive velocity feedback when protection support is implemented.
-          threshold:                  20.0    # Default wheel speed threshold.
-          units:                      "rad/s" # Speed units for ODrive protection thresholds.
+          enabled:                    true    # Uses ODrive velocity feedback to latch a stop if motor speed exceeds the configured envelope.
+          threshold:                  157.08  # 1500 rpm datasheet max-performance motor speed before gearbox reduction.
+          units:                      "rad/s" # Motor-shaft speed before the 50:1 gearbox reduction.
           trip_duration_ms:           100     # Time above threshold required before latching.
         over_temperature:
           enabled:                    false   # Uses ODrive temperature telemetry when protection support is implemented.

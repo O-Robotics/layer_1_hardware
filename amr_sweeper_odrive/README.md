@@ -5,6 +5,7 @@ Dependencies to other AMR Sweeper packages:
 
 ## Purpose
 This package provides the ODrive integration for the AMR Sweeper wheel drive system.
+The configured drive motor designation is `Z4BLD60-48`.
 
 ## Overview
 `amr_sweeper_odrive` contains the ros2_control integration used by the robot's wheel drive. It is the package that bridges the wheel hardware into ROS 2 and is the downstream execution target for the layer 2 drive-controller package.
@@ -15,6 +16,6 @@ The package is intentionally structured to match `amr_sweeper_steadydrive` close
 - The ros2_control plugin in this package is the only supported runtime owner of the ODrive CAN hardware.
 - Layer 2 wheel control ultimately feeds commands into this package's absorbed `drive_controller` path implemented by `amr_sweeper_drive_controller`.
 - Hardware-specific runtime configuration is loaded from `config/amr_sweeper_odrive.yaml`.
-- The config file owns the SocketCAN interface, left/right motor IDs, positive motor directions, and the shared gear ratio used by the ODrive hardware interface.
+- The config file owns the SocketCAN interface, motor designation, left/right motor IDs, positive motor directions, and the shared gear ratio used by the ODrive hardware interface.
 - The hardware interface now exports `effort` plus additional protection/telemetry state interfaces for torque, current, temperature, voltage, and latched-fault reporting.
-- ODrive protection checks use encoder speed, torque estimate, iq current, and bus-voltage/temperature telemetry requested over CAN when the corresponding checks are enabled.
+- ODrive protection checks use motor-shaft encoder speed before gearbox reduction, torque estimate, iq current, and bus-voltage/temperature telemetry requested over CAN when the corresponding checks are enabled.

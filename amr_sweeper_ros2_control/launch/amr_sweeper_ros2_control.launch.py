@@ -16,6 +16,7 @@ def _launch_setup(context, *args, **kwargs):
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_ros2_control = _as_bool(LaunchConfiguration("use_ros2_control").perform(context))
     ros2_control_config_file = LaunchConfiguration("ros2_control_config_file")
+    drive_controller_config_file = LaunchConfiguration("drive_controller_config_file")
     joint_broadcaster_startup_delay_sec = float(
         LaunchConfiguration("joint_broadcaster_startup_delay_sec").perform(context)
     )
@@ -29,6 +30,7 @@ def _launch_setup(context, *args, **kwargs):
         parameters=[
             {"use_sim_time": use_sim_time},
             ros2_control_config_file,
+            drive_controller_config_file,
         ],
         remappings=[
             ("robot_description", ["/", namespace, "/description/robot_description"]),
@@ -79,6 +81,14 @@ def generate_launch_description():
                 "urdf",
                 "control",
                 "ros2_control.yaml",
+            ]),
+        ),
+        DeclareLaunchArgument(
+            "drive_controller_config_file",
+            default_value=PathJoinSubstitution([
+                FindPackageShare("amr_sweeper_drive_controller"),
+                "config",
+                "amr_sweeper_drive_controller.yaml",
             ]),
         ),
         OpaqueFunction(function=_launch_setup),
