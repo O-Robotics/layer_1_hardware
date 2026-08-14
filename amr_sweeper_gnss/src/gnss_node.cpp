@@ -191,6 +191,8 @@ void UbloxNode::loadParameters()
     1);
   fix_mode_name_ = declare_parameter("fix_mode_name", std::string{""});
   fix_mode_ = declare_parameter("fix_mode", 2);
+  dgnss_mode_name_ = declare_parameter("dgnss_mode_name", std::string{"fixed"});
+  dgnss_mode_ = declare_parameter("dgnss_mode", 3);
   require_initial_3d_fix_ = declare_parameter("require_initial_3d_fix", true);
   dynamic_model_name_ = declare_parameter("dynamic_model_name", std::string{"automotive"});
   dynamic_model_ = declare_parameter("dynamic_model", 4);
@@ -249,6 +251,7 @@ void UbloxNode::loadParameters()
 
   dynamic_model_ = dynamicModelIdFromName(dynamic_model_name_, dynamic_model_);
   fix_mode_ = fixModeIdFromName(fix_mode_name_, fix_mode_);
+  dgnss_mode_ = dgnssModeIdFromName(dgnss_mode_name_, dgnss_mode_);
   nav_hpposllh_rate_ = clampMinInt(nav_hpposllh_rate_, 1, 0);
   nav_pvt_rate_ = clampMinInt(nav_pvt_rate_, 1, 0);
   nav_status_rate_ = clampMinInt(nav_status_rate_, 1, 0);
@@ -282,7 +285,20 @@ void UbloxNode::onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg)
 
   if (!writeRaw(msg->message.data(), msg->message.size())) {
     RCLCPP_WARN(get_logger(), "Failed to write RTCM correction packet to receiver");
+    return;
   }
+
+  ++rtcm_packets_written_;
+  rtcm_bytes_written_ += msg->message.size();
+  RCLCPP_INFO_THROTTLE(
+    get_logger(),
+    *get_clock(),
+    5000,
+    "Forwarded RTCM to GNSS receiver: packets=%llu bytes=%llu last_packet_bytes=%zu topic=%s",
+    static_cast<unsigned long long>(rtcm_packets_written_),
+    static_cast<unsigned long long>(rtcm_bytes_written_),
+    msg->message.size(),
+    rtcm_topic_.c_str());
 }
 
 void UbloxNode::run()
@@ -440,6 +456,7 @@ bool UbloxNode::configureReceiver()
     {"CFG_NAVSPG_FIXMODE", kCfgNavSpgFixMode, ConfigValueType::U1, static_cast<std::uint32_t>(fix_mode_)},
     {"CFG_NAVSPG_INIFIX3D", kCfgNavSpgIniFix3d, ConfigValueType::Bool, require_initial_3d_fix_ ? 1U : 0U},
     {"CFG_NAVSPG_DYNMODEL", kCfgNavSpgDynModel, ConfigValueType::U1, static_cast<std::uint32_t>(dynamic_model_)},
+    {"CFG_NAVSPG_DGNSSMODE", kCfgNavSpgDgnssMode, ConfigValueType::U1, static_cast<std::uint32_t>(dgnss_mode_)},
     {"CFG_SIGNAL_GPS_ENA", kCfgSignalGpsEna, ConfigValueType::Bool, constellations_.gps ? 1U : 0U},
     {"CFG_SIGNAL_SBAS_ENA", kCfgSignalSbasEna, ConfigValueType::Bool, constellations_.sbas ? 1U : 0U},
     {"CFG_SIGNAL_GAL_ENA", kCfgSignalGalEna, ConfigValueType::Bool, constellations_.galileo ? 1U : 0U},
@@ -847,6 +864,22 @@ void UbloxNode::tryPublishNavSat()
   const bool gps_fix_ok = (status->flags & 0x01U) != 0U;
   const std::uint8_t carrier_solution = static_cast<std::uint8_t>((status->flags2 >> 6U) & 0x03U);
   const rclcpp::Time fix_stamp = resolveFixStamp(hpposllh->itow);
+
+  if (!last_logged_carrier_solution_.has_value() ||
+      *last_logged_carrier_solution_ != carrier_solution)
+  {
+    last_logged_carrier_solution_ = carrier_solution;
+    RCLCPP_INFO(
+      get_logger(),
+      "GNSS carrier solution changed: %s (%u), gps_fix_ok=%s gps_fix=%u differential=%s hacc=%.3fm vacc=%.3fm",
+      carrierSolutionLabel(carrier_solution),
+      carrier_solution,
+      gps_fix_ok ? "true" : "false",
+      status->gps_fix,
+      (status->flags & 0x02U) != 0U ? "true" : "false",
+      hpposllh->horizontal_accuracy_m,
+      hpposllh->vertical_accuracy_m);
+  }
 
   sensor_msgs::msg::NavSatFix msg;
   msg.header.stamp = fix_stamp;
@@ -1310,6 +1343,31 @@ int UbloxNode::fixModeIdFromName(const std::string & name, int fallback)
   return fallback;
 }
 
+int UbloxNode::dgnssModeIdFromName(const std::string & name, int fallback)
+{
+  if (name.empty()) {
+    return fallback;
+  }
+
+  std::string lowered = name;
+  std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char value) {
+    return static_cast<char>(std::tolower(value));
+  });
+
+  if (lowered == "float" || lowered == "rtk_float") return 2;
+  if (lowered == "fixed" || lowered == "rtk_fixed") return 3;
+  return fallback;
+}
+
+const char * UbloxNode::carrierSolutionLabel(std::uint8_t carrier_solution)
+{
+  switch (carrier_solution) {
+    case 1U: return "RTK_FLOAT";
+    case 2U: return "RTK_FIXED";
+    default: return "NONE";
+  }
+}
+
 std::uint16_t UbloxNode::navSatServiceMask() const
 {
   std::uint16_t mask = 0U;
@@ -1332,7 +1390,7 @@ void UbloxNode::logReceiverConfigurationSummary() const
 {
   RCLCPP_INFO(
     get_logger(),
-    "GNSS receiver config: device=%s baud=%d rate=%.2fHz nav_rate=%d dyn_model=%d fix_mode=%d "
+    "GNSS receiver config: device=%s baud=%d rate=%.2fHz nav_rate=%d dyn_model=%d fix_mode=%d dgnss_mode=%d "
     "constellations[gps=%s sbas=%s galileo=%s beidou=%s qzss=%s glonass=%s]",
     device_path_.c_str(),
     baud_rate_,
@@ -1340,6 +1398,7 @@ void UbloxNode::logReceiverConfigurationSummary() const
     navigation_rate_cycles_,
     dynamic_model_,
     fix_mode_,
+    dgnss_mode_,
     constellations_.gps ? "on" : "off",
     constellations_.sbas ? "on" : "off",
     constellations_.galileo ? "on" : "off",

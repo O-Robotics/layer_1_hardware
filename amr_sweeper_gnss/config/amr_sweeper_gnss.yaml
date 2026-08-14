@@ -27,6 +27,8 @@
     navigation_rate_cycles:          1                    # Legacy alias for nav_rate.
     fix_mode_name:                   3d                   # Official-style string alias. Accepted values: auto, 2d, 3d.
     fix_mode:                        2                    # Legacy numeric alias. 2 = 3D-only.
+    dgnss_mode_name:                 fixed                # Configure u-blox DGNSS mode for RTK fixed ambiguity resolution when RTCM is available.
+    dgnss_mode:                      3                    # Numeric alias for CFG-NAVSPG-DGNSSMODE. 2 = RTK float, 3 = RTK fixed.
     require_initial_3d_fix:          true                 # Require a 3D solution during startup convergence.
     dynamic_model_name:              automotive           # Official-style string alias. Good default for an outdoor ground robot.
     dynamic_model:                   4                    # Legacy numeric alias. 4 = automotive / ground vehicle.

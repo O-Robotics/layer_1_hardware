@@ -150,6 +150,8 @@ private:
   static speed_t toTermiosBaud(int baud_rate);
   static int dynamicModelIdFromName(const std::string & name, int fallback);
   static int fixModeIdFromName(const std::string & name, int fallback);
+  static int dgnssModeIdFromName(const std::string & name, int fallback);
+  static const char * carrierSolutionLabel(std::uint8_t carrier_solution);
   std::uint16_t navSatServiceMask() const;
   void logReceiverConfigurationSummary() const;
 
@@ -178,6 +180,8 @@ private:
   int navigation_rate_cycles_{1};
   int fix_mode_{2};
   std::string fix_mode_name_;
+  int dgnss_mode_{3};
+  std::string dgnss_mode_name_;
   bool require_initial_3d_fix_{true};
   int dynamic_model_{4};
   std::string dynamic_model_name_;
@@ -224,6 +228,7 @@ private:
   std::optional<NavStatus> last_status_;
   std::optional<NavCov> last_cov_;
   std::optional<NavPvt> last_pvt_;
+  std::optional<std::uint8_t> last_logged_carrier_solution_;
   rclcpp::Time last_fix_publish_time_{0, 0, RCL_ROS_TIME};
   std::optional<std::uint32_t> last_fix_itow_ms_;
   rclcpp::Time last_fix_measurement_stamp_{0, 0, RCL_ROS_TIME};
@@ -249,6 +254,8 @@ private:
 
   std::atomic<bool> stop_requested_{false};
   std::atomic<bool> fatal_error_{false};
+  std::uint64_t rtcm_packets_written_{0};
+  std::uint64_t rtcm_bytes_written_{0};
   int reconnect_attempt_count_{0};
   int connection_issue_count_{0};
   int configuration_issue_count_{0};
