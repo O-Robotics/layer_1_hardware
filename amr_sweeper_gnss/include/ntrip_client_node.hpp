@@ -83,6 +83,7 @@ private:
   std::string cert_;
   std::string key_;
   std::string ca_cert_;
+  std::string rtcm_topic_{"ntrip_client/rtcm"};
   std::string rtcm_frame_id_;
   double startup_retry_seconds_{5.0};
   double reconnect_wait_{5.0};

@@ -106,7 +106,7 @@ UbloxNode::UbloxNode(const rclcpp::NodeOptions & options)
     gpsfix_topic_, rclcpp::SystemDefaultsQoS());
   rtcm_subscription_ = create_subscription<rtcm_msgs::msg::Message>(
     rtcm_topic_,
-    rclcpp::SystemDefaultsQoS(),
+    rclcpp::QoS(rclcpp::KeepLast(100)).reliable(),
     std::bind(&UbloxNode::onRtcmMessage, this, std::placeholders::_1));
 
   if (use_simulation_) {
@@ -191,6 +191,7 @@ void UbloxNode::loadParameters()
     1);
   fix_mode_name_ = declare_parameter("fix_mode_name", std::string{""});
   fix_mode_ = declare_parameter("fix_mode", 2);
+  configure_dgnss_mode_ = declare_parameter("configure_dgnss_mode", false);
   dgnss_mode_name_ = declare_parameter("dgnss_mode_name", std::string{"fixed"});
   dgnss_mode_ = declare_parameter("dgnss_mode", 3);
   require_initial_3d_fix_ = declare_parameter("require_initial_3d_fix", true);
@@ -290,6 +291,13 @@ void UbloxNode::onRtcmMessage(const rtcm_msgs::msg::Message::SharedPtr msg)
 
   ++rtcm_packets_written_;
   rtcm_bytes_written_ += msg->message.size();
+  if (rtcm_packets_written_ == 1U) {
+    RCLCPP_INFO(
+      get_logger(),
+      "Forwarded first RTCM packet to GNSS receiver: bytes=%zu topic=%s",
+      msg->message.size(),
+      rtcm_topic_.c_str());
+  }
   RCLCPP_INFO_THROTTLE(
     get_logger(),
     *get_clock(),
@@ -456,7 +464,6 @@ bool UbloxNode::configureReceiver()
     {"CFG_NAVSPG_FIXMODE", kCfgNavSpgFixMode, ConfigValueType::U1, static_cast<std::uint32_t>(fix_mode_)},
     {"CFG_NAVSPG_INIFIX3D", kCfgNavSpgIniFix3d, ConfigValueType::Bool, require_initial_3d_fix_ ? 1U : 0U},
     {"CFG_NAVSPG_DYNMODEL", kCfgNavSpgDynModel, ConfigValueType::U1, static_cast<std::uint32_t>(dynamic_model_)},
-    {"CFG_NAVSPG_DGNSSMODE", kCfgNavSpgDgnssMode, ConfigValueType::U1, static_cast<std::uint32_t>(dgnss_mode_)},
     {"CFG_SIGNAL_GPS_ENA", kCfgSignalGpsEna, ConfigValueType::Bool, constellations_.gps ? 1U : 0U},
     {"CFG_SIGNAL_SBAS_ENA", kCfgSignalSbasEna, ConfigValueType::Bool, constellations_.sbas ? 1U : 0U},
     {"CFG_SIGNAL_GAL_ENA", kCfgSignalGalEna, ConfigValueType::Bool, constellations_.galileo ? 1U : 0U},
@@ -468,6 +475,10 @@ bool UbloxNode::configureReceiver()
     {"CFG_MSGOUT_NAV_STATUS_USB", kCfgMsgoutNavStatusUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_status_rate_)},
     {"CFG_MSGOUT_NAV_COV_USB", kCfgMsgoutNavCovUsb, ConfigValueType::U1, static_cast<std::uint32_t>(nav_cov_rate_)},
   };
+  if (configure_dgnss_mode_) {
+    items.push_back(
+      {"CFG_NAVSPG_DGNSSMODE", kCfgNavSpgDgnssMode, ConfigValueType::U1, static_cast<std::uint32_t>(dgnss_mode_)});
+  }
 
   bool all_sent = true;
   for (const auto & item : items) {

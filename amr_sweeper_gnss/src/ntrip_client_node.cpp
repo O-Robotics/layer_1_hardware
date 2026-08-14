@@ -109,6 +109,7 @@ NtripClientNode::NtripClientNode()
   declare_parameter<std::string>("cert", "None");
   declare_parameter<std::string>("key", "None");
   declare_parameter<std::string>("ca_cert", "None");
+  declare_parameter<std::string>("rtcm_topic", "ntrip_client/rtcm");
   declare_parameter<std::string>("rtcm_frame_id", "gnss_link");
   declare_parameter<double>("startup_retry_seconds", 5.0);
   declare_parameter<double>("failed_connection_retry_seconds", 5.0);
@@ -133,6 +134,7 @@ NtripClientNode::NtripClientNode()
   cert_ = get_parameter("cert").as_string();
   key_ = get_parameter("key").as_string();
   ca_cert_ = get_parameter("ca_cert").as_string();
+  rtcm_topic_ = get_parameter("rtcm_topic").as_string();
   rtcm_frame_id_ = get_parameter("rtcm_frame_id").as_string();
   startup_retry_seconds_ = get_parameter("startup_retry_seconds").as_double();
   reconnect_wait_ = get_parameter("reconnect_attempt_wait_seconds").as_double();
@@ -181,7 +183,9 @@ NtripClientNode::NtripClientNode()
     mountpoint_failover_threshold_ = 1;
   }
 
-  publisher_ = create_publisher<rtcm_msgs::msg::Message>("ntrip_client/rtcm", 10);
+  publisher_ = create_publisher<rtcm_msgs::msg::Message>(
+    rtcm_topic_,
+    rclcpp::QoS(rclcpp::KeepLast(100)).reliable());
 
   if (send_nmea_) {
     auto qos = rclcpp::SensorDataQoS();
@@ -528,6 +532,15 @@ void NtripClientNode::handle_rtcm_bytes(const std::vector<std::uint8_t> & chunk)
     msg.header.frame_id = rtcm_frame_id_;
     msg.message = *packet;
     publisher_->publish(msg);
+    if (!last_valid_rtcm_time_.has_value()) {
+      RCLCPP_INFO(
+        get_logger(),
+        "Publishing first valid RTCM packet: bytes=%zu topic=%s frame_id=%s mountpoint=%s",
+        msg.message.size(),
+        rtcm_topic_.c_str(),
+        rtcm_frame_id_.c_str(),
+        mountpoints_.at(active_mountpoint_index_).c_str());
+    }
     last_valid_rtcm_time_ = std::chrono::steady_clock::now();
     current_mountpoint_failure_count_ = 0;
     reset_issue_counters();

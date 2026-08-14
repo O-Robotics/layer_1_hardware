@@ -183,6 +183,7 @@ private:
   int dgnss_mode_{3};
   std::string dgnss_mode_name_;
   bool require_initial_3d_fix_{true};
+  bool configure_dgnss_mode_{false};
   int dynamic_model_{4};
   std::string dynamic_model_name_;
   int nav_hpposllh_rate_{1};
