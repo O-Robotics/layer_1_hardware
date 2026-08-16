@@ -151,7 +151,7 @@ protected:
   std::vector<bool> motor_state_1_received_;
   std::vector<bool> motor_state_2_received_;
 
-  // Config parameters 
+  // Config parameters
   std::string hw_name_;
   std::string can_interface_;
   uint8_t num_joints_;

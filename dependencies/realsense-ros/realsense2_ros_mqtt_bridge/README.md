@@ -43,7 +43,7 @@
 - [Supported Streams](#supported-streams)
 - [Usage Example](#usage-example)
 
-# Installation  
+# Installation
 ***This step assumes you have installed ROS environment and ROS Wrapper for Realsense Cameras (including RealSense SDK). For more info about these steps, click [here](https://github.com/realsenseai/realsense-ros/tree/ros2-development?tab=readme-ov-file)***
 
   - Install paho-mqtt from https://pypi.org/project/paho-mqtt/2.1.0/
@@ -56,7 +56,7 @@
     mkdir -p ~/ros2_ws/src
     cd ~/ros2_ws/src/
     ```
-    
+
   - Build
     ```bash
     colcon build
@@ -138,12 +138,12 @@
   ```
   send_hw_reset_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "camera",
     "camera_name": "camera",
-    "success": true, 
+    "success": true,
     "error_msg": ""
   }
   ```
@@ -163,7 +163,7 @@
   ```
   get_device_info_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "camera",
@@ -194,7 +194,7 @@
   ```
   get_transformation_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "rotation": {"x": -0.0022762807482196233, "y": -0.0011598517160371544, "z": -0.0011766824618274568, "w": 0.9999960443463445},
@@ -210,7 +210,7 @@
   {
     "camera_namespace": "robot1",
     "camera_name": "c_353322320702",
-    "opcode": 167,     # opcode of GET_HKR_CONFIG_TABLE 0xA7 
+    "opcode": 167,     # opcode of GET_HKR_CONFIG_TABLE 0xA7
     "param1": 1,       # read from flash (1)
     "param2": 49372,   # table id (safety interface config) 0xC0DC
     "param3": 1,       # 0 dynamic, 1 gold
@@ -226,7 +226,7 @@
   ```
   send_hwm_command_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -255,7 +255,7 @@
   ```
   get_param_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -288,7 +288,7 @@
   ```
   set_param_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -297,7 +297,7 @@
     "error_msg": ""
   }
   ```
-  
+
 ## Get Frame
 ***See [Supported Streams](#supported-streams)***
 * mqtt request message example:
@@ -316,7 +316,7 @@
   ```
   get_frame_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -345,7 +345,7 @@
   ```
   get_safety_preset_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -373,7 +373,7 @@
   ```
   set_safety_preset_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -399,7 +399,7 @@
   ```
   get_safety_interface_config_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -427,7 +427,7 @@
   ```
   set_safety_interface_config_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -453,7 +453,7 @@
   ```
   get_calib_config_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -482,7 +482,7 @@
   ```
   set_calib_config_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -508,7 +508,7 @@
   ```
   get_application_config_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",
@@ -537,7 +537,7 @@
   ```
   set_application_config_response
   ```
-* mqtt response message example: 
+* mqtt response message example:
   ```
   {
     "camera_namespace": "robot1",

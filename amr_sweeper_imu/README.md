@@ -59,4 +59,4 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - Reconnect failures now follow a warn/error/fatal escalation pattern similar to the GNSS NTRIP client, using `retry_attempts_before_error`, `fatal_after_consecutive_errors`, and `max_reconnect_attempts`.
 
 ## TODO
-- changing the baud rate does work, but it takes a few launches and are genrally unreliable. The process should be looked into and improved. 
+- changing the baud rate does work, but it takes a few launches and are genrally unreliable. The process should be looked into and improved.

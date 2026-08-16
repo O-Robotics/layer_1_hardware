@@ -48,4 +48,4 @@
 # -- Device fallback configuration --------------------------------------------------
     fallback_baud:                  9600          # Baud used as the fallback serial connection when the preferred baud does not respond.
     fallback_rate_hz:               10.0          # Fallback JY901 output rate written to the RATE register if the preferred publish_hz profile cannot be confirmed.
-    
+

@@ -1127,9 +1127,9 @@ double SteadydriveHardwareInterface::unwrapEncoderPositionRad(
 }
 
 /**
- * @brief Pull latest speed and travel measurements from MCU, 
+ * @brief Pull latest speed and travel measurements from MCU,
  * and store in joint structure for ros_control
- * 
+ *
  */
 void SteadydriveHardwareInterface::updateJointsFromHardware()
 {
@@ -1143,12 +1143,12 @@ void SteadydriveHardwareInterface::updateJointsFromHardware()
       return;
     }
   }
-  RCLCPP_DEBUG(rclcpp::get_logger(hw_name_), 
+  RCLCPP_DEBUG(rclcpp::get_logger(hw_name_),
     "Reading joint states (L: %f, R: %f)",
     position_states_[LEFT_MOTOR_INDEX], position_states_[RIGHT_MOTOR_INDEX]);
   RCLCPP_DEBUG(rclcpp::get_logger(hw_name_),
     "Reading joint velocities (L: %f, R: %f)",
-    velocity_states_[LEFT_MOTOR_INDEX], velocity_states_[RIGHT_MOTOR_INDEX]);     
+    velocity_states_[LEFT_MOTOR_INDEX], velocity_states_[RIGHT_MOTOR_INDEX]);
 }
 
 void SteadydriveHardwareInterface::updateProtectionStatusState(size_t joint_index)
@@ -1302,7 +1302,7 @@ void SteadydriveHardwareInterface::evaluateProtections(const rclcpp::Duration & 
 
 
 hardware_interface::CallbackReturn SteadydriveHardwareInterface::validateJoints()
-{ 
+{
   for (const hardware_interface::ComponentInfo & joint : info_.joints)
   {
     // DiffDriveHardware has exactly two states and one command interface on each joint
