@@ -16,6 +16,15 @@ def _simulation_input_topic(namespace: str, sensor_name: str, topic_suffix: str)
     return f"/{prefix}/{topic_suffix.strip().lstrip('/')}"
 
 
+def _simulation_root_topic(namespace: str, topic_suffix: str) -> str:
+    parts = [part for part in namespace.strip().strip('/').split('/') if part]
+    if parts and parts[-1] == 'imu':
+        parts = parts[:-1]
+    root_namespace = '/'.join(parts)
+    prefix = f"{root_namespace}/simulation" if root_namespace else "simulation"
+    return f"/{prefix}/{topic_suffix.strip().lstrip('/')}"
+
+
 def launch_setup(context, *args, **kwargs):
     ns = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -34,11 +43,16 @@ def launch_setup(context, *args, **kwargs):
             'imu',
             'data_raw',
         )
+        simulation_world_pose_topic = _simulation_root_topic(
+            ns.perform(context),
+            'robot_pose',
+        )
         parameters = [
             params_file,
             {
                 'use_sim_time': use_sim_time,
                 'simulation_input_topic': simulation_input_topic,
+                'simulation_world_pose_topic': simulation_world_pose_topic,
             },
         ]
         if imu_frame_id:

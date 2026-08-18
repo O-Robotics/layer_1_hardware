@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(compass_msgs REQUIRED)
 
@@ -22,6 +23,7 @@ target_include_directories(imu_node PUBLIC
 
 ament_target_dependencies(imu_node
   rclcpp
+  geometry_msgs
   sensor_msgs
   compass_msgs
 )

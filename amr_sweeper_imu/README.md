@@ -36,6 +36,7 @@ This package runs the JY901 IMU driver used by the AMR Sweeper.
 - Layer 3 localization relies on this package for IMU data.
 - Default tunable parameters live in `config/amr_sweeper_imu.yaml`.
 - `use_simulation:=true` keeps the package on the same `imu_node` executable and switches its input to the simulation IMU topic, so simulation and hardware share one implementation path.
+- In simulation, the launch file also passes `simulation_world_pose_topic` so the simulated IMU orientation behaves like an absolute magnetometer heading from Gazebo world pose, while accel/gyro, mounting correction, quaternion/Euler conversion, and covariance publishing still use the normal IMU node path.
 - The node publishes three IMU topics under the selected namespace:
 - `data_raw`: full corrected IMU message with orientation, gyro, and acceleration. With the default namespace this resolves to `/amr_sweeper/imu/data_raw`.
 - `data_acc_gyro`: acceleration and gyro only, with orientation marked unavailable. With the default namespace this resolves to `/amr_sweeper/imu/data_acc_gyro`.

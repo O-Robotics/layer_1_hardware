@@ -3,6 +3,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <compass_msgs/msg/azimuth.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
 #include <atomic>
@@ -86,6 +87,7 @@ private:
   void mark_complete_sample_published();
   void maybe_publish(const rclcpp::Time & stamp);
   void ensure_publishers_created();
+  void handle_simulated_world_pose(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr msg);
   bool resolve_orientation_rpy(
     const std::string & source,
@@ -130,6 +132,7 @@ private:
   std::string orientation_source_{"euler"};
   std::string heading_source_{"euler"};
   std::string simulation_input_topic_;
+  std::string simulation_world_pose_topic_;
   double heading_lowpass_alpha_{1.0};
   double heading_filter_reset_dt_s_{0.2};
   double yaw_offset_deg_{0.0};
@@ -159,12 +162,15 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_heading_pub_;
   rclcpp::Publisher<compass_msgs::msg::Azimuth>::SharedPtr imu_azimuth_pub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr simulated_imu_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr simulated_world_pose_sub_;
   rclcpp::TimerBase::SharedPtr read_timer_;
   rclcpp::Time last_pub_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time current_frame_start_stamp_{0, 0, RCL_ROS_TIME};
   bool heading_filter_initialized_{false};
   double filtered_heading_yaw_{0.0};
   rclcpp::Time last_heading_filter_stamp_{0, 0, RCL_ROS_TIME};
+  geometry_msgs::msg::Quaternion simulated_world_orientation_;
+  bool has_simulated_world_orientation_{false};
 
   std::array<uint8_t, kFrameLength> frame_buf_{};
   std::size_t frame_size_{0};

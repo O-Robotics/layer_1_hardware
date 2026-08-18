@@ -197,6 +197,7 @@ JY901ImuNode::JY901ImuNode()
   orientation_source_ = declare_parameter<std::string>("orientation_source", "euler");
   heading_source_ = declare_parameter<std::string>("heading_source", "euler");
   simulation_input_topic_ = declare_parameter<std::string>("simulation_input_topic", "");
+  simulation_world_pose_topic_ = declare_parameter<std::string>("simulation_world_pose_topic", "");
   heading_lowpass_alpha_ = declare_parameter<double>("heading_lowpass_alpha", 1.0);
   heading_filter_reset_dt_s_ = declare_parameter<double>("heading_filter_reset_dt_s", 0.2);
   yaw_offset_deg_ = declare_parameter<double>("yaw_offset_deg", 0.0);
@@ -290,12 +291,27 @@ JY901ImuNode::JY901ImuNode()
       simulation_input_topic_,
       rclcpp::SensorDataQoS(),
       std::bind(&JY901ImuNode::handle_simulated_imu, this, std::placeholders::_1));
+    if (!simulation_world_pose_topic_.empty()) {
+      simulated_world_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+        simulation_world_pose_topic_,
+        rclcpp::SensorDataQoS(),
+        std::bind(&JY901ImuNode::handle_simulated_world_pose, this, std::placeholders::_1));
+    }
     publishing_enabled_ = true;
     reset_issue_counters();
-    RCLCPP_INFO(
-      get_logger(),
-      "IMU running in simulated-input mode from '%s' using the hardware IMU processing path",
-      simulation_input_topic_.c_str());
+    if (simulation_world_pose_topic_.empty()) {
+      RCLCPP_INFO(
+        get_logger(),
+        "IMU running in simulated-input mode from '%s' using the hardware IMU processing path",
+        simulation_input_topic_.c_str());
+    } else {
+      RCLCPP_INFO(
+        get_logger(),
+        "IMU running in simulated-input mode from '%s' with world orientation from '%s' "
+        "using the hardware IMU processing path",
+        simulation_input_topic_.c_str(),
+        simulation_world_pose_topic_.c_str());
+    }
   } else {
     if (!establish_initial_connection()) {
       report_connection_issue(
@@ -1573,6 +1589,32 @@ void JY901ImuNode::maybe_publish(const rclcpp::Time & stamp)
   mark_complete_sample_published();
 }
 
+void JY901ImuNode::handle_simulated_world_pose(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+{
+  if (!msg) {
+    return;
+  }
+
+  const double norm =
+    (msg->pose.orientation.w * msg->pose.orientation.w) +
+    (msg->pose.orientation.x * msg->pose.orientation.x) +
+    (msg->pose.orientation.y * msg->pose.orientation.y) +
+    (msg->pose.orientation.z * msg->pose.orientation.z);
+  if (!std::isfinite(norm) || norm <= 1e-9) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 10000,
+      "Simulated world pose orientation is invalid; keeping last simulated IMU orientation source");
+    return;
+  }
+
+  const double inv_norm = 1.0 / std::sqrt(norm);
+  simulated_world_orientation_.w = msg->pose.orientation.w * inv_norm;
+  simulated_world_orientation_.x = msg->pose.orientation.x * inv_norm;
+  simulated_world_orientation_.y = msg->pose.orientation.y * inv_norm;
+  simulated_world_orientation_.z = msg->pose.orientation.z * inv_norm;
+  has_simulated_world_orientation_ = true;
+}
+
 void JY901ImuNode::handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   if (!msg) {
@@ -1584,16 +1626,33 @@ void JY901ImuNode::handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr m
     get_clock()->now() :
     rclcpp::Time(msg->header.stamp);
 
-  const double norm =
-    (msg->orientation.w * msg->orientation.w) +
-    (msg->orientation.x * msg->orientation.x) +
-    (msg->orientation.y * msg->orientation.y) +
-    (msg->orientation.z * msg->orientation.z);
-  if (!std::isfinite(norm) || norm <= 1e-9) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 10000,
-      "Simulated IMU orientation is invalid; skipping sample");
-    return;
+  geometry_msgs::msg::Quaternion orientation;
+  if (has_simulated_world_orientation_) {
+    orientation = simulated_world_orientation_;
+  } else {
+    if (!simulation_world_pose_topic_.empty()) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 10000,
+        "Waiting for simulated world pose orientation from '%s'; skipping IMU sample",
+        simulation_world_pose_topic_.c_str());
+      return;
+    }
+    const double norm =
+      (msg->orientation.w * msg->orientation.w) +
+      (msg->orientation.x * msg->orientation.x) +
+      (msg->orientation.y * msg->orientation.y) +
+      (msg->orientation.z * msg->orientation.z);
+    if (!std::isfinite(norm) || norm <= 1e-9) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 10000,
+        "Simulated IMU orientation is invalid; skipping sample");
+      return;
+    }
+    const double inv_norm = 1.0 / std::sqrt(norm);
+    orientation.w = msg->orientation.w * inv_norm;
+    orientation.x = msg->orientation.x * inv_norm;
+    orientation.y = msg->orientation.y * inv_norm;
+    orientation.z = msg->orientation.z * inv_norm;
   }
 
   // Convert Gazebo's imu_link/base_link-aligned IMU output into the synthetic
@@ -1610,10 +1669,10 @@ void JY901ImuNode::handle_simulated_imu(const sensor_msgs::msg::Imu::SharedPtr m
   double sensor_y = 0.0;
   double sensor_z = 0.0;
   multiply_quaternions(
-    msg->orientation.w / std::sqrt(norm),
-    msg->orientation.x / std::sqrt(norm),
-    msg->orientation.y / std::sqrt(norm),
-    msg->orientation.z / std::sqrt(norm),
+    orientation.w,
+    orientation.x,
+    orientation.y,
+    orientation.z,
     mount_w,
     mount_x,
     mount_y,
