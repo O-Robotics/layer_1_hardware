@@ -5,5 +5,5 @@
     range_min:                       0.20                       # Ignore invalid and too-near depth returns; D4xx depth at 0 m is not a real obstacle measurement.
     range_max:                       5.0                        # Maximum accepted return distance in meters.
     scan_height:                     5                          # Number of image rows merged into each scan; the closest valid return across this 5-row band wins.
-    scan_tilt_angle_deg:             4.5                        # Positive tilt pitches laserscan_link downward in TF and moves the sampled depth rows downward in the published depth image.
+    scan_tilt_angle_deg:             4.5                        # Positive tilt pitches laserscan_link downward in TF and, for the upside-down camera image, moves the sampled depth rows downward.
     output_frame:                    laserscan_link             # Frame ID stamped on the published LaserScan after the matching static TF tilt is applied.

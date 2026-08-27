@@ -37,8 +37,6 @@
     pointcloud.stream_filter:         2
     pointcloud.stream_index_filter:   0
     align_depth.enable:               false
-    rotation_filter.enable:           true            # Rotate published color/depth/infra streams 180 degrees because this camera is mounted upside down on the robot.
-    rotation_filter.rotation:         180.0           # Valid values are 0.0, 90.0, -90.0, and 180.0.
 
     # -- TF / buffering --------------------------------------------------------
     hold_back_imu_for_frames:         false
