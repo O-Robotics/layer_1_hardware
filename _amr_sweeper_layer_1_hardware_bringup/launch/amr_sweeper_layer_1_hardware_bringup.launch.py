@@ -59,9 +59,10 @@ def _launch_setup(context, *args, **kwargs):
         LaunchConfiguration("use_amr_sweeper_usb_cameras").perform(context))
     use_amr_sweeper_depth_camera = _as_bool(
         LaunchConfiguration("use_amr_sweeper_depth_camera").perform(context))
+    enable_description_seed_publishers = LaunchConfiguration(
+        "enable_description_seed_publishers").perform(context)
     use_gaussian = _as_bool(LaunchConfiguration("use_gaussian").perform(context))
     if use_gaussian:
-        use_amr_sweeper_usb_cameras = True
         use_amr_sweeper_depth_camera = True
     use_amr_sweeper_imu = _as_bool(
         LaunchConfiguration("use_amr_sweeper_imu").perform(context))
@@ -95,6 +96,7 @@ def _launch_setup(context, *args, **kwargs):
                 "enable_gnss": "true" if use_amr_sweeper_gnss else "false",
                 "enable_imu": "true" if use_amr_sweeper_imu else "false",
                 "enable_depth_camera": "true" if use_amr_sweeper_depth_camera else "false",
+                "enable_seed_publishers": enable_description_seed_publishers,
             },
         ))
 
@@ -242,6 +244,7 @@ def generate_launch_description():
         DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_depth_camera", default_value="true"),
+        DeclareLaunchArgument("enable_description_seed_publishers", default_value="true"),
         DeclareLaunchArgument("use_gaussian", default_value="false"),
         DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"),
