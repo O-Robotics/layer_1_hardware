@@ -17,6 +17,7 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
+  <exec_depend>rclpy</exec_depend>
   <depend>sensor_msgs</depend>
   <depend>camera_info_manager</depend>
 

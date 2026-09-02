@@ -61,6 +61,11 @@ install(TARGETS
   RUNTIME DESTINATION lib
 )
 
+install(PROGRAMS
+  simulation/usb_camera_simulation_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_auto_package(
   USE_SCOPED_HEADER_INSTALL_DIR
   INSTALL_TO_SHARE

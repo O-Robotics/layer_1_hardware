@@ -81,6 +81,9 @@ def _launch_setup(context, *args, **kwargs):
     depth_camera_params = _load_ros_parameter_file(
         LaunchConfiguration('params_file').perform(context)
     )
+    enable_pointcloud_value = LaunchConfiguration('enable_pointcloud').perform(context).strip().lower()
+    if enable_pointcloud_value in {'1', 'true', 'yes', 'on'}:
+        depth_camera_params['pointcloud.enable'] = True
     laserscan_params = _load_ros_parameter_file(
         LaunchConfiguration('laserscan_params_file').perform(context)
     )
@@ -136,6 +139,26 @@ def _launch_setup(context, *args, **kwargs):
             'depth_camera',
             'camera_info',
         )
+        simulation_infra1_topic = _simulation_input_topic(
+            namespace_value,
+            'depth_camera',
+            'infra1/image_rect_raw',
+        )
+        simulation_infra1_camera_info_topic = _simulation_input_topic(
+            namespace_value,
+            'depth_camera',
+            'infra1/camera_info',
+        )
+        simulation_infra2_topic = _simulation_input_topic(
+            namespace_value,
+            'depth_camera',
+            'infra2/image_rect_raw',
+        )
+        simulation_infra2_camera_info_topic = _simulation_input_topic(
+            namespace_value,
+            'depth_camera',
+            'infra2/camera_info',
+        )
         simulation_node = Node(
             package='amr_sweeper_depth_camera',
             executable='depth_camera_simulation_node',
@@ -151,8 +174,19 @@ def _launch_setup(context, *args, **kwargs):
                     ),
                     'input_depth_topic': simulation_depth_topic,
                     'input_camera_info_topic': simulation_camera_info_topic,
+                    'input_infra1_topic': simulation_infra1_topic,
+                    'input_infra1_camera_info_topic': simulation_infra1_camera_info_topic,
+                    'input_infra2_topic': simulation_infra2_topic,
+                    'input_infra2_camera_info_topic': simulation_infra2_camera_info_topic,
                     'depth_topic': 'depth/image_rect_raw',
                     'camera_info_topic': 'depth/camera_info',
+                    'infra1_topic': 'infra1/image_rect_raw',
+                    'infra1_camera_info_topic': 'infra1/camera_info',
+                    'infra2_topic': 'infra2/image_rect_raw',
+                    'infra2_camera_info_topic': 'infra2/camera_info',
+                    'depth_frame_id': 'depth_camera_depth_optical_frame',
+                    'infra1_frame_id': 'depth_camera_infra1_optical_frame',
+                    'infra2_frame_id': 'depth_camera_infra2_optical_frame',
                     'pointcloud_topic': 'depth/color/points',
                 },
             ],
@@ -259,6 +293,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument('depth_image_topic', default_value=''),
         DeclareLaunchArgument('depth_camera_info_topic', default_value=''),
+        DeclareLaunchArgument('enable_pointcloud', default_value='false'),
         DeclareLaunchArgument('depth_camera_frame', default_value='depth_camera_depth_frame'),
         DeclareLaunchArgument('scan_topic', default_value='scan'),
         DeclareLaunchArgument('output_frame', default_value=''),

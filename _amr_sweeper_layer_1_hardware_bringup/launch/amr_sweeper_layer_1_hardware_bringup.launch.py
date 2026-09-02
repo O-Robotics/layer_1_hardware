@@ -59,11 +59,26 @@ def _launch_setup(context, *args, **kwargs):
         LaunchConfiguration("use_amr_sweeper_usb_cameras").perform(context))
     use_amr_sweeper_depth_camera = _as_bool(
         LaunchConfiguration("use_amr_sweeper_depth_camera").perform(context))
+    use_gaussian = _as_bool(LaunchConfiguration("use_gaussian").perform(context))
+    if use_gaussian:
+        use_amr_sweeper_usb_cameras = True
+        use_amr_sweeper_depth_camera = True
     use_amr_sweeper_imu = _as_bool(
         LaunchConfiguration("use_amr_sweeper_imu").perform(context))
     use_amr_sweeper_gnss = _as_bool(
         LaunchConfiguration("use_amr_sweeper_gnss").perform(context))
     use_ntrip_client = _as_bool(LaunchConfiguration("use_ntrip_client").perform(context))
+    front_left_camera_enabled = _as_bool(LaunchConfiguration("front_left_camera_enabled").perform(context))
+    front_right_camera_enabled = _as_bool(LaunchConfiguration("front_right_camera_enabled").perform(context))
+    rear_left_camera_enabled = _as_bool(LaunchConfiguration("rear_left_camera_enabled").perform(context))
+    rear_right_camera_enabled = _as_bool(LaunchConfiguration("rear_right_camera_enabled").perform(context))
+    tools_camera_enabled = _as_bool(LaunchConfiguration("tools_camera_enabled").perform(context))
+    if use_gaussian or _as_bool(use_simulation):
+        front_left_camera_enabled = True
+        front_right_camera_enabled = True
+        rear_left_camera_enabled = True
+        rear_right_camera_enabled = True
+        tools_camera_enabled = True
 
     actions = []
 
@@ -167,12 +182,14 @@ def _launch_setup(context, *args, **kwargs):
             {
                 "namespace": _child_namespace(namespace, "usb_cameras"),
                 "log_level": log_level,
+                "use_sim_time": use_sim_time,
                 "use_simulation": use_simulation,
-                "front_left_camera_enabled": LaunchConfiguration("front_left_camera_enabled").perform(context),
-                "front_right_camera_enabled": LaunchConfiguration("front_right_camera_enabled").perform(context),
-                "rear_left_camera_enabled": LaunchConfiguration("rear_left_camera_enabled").perform(context),
-                "rear_right_camera_enabled": LaunchConfiguration("rear_right_camera_enabled").perform(context),
-                "tools_camera_enabled": LaunchConfiguration("tools_camera_enabled").perform(context),
+                "simulation_sync_topic": "/" + _child_namespace(namespace, "depth_camera/color/image_raw").strip("/"),
+                "front_left_camera_enabled": "true" if front_left_camera_enabled else "false",
+                "front_right_camera_enabled": "true" if front_right_camera_enabled else "false",
+                "rear_left_camera_enabled": "true" if rear_left_camera_enabled else "false",
+                "rear_right_camera_enabled": "true" if rear_right_camera_enabled else "false",
+                "tools_camera_enabled": "true" if tools_camera_enabled else "false",
             },
         ))
 
@@ -200,6 +217,7 @@ def _launch_setup(context, *args, **kwargs):
                 "scan_height": LaunchConfiguration("depth_camera_scan_height").perform(context),
                 "scan_tilt_angle_deg": LaunchConfiguration("depth_camera_scan_tilt_angle_deg").perform(context),
                 "scan_time": LaunchConfiguration("depth_camera_scan_time").perform(context),
+                "enable_pointcloud": "true" if use_gaussian else "false",
             },
         ))
 
@@ -224,6 +242,7 @@ def generate_launch_description():
         DeclareLaunchArgument("use_amr_sweeper_system_info", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_usb_cameras", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_depth_camera", default_value="true"),
+        DeclareLaunchArgument("use_gaussian", default_value="false"),
         DeclareLaunchArgument("use_amr_sweeper_imu", default_value="true"),
         DeclareLaunchArgument("use_amr_sweeper_gnss", default_value="true"),
         DeclareLaunchArgument("use_ntrip_client", default_value="true"),

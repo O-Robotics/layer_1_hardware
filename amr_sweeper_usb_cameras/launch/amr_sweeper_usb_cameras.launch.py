@@ -3,6 +3,7 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -26,16 +27,42 @@ def _launch_setup(context, *args, **kwargs):
     namespace = LaunchConfiguration("namespace")
     log_level = LaunchConfiguration("log_level")
     use_simulation = LaunchConfiguration("use_simulation").perform(context).strip().lower() in {"1", "true", "yes", "on"}
-    default_enabled = {
-        "front_left_camera": "false",
-        "front_right_camera": "false",
-        "rear_left_camera": "true",
-        "rear_right_camera": "true",
-        "tools_camera": "true",
-    }
 
     if use_simulation:
-        return []
+        camera_names = [
+            camera_key
+            for camera_key in [
+                "front_left_camera",
+                "front_right_camera",
+                "rear_left_camera",
+                "rear_right_camera",
+                "tools_camera",
+            ]
+            if LaunchConfiguration(f"{camera_key}_enabled").perform(context).strip().lower()
+            in {"1", "true", "yes", "on"}
+        ]
+        if not camera_names:
+            return []
+        return [
+            Node(
+                package="amr_sweeper_usb_cameras",
+                executable="usb_camera_simulation_node.py",
+                namespace=namespace,
+                name="usb_camera_simulation_node",
+                output="screen",
+                arguments=["--ros-args", "--log-level", log_level],
+                parameters=[
+                    {
+                        "use_sim_time": ParameterValue(
+                            LaunchConfiguration("use_sim_time"),
+                            value_type=bool,
+                        ),
+                        "camera_names": camera_names,
+                        "sync_topic": LaunchConfiguration("simulation_sync_topic"),
+                    }
+                ],
+            )
+        ]
 
     actions = []
     for camera_key in [
@@ -62,7 +89,9 @@ def generate_launch_description():
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument("namespace", default_value="amr_sweeper/usb_cameras"))
     ld.add_action(DeclareLaunchArgument("log_level", default_value="info"))
+    ld.add_action(DeclareLaunchArgument("use_sim_time", default_value="false"))
     ld.add_action(DeclareLaunchArgument("use_simulation", default_value="false"))
+    ld.add_action(DeclareLaunchArgument("simulation_sync_topic", default_value=""))
 
     for camera_key in [
         "front_left_camera",
