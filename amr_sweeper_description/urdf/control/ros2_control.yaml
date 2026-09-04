@@ -23,4 +23,4 @@
     low_pass_filter_enabled: false
     low_pass_time_constant_sec: 0.75
     slew_rate_limit_enabled: true
-    max_velocity_change_rad_s_per_sec: 70.0
+    max_velocity_change_rad_s_per_sec: 140.0
