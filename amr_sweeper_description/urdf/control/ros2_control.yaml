@@ -20,7 +20,10 @@
     max_tool_speed_rad_s: 35.0
     command_timeout_sec: 0.5
     direct_command_timeout_sec: 0.5
+    ramp_enabled: true
+    ramp_duration_sec: 0.5
+    ramp_profile: smootherstep
     low_pass_filter_enabled: false
     low_pass_time_constant_sec: 0.75
-    slew_rate_limit_enabled: true
-    max_velocity_change_rad_s_per_sec: 140.0
+    slew_rate_limit_enabled: false
+    max_velocity_change_rad_s_per_sec: 0.0
