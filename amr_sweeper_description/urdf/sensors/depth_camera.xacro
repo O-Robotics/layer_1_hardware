@@ -73,6 +73,14 @@
 
   <link name="depth_camera_imu_frame"/>
 
+  <joint name="depth_camera_motion_optical_joint" type="fixed">
+    <parent link="depth_camera_imu_frame"/>
+    <child link="depth_camera_motion_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <link name="depth_camera_motion_optical_frame"/>
+
   <joint name="depth_camera_depth_optical_joint" type="fixed">
     <parent link="depth_camera_depth_frame"/>
     <child link="depth_camera_depth_optical_frame"/>
