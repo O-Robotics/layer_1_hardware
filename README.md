@@ -80,3 +80,7 @@ Layer 1 is the base runtime layer for the rest of the stack. It is responsible f
 - The robot description entrypoint is `amr_sweeper_description.launch.py`, which also owns the default controller-config path used by the bringup.
 - Hardware-specific wheel and tool-motor parameters such as CAN interface, motor IDs, positive motor directions, and gear ratios now live in `amr_sweeper_odrive/config/amr_sweeper_odrive.yaml` and `amr_sweeper_steadydrive/config/amr_sweeper_steadydrive.yaml`.
 
+
+## Controlled engineering documentation
+
+The controlled AMR-Sweeper software design, requirements traceability, verification references, and release/configuration records for this repository are maintained in SharePoint under [07 - Software Development / 02 - Layer 1 - Hardware Interfaces](https://orobotics.sharepoint.com/sites/AMRSweeper/Shared%20Documents/07%20-%20Software%20Development/02%20-%20Layer%201%20-%20Hardware%20Interfaces). GitHub remains the source of truth for implementation source code; SharePoint is the controlled engineering and traceability record.
